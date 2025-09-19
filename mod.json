@@ -8,8 +8,8 @@
 	},
 	"id": "jotabelike.gd_racha",
 	"name": "Streak!",
-	"version": "v1.4.6-beta",
-	"developer": "Jotabelike",
+	"version": "v1.4.9-beta",
+	"developer": "XJotabelikeX",
 	"description": "Personal Streak! Prove you're the best and start a streak!",
 	"links": {
 		"community": "https://discord.gg/vEPWBuFEn5"
@@ -30,6 +30,11 @@
 		}
 	],
 	"resources": {
+		"files": [
+			"resources/audio/*.mp3"
+		],
+
+	
 		"sprites": [
 			"resources/btnStreak.png",
 			"resources/NewStreak.png",

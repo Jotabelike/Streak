@@ -1,3 +1,7 @@
+# New Animation!!!! - 1.4.9 BETA
+- Added a new animation when unlocking a new day
+- some bugs were fixed
+
 # 1.4.2 BETA
 - Fix Bugs
 - This version is going to have many changes so a new beta will be activated.

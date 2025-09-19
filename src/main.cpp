@@ -14,6 +14,11 @@
 #include <ctime>
 #include <string_view>
 #include <vector>
+#include <Geode/fmod/fmod.hpp>
+
+
+
+
 
 using namespace geode::prelude;
 using namespace std::literals;
@@ -25,7 +30,7 @@ struct StreakData {
     int starsToday = 0;
     bool hasNewStreak = false;
     std::string lastDay = "";
-    std::string equippedBadge = ""; // Nueva variable para la insignia equipada
+    std::string equippedBadge = ""; 
 
     // Definir categorías de insignias
     enum class BadgeCategory {
@@ -46,15 +51,15 @@ struct StreakData {
     };
 
     std::vector<BadgeInfo> badges = {
-        {5, "reward5.png"_spr, "first steps", BadgeCategory::COMMON, "badge_5"},
-        {10, "reward10.png"_spr, "Shall we continue?", BadgeCategory::COMMON, "badge_10"},
-        {30, "reward30.png"_spr, "We're going well", BadgeCategory::SPECIAL, "badge_30"},
-        {50, "reward50.png"_spr, "Half a hundred", BadgeCategory::SPECIAL, "badge_50"},
+        {5, "reward5.png"_spr, "First Steps", BadgeCategory::COMMON, "badge_5"},
+        {10, "reward10.png"_spr, "Shall We Continue?", BadgeCategory::COMMON, "badge_10"},
+        {30, "reward30.png"_spr, "We're Going Well", BadgeCategory::SPECIAL, "badge_30"},
+        {50, "reward50.png"_spr, "Half a Hundred", BadgeCategory::SPECIAL, "badge_50"},
         {70, "reward70.png"_spr, "Progressing", BadgeCategory::EPIC, "badge_70"},
         {100, "reward100.png"_spr, "100 Days!!!", BadgeCategory::LEGENDARY, "badge_100"},
         {150, "reward150.png"_spr, "150 Days!!!", BadgeCategory::LEGENDARY, "badge_150"},
         {300, "reward300.png"_spr, "300 Days!!!", BadgeCategory::LEGENDARY, "badge_300"},
-        {365, "reward1year.png"_spr, "1 year!!!", BadgeCategory::MYTHIC, "badge_365"}
+        {365, "reward1year.png"_spr, "1 Year!!!", BadgeCategory::MYTHIC, "badge_365"}
     };
 
     std::vector<bool> unlockedBadges;
@@ -81,7 +86,7 @@ struct StreakData {
 
         // Cargar insignias desbloqueadas automáticamente según la configuración
         unlockedBadges.resize(badges.size(), false);
-        for (int i = 0; i < badges.size(); i++) {
+        for (size_t i = 0; i < badges.size(); i++) {
             unlockedBadges[i] = Mod::get()->getSavedValue<bool>(
                 badges[i].badgeID,
                 false
@@ -100,7 +105,7 @@ struct StreakData {
         Mod::get()->setSavedValue<std::string>("equippedBadge", equippedBadge);
 
         // Guardar insignias desbloqueadas
-        for (int i = 0; i < badges.size(); i++) {
+        for (size_t i = 0; i < badges.size(); i++) {
             Mod::get()->setSavedValue<bool>(
                 badges[i].badgeID,
                 unlockedBadges[i]
@@ -141,7 +146,7 @@ struct StreakData {
             if (yesterdayStars < requiredStars) {
                 currentStreak = 0;
                 // Opcional: mostrar mensaje de racha perdida
-                // FLAlertLayer::create("Streak Lost", "You didn't get enough stars yesterday!", "OK")->show();
+                FLAlertLayer::create("Streak Lost", "You didn't get enough stars yesterday!", "OK")->show();
             }
 
             save();
@@ -155,7 +160,7 @@ struct StreakData {
     }
 
     void checkRewards() {
-        for (int i = 0; i < badges.size(); i++) {
+        for (size_t i = 0; i < badges.size(); i++) {
             if (currentStreak >= badges[i].daysRequired && !unlockedBadges[i]) {
                 unlockedBadges[i] = true;
             }
@@ -259,7 +264,7 @@ struct StreakData {
 
     // Verificar si una insignia está desbloqueada
     bool isBadgeUnlocked(const std::string& badgeID) {
-        for (int i = 0; i < badges.size(); i++) {
+        for (size_t i = 0; i < badges.size(); i++) {
             if (badges[i].badgeID == badgeID) {
                 return unlockedBadges[i];
             }
@@ -274,8 +279,6 @@ struct StreakData {
             save();
         }
     }
-
- 
 
     // Obtener la insignia equipada actualmente
     BadgeInfo* getEquippedBadge() {
@@ -320,14 +323,14 @@ protected:
         auto badgeSprite = CCSprite::create(badgeInfo->spriteName.c_str());
         if (badgeSprite) {
             badgeSprite->setScale(0.3f);
-            badgeSprite->setPosition(ccp(winSize.width / 2, winSize.height / 2 + 20));
+            badgeSprite->setPosition({ winSize.width / 2, winSize.height / 2 + 20 });
             m_mainLayer->addChild(badgeSprite);
         }
 
         // Mostrar nombre de la insignia
         auto nameLabel = CCLabelBMFont::create(badgeInfo->displayName.c_str(), "goldFont.fnt");
         nameLabel->setScale(0.6f);
-        nameLabel->setPosition(ccp(winSize.width / 2, winSize.height / 2 - 20));
+        nameLabel->setPosition({ winSize.width / 2, winSize.height / 2 - 20 });
         m_mainLayer->addChild(nameLabel);
 
         // Mostrar categoría de la insignia
@@ -336,7 +339,7 @@ protected:
             "bigFont.fnt"
         );
         categoryLabel->setScale(0.4f);
-        categoryLabel->setPosition(ccp(winSize.width / 2, winSize.height / 2 - 40));
+        categoryLabel->setPosition({ winSize.width / 2, winSize.height / 2 - 40 });
         categoryLabel->setColor(g_streakData.getCategoryColor(badgeInfo->category));
         m_mainLayer->addChild(categoryLabel);
 
@@ -346,13 +349,10 @@ protected:
             this,
             menu_selector(EquipBadgePopup::onToggleEquip)
         );
-        mainBtn->setPosition(ccp(winSize.width / 2, winSize.height / 2 - 70));
-
-       
 
         auto menu = CCMenu::create();
         menu->addChild(mainBtn);
-        menu->setPosition(0, 0);
+        menu->setPosition(winSize.width / 2, winSize.height / 2 - 70);
         m_mainLayer->addChild(menu);
 
         return true;
@@ -360,7 +360,7 @@ protected:
 
     void onToggleEquip(CCObject*) {
         if (m_isCurrentlyEquipped) {
-            g_streakData.unequipBadge(); // Esta función YA EXISTE en tu código
+            g_streakData.unequipBadge();
             FLAlertLayer::create("Success", "Badge unequipped!", "OK")->show();
         }
         else {
@@ -368,10 +368,6 @@ protected:
             FLAlertLayer::create("Success", "Badge equipped!", "OK")->show();
         }
         this->onClose(nullptr);
-    }
-
-    void onClose(CCObject* sender) override {
-        Popup::onClose(sender);
     }
 
 public:
@@ -413,7 +409,7 @@ protected:
         for (auto& [sprite, day, requiredStars] : rachas) {
             auto spr = CCSprite::create(sprite.c_str());
             spr->setScale(0.22f);
-            spr->setPosition(ccp(startX + i * spacing, y));
+            spr->setPosition({ startX + i * spacing, y });
             m_mainLayer->addChild(spr);
 
             auto label = CCLabelBMFont::create(
@@ -421,12 +417,12 @@ protected:
                 "goldFont.fnt"
             );
             label->setScale(0.35f);
-            label->setPosition(ccp(startX + i * spacing, y - 40));
+            label->setPosition({ startX + i * spacing, y - 40 });
             m_mainLayer->addChild(label);
 
             auto starIcon = CCSprite::createWithSpriteFrameName("GJ_starsIcon_001.png");
             starIcon->setScale(0.4f);
-            starIcon->setPosition(ccp(startX + i * spacing - 4, y - 60));
+            starIcon->setPosition({ startX + i * spacing - 4, y - 60 });
             m_mainLayer->addChild(starIcon);
 
             auto starsLabel = CCLabelBMFont::create(
@@ -434,7 +430,7 @@ protected:
                 "bigFont.fnt"
             );
             starsLabel->setScale(0.3f);
-            starsLabel->setPosition(ccp(startX + i * spacing + 6, y - 60));
+            starsLabel->setPosition({ startX + i * spacing + 6, y - 60 });
             m_mainLayer->addChild(starsLabel);
 
             i++;
@@ -476,7 +472,7 @@ protected:
         auto leftBtn = CCMenuItemSpriteExtra::create(
             leftArrow, this, menu_selector(DayProgressPopup::onPreviousGoal)
         );
-        leftBtn->setPosition(ccp(-winSize.width / 2 + 30, 0));
+        leftBtn->setPosition({ -winSize.width / 2 + 30, 0 });
 
         // Botón derecho
         auto rightArrow = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
@@ -485,12 +481,12 @@ protected:
         auto rightBtn = CCMenuItemSpriteExtra::create(
             rightArrow, this, menu_selector(DayProgressPopup::onNextGoal)
         );
-        rightBtn->setPosition(ccp(winSize.width / 2 - 30, 0));
+        rightBtn->setPosition({ winSize.width / 2 - 30, 0 });
 
         auto arrowMenu = CCMenu::create();
         arrowMenu->addChild(leftBtn);
         arrowMenu->addChild(rightBtn);
-        arrowMenu->setPosition(ccp(winSize.width / 2, winSize.height / 2));
+        arrowMenu->setPosition({ winSize.width / 2, winSize.height / 2 });
         m_mainLayer->addChild(arrowMenu);
 
         // Crear elementos de la barra
@@ -511,12 +507,12 @@ protected:
 
         m_titleLabel = CCLabelBMFont::create("", "goldFont.fnt");
         m_titleLabel->setScale(0.6f);
-        m_titleLabel->setPosition(ccp(winSize.width / 2, winSize.height / 2 + 60));
+        m_titleLabel->setPosition({ winSize.width / 2, winSize.height / 2 + 60 });
         m_mainLayer->addChild(m_titleLabel, 5);
 
         m_dayText = CCLabelBMFont::create("", "goldFont.fnt");
         m_dayText->setScale(0.5f);
-        m_dayText->setPosition(ccp(winSize.width / 2, winSize.height / 2 - 35));
+        m_dayText->setPosition({ winSize.width / 2, winSize.height / 2 - 35 });
         m_mainLayer->addChild(m_dayText, 5);
 
         updateDisplay();
@@ -534,7 +530,18 @@ protected:
         }
 
         auto& badge = g_streakData.badges[m_currentGoalIndex];
-        int currentDays = std::max(0, std::min(g_streakData.currentStreak, badge.daysRequired));
+
+        int currentDays;
+        // Verificamos si la insignia ya fue desbloqueada
+        if (g_streakData.isBadgeUnlocked(badge.badgeID)) {
+            // Si ya se desbloqueó, siempre mostramos la barra como completa
+            currentDays = badge.daysRequired;
+        }
+        else {
+            // Si no, mostramos el progreso actual real
+            currentDays = std::min(g_streakData.currentStreak, badge.daysRequired);
+        }
+
         float percent = currentDays / static_cast<float>(badge.daysRequired);
 
         m_titleLabel->setString(CCString::createWithFormat("Progress to %d Days", badge.daysRequired)->getCString());
@@ -543,21 +550,21 @@ protected:
         float barWidth = 180.0f;
         float barHeight = 16.0f;
 
-        m_barBg->setContentSize(CCSize(barWidth, barHeight));
-        m_barBg->setPosition(ccp(winSize.width / 2 - barWidth / 2, winSize.height / 2 - 10));
+        m_barBg->setContentSize({ barWidth, barHeight });
+        m_barBg->setPosition({ winSize.width / 2 - barWidth / 2, winSize.height / 2 - 10 });
         m_barBg->setVisible(true);
 
-        m_barFg->setContentSize(CCSize(barWidth * percent, barHeight));
-        m_barFg->setPosition(ccp(winSize.width / 2 - barWidth / 2, winSize.height / 2 - 10));
+        m_barFg->setContentSize({ barWidth * percent, barHeight });
+        m_barFg->setPosition({ winSize.width / 2 - barWidth / 2, winSize.height / 2 - 10 });
         m_barFg->setVisible(true);
 
-        m_border->setContentSize(CCSize(barWidth + 2, barHeight + 2));
-        m_border->setPosition(ccp(winSize.width / 2 - barWidth / 2 - 1, winSize.height / 2 - 11));
+        m_border->setContentSize({ barWidth + 2, barHeight + 2 });
+        m_border->setPosition({ winSize.width / 2 - barWidth / 2 - 1, winSize.height / 2 - 11 });
         m_border->setVisible(true);
         m_border->setOpacity(120);
 
-        m_outer->setContentSize(CCSize(barWidth + 6, barHeight + 6));
-        m_outer->setPosition(ccp(winSize.width / 2 - barWidth / 2 - 3, winSize.height / 2 - 13));
+        m_outer->setContentSize({ barWidth + 6, barHeight + 6 });
+        m_outer->setPosition({ winSize.width / 2 - barWidth / 2 - 3, winSize.height / 2 - 13 });
         m_outer->setVisible(true);
         m_outer->setOpacity(70);
 
@@ -571,10 +578,10 @@ protected:
         m_rewardSprite = CCSprite::create(badge.spriteName.c_str());
         if (m_rewardSprite) {
             m_rewardSprite->setScale(0.25f);
-            m_rewardSprite->setPosition(ccp(
+            m_rewardSprite->setPosition({
                 winSize.width / 2,
                 winSize.height / 2 + 30
-            ));
+                });
             m_mainLayer->addChild(m_rewardSprite, 5);
         }
 
@@ -627,16 +634,16 @@ protected:
 
         // Inicializar colores para Mythic
         m_mythicColors = {
-            ccc3(255, 0, 0),      // Rojo
-            ccc3(255, 165, 0),    // Naranja
-            ccc3(255, 255, 0),    // Amarillo
-            ccc3(0, 255, 0),      // Verde
-            ccc3(0, 0, 255),      // Azul
-            ccc3(75, 0, 130),     // Índigo
-            ccc3(238, 130, 238),  // Violeta
-            ccc3(255, 105, 180),  // Rosa
-            ccc3(255, 215, 0),    // Oro
-            ccc3(192, 192, 192)   // Plata
+            ccc3(255, 0, 0),     // Rojo
+            ccc3(255, 165, 0),   // Naranja
+            ccc3(255, 255, 0),   // Amarillo
+            ccc3(0, 255, 0),     // Verde
+            ccc3(0, 0, 255),     // Azul
+            ccc3(75, 0, 130),    // Índigo
+            ccc3(238, 130, 238), // Violeta
+            ccc3(255, 105, 180), // Rosa
+            ccc3(255, 215, 0),   // Oro
+            ccc3(192, 192, 192)  // Plata
         };
         m_colorIndex = 0;
         m_currentColor = m_mythicColors[0];
@@ -645,7 +652,7 @@ protected:
 
         // Crear panel oscuro para mejor contraste
         m_darkPanel = CCLayerColor::create(ccc4(30, 30, 30, 200), winSize.width - 40, 140);
-        m_darkPanel->setPosition(ccp(20, winSize.height / 2 - 50));
+        m_darkPanel->setPosition({ 20, winSize.height / 2 - 50 });
         m_darkPanel->setZOrder(-1);
         m_mainLayer->addChild(m_darkPanel);
 
@@ -655,7 +662,7 @@ protected:
         auto leftBtn = CCMenuItemSpriteExtra::create(
             leftArrow, this, menu_selector(RewardsPopup::onPreviousCategory)
         );
-        leftBtn->setPosition(ccp(-winSize.width / 2 + 30, 60));
+        leftBtn->setPosition({ -winSize.width / 2 + 30, 60 });
 
         // Botón derecho
         auto rightArrow = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
@@ -664,18 +671,18 @@ protected:
         auto rightBtn = CCMenuItemSpriteExtra::create(
             rightArrow, this, menu_selector(RewardsPopup::onNextCategory)
         );
-        rightBtn->setPosition(ccp(winSize.width / 2 - 30, 60));
+        rightBtn->setPosition({ winSize.width / 2 - 30, 60 });
 
         auto arrowMenu = CCMenu::create();
         arrowMenu->addChild(leftBtn);
         arrowMenu->addChild(rightBtn);
-        arrowMenu->setPosition(ccp(winSize.width / 2, winSize.height / 2));
+        arrowMenu->setPosition({ winSize.width / 2, winSize.height / 2 });
         m_mainLayer->addChild(arrowMenu);
 
         // Etiqueta de categoría
         m_categoryLabel = CCLabelBMFont::create("", "goldFont.fnt");
         m_categoryLabel->setScale(0.6f);
-        m_categoryLabel->setPosition(ccp(winSize.width / 2, winSize.height / 2 + 60));
+        m_categoryLabel->setPosition({ winSize.width / 2, winSize.height / 2 + 60 });
         m_mainLayer->addChild(m_categoryLabel);
 
         // Contenedor para insignias
@@ -698,7 +705,7 @@ protected:
         if (currentCat == StreakData::BadgeCategory::MYTHIC && m_categoryLabel) {
             m_colorTransitionTime += dt;
 
-            // Transición suave entre colores (3 segundos por transición)
+            // Transición suave entre colores
             float transitionDuration = 1.0f;
 
             if (m_colorTransitionTime >= transitionDuration) {
@@ -758,10 +765,10 @@ protected:
         // Posicionar insignias
         auto winSize = m_mainLayer->getContentSize();
         float startX = winSize.width / 2 - (categoryBadges.size() * 45.f / 2) + 22.5f;
-        float y = winSize.height / 2 + 20;
+        float y = winSize.height / 2;
         float spacing = 45.f;
 
-        for (int i = 0; i < categoryBadges.size(); i++) {
+        for (size_t i = 0; i < categoryBadges.size(); i++) {
             auto& badge = categoryBadges[i];
             bool unlocked = g_streakData.isBadgeUnlocked(badge.badgeID);
             bool equipped = (g_streakData.getEquippedBadge() && g_streakData.getEquippedBadge()->badgeID == badge.badgeID);
@@ -770,7 +777,6 @@ protected:
             auto badgeSprite = CCSprite::create(badge.spriteName.c_str());
             if (badgeSprite) {
                 badgeSprite->setScale(0.25f);
-                badgeSprite->setPosition(ccp(startX + i * spacing, y));
 
                 if (!unlocked) {
                     badgeSprite->setColor(ccc3(100, 100, 100));
@@ -779,9 +785,10 @@ protected:
                     // Resaltar insignia equipada
                     auto glow = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
                     glow->setScale(1.8f);
-                    // Restar 10 píxeles a la posición Y
-                    glow->setPosition(ccp(badgeSprite->getContentSize().width / 2,
-                        badgeSprite->getContentSize().height / 2 - 100));
+                    glow->setPosition({
+                        badgeSprite->getContentSize().width / 2,
+                        badgeSprite->getContentSize().height / 2 - 100
+                        });
                     glow->setColor(g_streakData.getCategoryColor(currentCat));
                     glow->setOpacity(150);
                     badgeSprite->addChild(glow);
@@ -799,10 +806,11 @@ protected:
 
                     auto badgeMenu = CCMenu::create();
                     badgeMenu->addChild(badgeBtn);
-                    badgeMenu->setPosition(ccp(startX + i * spacing, y));
+                    badgeMenu->setPosition({ startX + i * spacing, y });
                     m_badgeContainer->addChild(badgeMenu);
                 }
                 else {
+                    badgeSprite->setPosition({ startX + i * spacing, y });
                     m_badgeContainer->addChild(badgeSprite);
                 }
             }
@@ -813,7 +821,7 @@ protected:
                 "goldFont.fnt"
             );
             daysLabel->setScale(0.3f);
-            daysLabel->setPosition(ccp(startX + i * spacing, y - 35));
+            daysLabel->setPosition({ startX + i * spacing, y - 35 });
 
             if (!unlocked) {
                 daysLabel->setColor(ccc3(150, 150, 150));
@@ -828,7 +836,7 @@ protected:
             if (!unlocked) {
                 auto lockIcon = CCSprite::createWithSpriteFrameName("GJ_lock_001.png");
                 lockIcon->setScale(0.4f);
-                lockIcon->setPosition(ccp(startX + i * spacing, y));
+                lockIcon->setPosition({ startX + i * spacing, y });
                 m_badgeContainer->addChild(lockIcon, 5);
             }
         }
@@ -848,7 +856,7 @@ protected:
             "bigFont.fnt"
         );
         counterText->setScale(0.4f);
-        counterText->setPosition(ccp(winSize.width / 2, winSize.height / 2 - 60));
+        counterText->setPosition({ winSize.width / 2, winSize.height / 2 - 60 });
         m_badgeContainer->addChild(counterText);
     }
 
@@ -875,7 +883,6 @@ protected:
 public:
     static RewardsPopup* create() {
         auto ret = new RewardsPopup();
-        // Tamaño fijo para el popup
         if (ret && ret->initAnchored(300.f, 200.f)) {
             ret->autorelease();
             return ret;
@@ -884,14 +891,25 @@ public:
         return nullptr;
     }
 
-    // Limpiar al cerrar el popup
     void onClose(CCObject* sender) override {
         this->unschedule(schedule_selector(RewardsPopup::updateColorEffect));
         Popup::onClose(sender);
     }
 };
 
-// =========== POPUP PRINCIPAL ==============
+CCAction* createShakeAction(float duration, float strength) {
+    auto shake = CCArray::create();
+    int steps = static_cast<int>(duration * 30);
+    for (int i = 0; i < steps; ++i) {
+        float dx = (rand() % 2 == 0 ? 1 : -1) * (static_cast<float>(rand() % 100) / 100.f) * strength;
+        float dy = (rand() % 2 == 0 ? 1 : -1) * (static_cast<float>(rand() % 100) / 100.f) * strength;
+        shake->addObject(CCMoveBy::create(duration / steps, ccp(dx, dy)));
+    }
+    shake->addObject(CCMoveTo::create(0.f, ccp(0, 0)));
+    return CCSequence::create(shake);
+}
+
+// =========== POPUP PRINCIPAL (VERSIÓN CORREGIDA) ==============
 class InfoPopup : public Popup<> {
 protected:
     bool setup() override {
@@ -913,11 +931,11 @@ protected:
 
         auto menuRacha = CCMenu::create();
         menuRacha->addChild(rachaBtn);
-        menuRacha->setPosition(ccp(winSize.width / 2, centerY));
+        menuRacha->setPosition({ winSize.width / 2, centerY });
         m_mainLayer->addChild(menuRacha, 3);
 
         // Animación de levitación
-        auto floatUp = CCMoveBy::create(1.5f, ccp(0, 8));
+        auto floatUp = CCMoveBy::create(1.5f, { 0, 8 });
         auto floatDown = floatUp->reverse();
         auto seq = CCSequence::create(floatUp, floatDown, nullptr);
         auto repeat = CCRepeatForever::create(seq);
@@ -929,32 +947,32 @@ protected:
             "goldFont.fnt"
         );
         streakLabel->setScale(0.55f);
-        streakLabel->setPosition(ccp(winSize.width / 2, centerY - 60));
+        streakLabel->setPosition({ winSize.width / 2, centerY - 60 });
         m_mainLayer->addChild(streakLabel);
 
-        // Barra de progreso (diseño original)
+        // Barra de progreso
         float barWidth = 140.0f;
         float barHeight = 16.0f;
         int requiredStars = g_streakData.getRequiredStars();
         float percent = std::min(g_streakData.starsToday / static_cast<float>(requiredStars), 1.0f);
 
         auto barBg = CCLayerColor::create(ccc4(45, 45, 45, 255), barWidth, barHeight);
-        barBg->setPosition(ccp(winSize.width / 2 - barWidth / 2, centerY - 90));
+        barBg->setPosition({ winSize.width / 2 - barWidth / 2, centerY - 90 });
         m_mainLayer->addChild(barBg, 1);
 
         auto barFg = CCLayerGradient::create(ccc4(250, 225, 60, 255), ccc4(255, 165, 0, 255));
-        barFg->setContentSize(CCSize(barWidth * percent, barHeight));
-        barFg->setPosition(ccp(winSize.width / 2 - barWidth / 2, centerY - 90));
+        barFg->setContentSize({ barWidth * percent, barHeight });
+        barFg->setPosition({ winSize.width / 2 - barWidth / 2, centerY - 90 });
         m_mainLayer->addChild(barFg, 2);
 
         auto border = CCLayerColor::create(ccc4(255, 255, 255, 255), barWidth + 2, barHeight + 2);
-        border->setPosition(ccp(winSize.width / 2 - barWidth / 2 - 1, centerY - 91));
+        border->setPosition({ winSize.width / 2 - barWidth / 2 - 1, centerY - 91 });
         border->setZOrder(4);
         border->setOpacity(120);
         m_mainLayer->addChild(border);
 
         auto outer = CCLayerColor::create(ccc4(0, 0, 0, 255), barWidth + 6, barHeight + 6);
-        outer->setPosition(ccp(winSize.width / 2 - barWidth / 2 - 3, centerY - 93));
+        outer->setPosition({ winSize.width / 2 - barWidth / 2 - 3, centerY - 93 });
         outer->setZOrder(0);
         outer->setOpacity(70);
         m_mainLayer->addChild(outer);
@@ -962,7 +980,7 @@ protected:
         // Icono de estrella
         auto starIcon = CCSprite::createWithSpriteFrameName("GJ_starsIcon_001.png");
         starIcon->setScale(0.45f);
-        starIcon->setPosition(ccp(winSize.width / 2 - 25, centerY - 82));
+        starIcon->setPosition({ winSize.width / 2 - 25, centerY - 82 });
         m_mainLayer->addChild(starIcon, 5);
 
         // Texto del contador de estrellas
@@ -971,77 +989,55 @@ protected:
             "bigFont.fnt"
         );
         barText->setScale(0.45f);
-        barText->setPosition(ccp(winSize.width / 2 + 15, centerY - 82));
+        barText->setPosition({ winSize.width / 2 + 15, centerY - 82 });
         m_mainLayer->addChild(barText, 5);
 
         // INDICADOR DE RACHA
-        std::string indicatorSpriteName;
-        if (g_streakData.starsToday >= requiredStars) {
-            indicatorSpriteName = g_streakData.getRachaSprite();
-        }
-        else {
-            indicatorSpriteName = "racha0.png"_spr;
-        }
-
+        std::string indicatorSpriteName = (g_streakData.starsToday >= requiredStars) ? g_streakData.getRachaSprite() : "racha0.png"_spr;
         auto rachaIndicator = CCSprite::create(indicatorSpriteName.c_str());
         rachaIndicator->setScale(0.14f);
-        rachaIndicator->setPosition(ccp(winSize.width / 2 + barWidth / 2 + 20, centerY - 82));
+        rachaIndicator->setPosition({ winSize.width / 2 + barWidth / 2 + 20, centerY - 82 });
         m_mainLayer->addChild(rachaIndicator, 5);
 
-        // ===== BOTÓN STATS =====
+        // BOTONES LATERALES Y DE INFO
         auto statsIcon = CCSprite::create("BtnStats.png"_spr);
         if (statsIcon) {
             statsIcon->setScale(0.7f);
-            auto statsBtn = CCMenuItemSpriteExtra::create(
-                statsIcon, this, menu_selector(InfoPopup::onOpenStats)
-            );
+            auto statsBtn = CCMenuItemSpriteExtra::create(statsIcon, this, menu_selector(InfoPopup::onOpenStats));
             auto statsMenu = CCMenu::create();
             statsMenu->addChild(statsBtn);
-            statsMenu->setPosition(ccp(winSize.width - 22, centerY));
+            statsMenu->setPosition({ winSize.width - 22, centerY });
             m_mainLayer->addChild(statsMenu, 10);
         }
 
-        // ===== BOTÓN DE RECOMPENSAS =====
         auto rewardsIcon = CCSprite::create("RewardsBtn.png"_spr);
         if (rewardsIcon) {
             rewardsIcon->setScale(0.7f);
-            auto rewardsBtn = CCMenuItemSpriteExtra::create(
-                rewardsIcon, this, menu_selector(InfoPopup::onOpenRewards)
-            );
+            auto rewardsBtn = CCMenuItemSpriteExtra::create(rewardsIcon, this, menu_selector(InfoPopup::onOpenRewards));
             auto rewardsMenu = CCMenu::create();
             rewardsMenu->addChild(rewardsBtn);
-            rewardsMenu->setPosition(ccp(winSize.width - 22, centerY - 37));
+            rewardsMenu->setPosition({ winSize.width - 22, centerY - 37 });
             m_mainLayer->addChild(rewardsMenu, 10);
         }
 
-        // Botón de información
         auto infoIcon = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
         infoIcon->setScale(0.6f);
-
-        auto infoBtn = CCMenuItemSpriteExtra::create(
-            infoIcon, this, menu_selector(InfoPopup::onInfo)
-        );
-
+        auto infoBtn = CCMenuItemSpriteExtra::create(infoIcon, this, menu_selector(InfoPopup::onInfo));
         auto menu = CCMenu::create();
-        menu->setPosition(ccp(winSize.width - 20, winSize.height - 20));
+        menu->setPosition({ winSize.width - 20, winSize.height - 20 });
         menu->addChild(infoBtn);
         m_mainLayer->addChild(menu, 10);
 
-        // Mostrar animación si hay nueva racha (sin alertas)
+        // Mostrar animación si hay nueva racha
         if (g_streakData.shouldShowAnimation()) {
             this->showStreakAnimation(g_streakData.currentStreak);
         }
-
         return true;
     }
 
-    void onOpenStats(CCObject*) {
-        DayProgressPopup::create()->show();
-    }
-
-    void onOpenRewards(CCObject*) {
-        RewardsPopup::create()->show();
-    }
+    void onOpenStats(CCObject*) { DayProgressPopup::create()->show(); }
+    void onOpenRewards(CCObject*) { RewardsPopup::create()->show(); }
+    void onRachaClick(CCObject*) { AllRachasPopup::create()->show(); }
 
     void onInfo(CCObject*) {
         FLAlertLayer::create(
@@ -1054,130 +1050,169 @@ protected:
         )->show();
     }
 
-    void onRachaClick(CCObject*) {
-        AllRachasPopup::create()->show();
-    }
-
     void showStreakAnimation(int streakLevel) {
-        auto winSize = this->getContentSize();
-
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
         auto animLayer = CCLayer::create();
-        animLayer->setContentSize(winSize);
-        animLayer->setPosition(0, 0);
         animLayer->setZOrder(1000);
+        animLayer->setTag(111);
         this->addChild(animLayer);
 
-        auto bg = CCLayerColor::create(ccc4(0, 0, 0, 180), winSize.width, winSize.height);
-        bg->setPosition(0, 0);
-        animLayer->addChild(bg);
+        auto bg = CCLayerColor::create(ccc4(0, 0, 0, 0));
+        bg->runAction(CCFadeTo::create(0.3f, 180));
+        animLayer->addChild(bg, 0); // Z-Order 0 (fondo)
 
-        std::string spriteName = g_streakData.getRachaSprite();
-
-        auto rachaSprite = CCSprite::create(spriteName.c_str());
-        rachaSprite->setPosition(ccp(winSize.width / 2, winSize.height / 2));
+        auto rachaSprite = CCSprite::create(g_streakData.getRachaSprite().c_str());
+        rachaSprite->setPosition({ winSize.width / 2, winSize.height + 100.f });
         rachaSprite->setScale(0.1f);
-        animLayer->addChild(rachaSprite);
+        rachaSprite->setRotation(-360.f);
+        rachaSprite->setTag(1);
+        animLayer->addChild(rachaSprite, 2); // FIX: Z-Order 2 (ícono principal)
 
         auto newStreakSprite = CCSprite::create("NewStreak.png"_spr);
-        if (!newStreakSprite) {
-            newStreakSprite = CCSprite::create();
-            auto fallbackText = CCLabelBMFont::create("New Streak!", "bigFont.fnt");
-            fallbackText->setColor(ccc3(255, 255, 0));
-            newStreakSprite->addChild(fallbackText);
+        newStreakSprite->setPosition({ winSize.width / 2, winSize.height / 2 + 80.f });
+        newStreakSprite->setScale(0.f);
+        newStreakSprite->setTag(2);
+        animLayer->addChild(newStreakSprite, 4); // FIX: Z-Order 4 (texto encima del ícono)
+
+        auto daysLabel = CCLabelBMFont::create(CCString::createWithFormat("Day %d", streakLevel)->getCString(), "goldFont.fnt");
+        daysLabel->setPosition({ winSize.width / 2, winSize.height / 2 - 80.f });
+        daysLabel->setScale(0.5f);
+        daysLabel->setOpacity(0);
+        daysLabel->setTag(3);
+        animLayer->addChild(daysLabel, 5); // FIX: Z-Order 5 (texto más importante, siempre visible)
+
+        float entranceDuration = 0.8f;
+        auto entranceMove = CCEaseElasticOut::create(CCMoveTo::create(entranceDuration, { winSize.width / 2, winSize.height / 2 }), 0.5f);
+        auto entranceScale = CCEaseBackOut::create(CCScaleTo::create(entranceDuration, 1.2f));
+        auto entranceRotate = CCEaseExponentialOut::create(CCRotateTo::create(entranceDuration, 0.f));
+
+        // FIX: Nuevo sonido de entrada
+        FMODAudioEngine::sharedEngine()->playEffect("achievement.mp3"_spr, 1.0f, 1.0f, 0.6f);
+
+        rachaSprite->runAction(CCSequence::create(
+            CCSpawn::create(entranceMove, entranceScale, entranceRotate, nullptr),
+            CCCallFunc::create(this, callfunc_selector(InfoPopup::onAnimationImpact)),
+            nullptr
+        ));
+    }
+
+    void onAnimationImpact() {
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
+        auto animLayer = this->getChildByTag(111);
+        if (!animLayer) return;
+
+        animLayer->runAction(createShakeAction(0.2f, 5.0f));
+
+        auto flash = CCSprite::createWithSpriteFrameName("GJ_bigStar_001.png");
+        flash->setPosition({ winSize.width / 2, winSize.height / 2 });
+        flash->setScale(4.0f);
+        flash->setColor({ 255, 255, 150 });
+        flash->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
+        flash->runAction(CCSequence::create(CCFadeIn::create(0.1f), CCFadeOut::create(0.3f), CCRemoveSelf::create(), nullptr));
+        animLayer->addChild(flash, 3);
+
+        // Usamos FMODAudioEngine con la ruta completa para mayor seguridad
+        FMODAudioEngine::sharedEngine()->playEffect("mcsfx.mp3"_spr);
+
+        if (auto rachaSprite = static_cast<CCSprite*>(animLayer->getChildByTag(1))) {
+            rachaSprite->runAction(CCEaseBackOut::create(CCScaleTo::create(0.3f, 1.0f)));
         }
-        newStreakSprite->setPosition(ccp(winSize.width / 2, winSize.height / 2 + 100));
-        newStreakSprite->setScale(0.1f);
-        animLayer->addChild(newStreakSprite);
+        if (auto newStreakSprite = static_cast<CCSprite*>(animLayer->getChildByTag(2))) {
+            newStreakSprite->runAction(CCSequence::create(CCDelayTime::create(0.2f), CCEaseBackOut::create(CCScaleTo::create(0.4f, 1.0f)), nullptr));
+        }
+        if (auto daysLabel = static_cast<CCLabelBMFont*>(animLayer->getChildByTag(3))) {
+            daysLabel->runAction(CCSequence::create(CCDelayTime::create(0.4f), CCSpawn::create(CCFadeIn::create(0.5f), CCEaseBackOut::create(CCScaleTo::create(0.5f, 1.0f)), nullptr), nullptr));
+        }
 
-        auto daysLabel = CCLabelBMFont::create(
-            CCString::createWithFormat("Day %d", streakLevel)->getCString(),
-            "goldFont.fnt"
-        );
-        daysLabel->setPosition(ccp(winSize.width / 2, winSize.height / 2 - 80));
-        daysLabel->setScale(0.8f);
-        daysLabel->setColor(ccc3(255, 215, 0));
-        animLayer->addChild(daysLabel);
+        // --- EFECTO DE FUEGOS ARTIFICIALES ---
+        // Se dispara varias veces después del impacto inicial
+        animLayer->runAction(CCSequence::create(
+            CCDelayTime::create(1.0f), // Pequeño retraso después del impacto principal
+            CCCallFunc::create(this, callfunc_selector(InfoPopup::spawnStarBurst)),
+            CCDelayTime::create(0.5f),
+            CCCallFunc::create(this, callfunc_selector(InfoPopup::spawnStarBurst)),
+            CCDelayTime::create(0.5f),
+            CCCallFunc::create(this, callfunc_selector(InfoPopup::spawnStarBurst)),
+            CCDelayTime::create(1.0f),
+            CCCallFunc::create(this, callfunc_selector(InfoPopup::spawnStarBurst)),
+            CCDelayTime::create(0.5f),
+            CCCallFunc::create(this, callfunc_selector(InfoPopup::spawnStarBurst)),
+            CCDelayTime::create(1.5f),
+            // Después de los fuegos artificiales, inicia la salida
+            CCCallFunc::create(this, callfunc_selector(InfoPopup::onAnimationExit)),
+            nullptr
+        ));
+    }
 
-        auto scaleUp = CCScaleTo::create(0.8f, 1.2f);
-        auto scaleDown = CCScaleTo::create(0.3f, 1.0f);
-        auto scaleSequence = CCSequence::create(scaleUp, scaleDown, nullptr);
-        auto repeat = CCRepeatForever::create(scaleSequence);
-        rachaSprite->runAction(repeat);
+    // NUEVA FUNCIÓN para generar una ráfaga de estrellas tipo "fuegos artificiales"
+    void spawnStarBurst() {
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
+        auto animLayer = static_cast<CCLayer*>(this->getChildByTag(111));
+        if (!animLayer) return;
 
-        newStreakSprite->runAction(
-            CCSequence::create(
-                CCScaleTo::create(0.5f, 1.2f),
-                CCScaleTo::create(0.2f, 1.0f),
-                CCRepeatForever::create(
-                    CCSequence::create(
-                        CCScaleTo::create(0.5f, 1.1f),
-                        CCScaleTo::create(0.5f, 1.0f),
-                        nullptr
-                    )
-                ),
-                nullptr
-            )
-        );
+        int numStars = 10 + (rand() % 5);
+        float burstStrength = 60.f + (rand() % 40);
+        float burstDuration = 0.8f + (rand() % 4 / 10.f);
 
-        daysLabel->runAction(
-            CCRepeatForever::create(
-                CCSequence::create(
-                    CCFadeTo::create(0.5f, 150),
-                    CCFadeTo::create(0.5f, 255),
+        for (int i = 0; i < numStars; ++i) {
+            auto star = CCSprite::createWithSpriteFrameName("GJ_starsIcon_001.png");
+            if (rand() % 3 == 0) {
+                star = CCSprite::createWithSpriteFrameName("GJ_bigStar_001.png");
+                star->setColor({ 255, 255, 100 });
+            }
+
+            star->setPosition({ winSize.width / 2, winSize.height / 2 });
+            star->setScale(0.5f + (rand() % 7 / 10.f));
+            star->setRotation(rand() % 360);
+            star->setOpacity(255);
+
+            float angle = (static_cast<float>(i) / numStars) * 360.f + (rand() % 40 - 20);
+            float distance = burstStrength * (0.8f + (rand() % 5 / 10.f));
+            CCPoint dest = ccp(winSize.width / 2 + distance * cos(CC_DEGREES_TO_RADIANS(angle)), winSize.height / 2 + distance * sin(CC_DEGREES_TO_RADIANS(angle)));
+
+            star->runAction(CCSequence::create(
+                CCSpawn::create(
+                    CCEaseOut::create(CCMoveTo::create(burstDuration, dest), 2.0f),
+                    CCFadeOut::create(burstDuration * 1.2f),
+                    CCScaleTo::create(burstDuration, 0.0f),
+                    CCRotateBy::create(burstDuration, (rand() % 360) * (rand() % 2 == 0 ? 1 : -1)),
                     nullptr
-                )
-            )
-        );
-
-        for (int i = 0; i < 3; i++) {
-            auto glow = CCSprite::create();
-            glow->setTextureRect(CCRect(0, 0, 200, 200));
-            glow->setColor(ccc3(255, 255, 100));
-            glow->setPosition(ccp(winSize.width / 2, winSize.height / 2));
-            glow->setScale(0.5f + i * 0.3f);
-            glow->setOpacity(100 - i * 30);
-            glow->setBlendFunc(ccBlendFunc{ GL_SRC_ALPHA, GL_ONE });
-            animLayer->addChild(glow, -1);
-
-            auto glowScaleUp = CCScaleTo::create(1.0f, 0.8f + i * 0.4f);
-            auto glowScaleDown = CCScaleTo::create(1.0f, 0.6f + i * 0.3f);
-            auto glowFadeUp = CCFadeTo::create(1.0f, 120 - i * 30);
-            auto glowFadeDown = CCFadeTo::create(1.0f, 80 - i * 20);
-
-            glow->runAction(
-                CCRepeatForever::create(
-                    CCSequence::create(
-                        CCSpawn::create(glowScaleUp, glowFadeUp, nullptr),
-                        CCSpawn::create(glowScaleDown, glowFadeDown, nullptr),
-                        nullptr
-                    )
-                )
-            );
+                ),
+                CCRemoveSelf::create(),
+                nullptr
+            ));
+            animLayer->addChild(star, 1);
         }
+    }
 
-        CCArray* children = animLayer->getChildren();
-        for (int i = 0; i < children->count(); i++) {
-            auto child = dynamic_cast<CCNode*>(children->objectAtIndex(i));
-            if (child) {
-                auto individualFade = CCFadeOut::create(1.5f);
-                child->runAction(
-                    CCSequence::create(
-                        CCDelayTime::create(3.0f),
-                        individualFade,
-                        nullptr
-                    )
-                );
+    void onAnimationExit() {
+        auto animLayer = this->getChildByTag(111);
+        if (!animLayer) return;
+
+        
+        if (animLayer->getChildrenCount() > 0) {
+            if (auto bg = static_cast<CCLayerColor*>(animLayer->getChildren()->objectAtIndex(0))) {
+                bg->runAction(CCFadeOut::create(1.0f));
             }
         }
 
-        animLayer->runAction(
-            CCSequence::create(
-                CCDelayTime::create(4.5f),
-                CCCallFunc::create(animLayer, callfunc_selector(CCNode::removeFromParent)),
-                nullptr
-            )
-        );
+        if (auto rachaSprite = static_cast<CCSprite*>(animLayer->getChildByTag(1))) {
+            rachaSprite->runAction(CCSpawn::create(CCScaleTo::create(0.8f, 0.0f), CCFadeOut::create(0.8f), nullptr));
+        }
+        if (auto newStreakSprite = static_cast<CCSprite*>(animLayer->getChildByTag(2))) {
+            newStreakSprite->runAction(CCSpawn::create(CCScaleTo::create(0.8f, 0.0f), CCFadeOut::create(0.8f), nullptr));
+        }
+        if (auto daysLabel = static_cast<CCLabelBMFont*>(animLayer->getChildByTag(3))) {
+            daysLabel->runAction(CCSpawn::create(CCScaleTo::create(0.8f, 0.0f), CCFadeOut::create(0.8f), nullptr));
+        }
+
+        animLayer->runAction(CCSequence::create(
+            CCDelayTime::create(1.0f),
+            CCRemoveSelf::create(),
+            nullptr
+        ));
     }
+
 
 public:
     static InfoPopup* create() {
@@ -1190,6 +1225,7 @@ public:
         return nullptr;
     }
 };
+
 
 // ============ BOTÓN EN MENÚ PRINCIPAL ==================
 class $modify(MyMenuLayer, MenuLayer) {
@@ -1210,7 +1246,6 @@ class $modify(MyMenuLayer, MenuLayer) {
         auto icon = CCSprite::create(spriteName.c_str());
         icon->setScale(0.5f);
 
-        // Crear el botón principal
         auto circle = CircleButtonSprite::create(
             icon, CircleBaseColor::Green, CircleBaseSize::Medium
         );
@@ -1220,7 +1255,7 @@ class $modify(MyMenuLayer, MenuLayer) {
 
         m_fields->m_alertSprite = CCSprite::createWithSpriteFrameName("exMark_001.png");
         m_fields->m_alertSprite->setScale(0.4f);
-        m_fields->m_alertSprite->setPosition(ccp(circle->getContentSize().width - 12, circle->getContentSize().height - 12));
+        m_fields->m_alertSprite->setPosition({ circle->getContentSize().width - 12, circle->getContentSize().height - 12 });
         m_fields->m_alertSprite->setZOrder(10);
         m_fields->m_alertSprite->setVisible(streakInactive);
         circle->addChild(m_fields->m_alertSprite);
@@ -1241,37 +1276,35 @@ class $modify(MyMenuLayer, MenuLayer) {
         return true;
     }
 
-    void updateStreakAlert() {
-        if (!m_fields->m_alertSprite) return;
-        g_streakData.load();
-        g_streakData.dailyUpdate();
-        int requiredStars = g_streakData.getRequiredStars();
-        bool streakInactive = (g_streakData.starsToday < requiredStars);
-
-        m_fields->m_alertSprite->setVisible(streakInactive);
-
-        if (streakInactive && m_fields->m_alertSprite->numberOfRunningActions() == 0) {
-            auto blink = CCBlink::create(2.0f, 3);
-            auto repeat = CCRepeatForever::create(blink);
-            m_fields->m_alertSprite->runAction(repeat);
-        }
-        else if (!streakInactive) {
-            m_fields->m_alertSprite->stopAllActions();
-        }
-    }
-
     void onOpenPopup(CCObject*) {
         InfoPopup::create()->show();
-        this->updateStreakAlert();
     }
 };
 
 // ============= MODIFICACIONES PARA MOSTRAR INSIGNIAS EN PERFIL =============
 
-class $modify(ProfilePage) {
+class $modify(MyProfilePage, ProfilePage) {
     struct Fields {
         CCMenuItemSpriteExtra* badgeButton = nullptr;
+        StreakData::BadgeInfo* equippedBadgeInfo = nullptr;
     };
+
+    void onBadgeInfoClick(CCObject*) {
+        if (m_fields->equippedBadgeInfo) {
+            auto badge = m_fields->equippedBadgeInfo;
+            std::string title = badge->displayName;
+            std::string category = g_streakData.getCategoryName(badge->category);
+
+            // Usamos fmt::format para dar color al texto del mensaje
+            std::string message = fmt::format(
+                "<cy>{}</c>\n\n<cg>Unlocked at {} days</c>",
+                category,
+                badge->daysRequired
+            );
+
+            FLAlertLayer::create(title.c_str(), message, "OK")->show();
+        }
+    }
 
     void loadPageFromUserInfo(GJUserScore * a2) {
         ProfilePage::loadPageFromUserInfo(a2);
@@ -1286,20 +1319,26 @@ class $modify(ProfilePage) {
                 if (m_fields->badgeButton) {
                     m_fields->badgeButton->removeFromParent();
                     m_fields->badgeButton = nullptr;
+                    m_fields->equippedBadgeInfo = nullptr;
                 }
 
                 // Obtener insignia equipada
                 auto equippedBadge = g_streakData.getEquippedBadge();
                 if (equippedBadge) {
+                    // Guardar la información de la insignia para el popup
+                    m_fields->equippedBadgeInfo = equippedBadge;
+
                     // Crear sprite de la insignia
                     auto badgeSprite = CCSprite::create(equippedBadge->spriteName.c_str());
                     if (badgeSprite) {
                         badgeSprite->setScale(0.2f);
 
-                        // Crear botón con callback usando una lambda a través de un helper
-                        m_fields->badgeButton = createClickableSprite(badgeSprite, []() {
-                            RewardsPopup::create()->show();
-                            });
+                        // Crear el botón que llamará a onBadgeInfoClick
+                        m_fields->badgeButton = CCMenuItemSpriteExtra::create(
+                            badgeSprite,
+                            this,
+                            menu_selector(MyProfilePage::onBadgeInfoClick)
+                        );
                         m_fields->badgeButton->setID("streak-badge");
 
                         // Posicionar la insignia al lado del nombre de usuario
@@ -1310,28 +1349,36 @@ class $modify(ProfilePage) {
             }
         }
     }
-
-private:
-    // Función helper para crear botones clickeables
-    CCMenuItemSpriteExtra* createClickableSprite(CCSprite * sprite, std::function<void()> callback) {
-        auto button = CCMenuItemSpriteExtra::create(sprite, nullptr, nullptr);
-
-        // Hacer el sprite interactivo manualmente
-        sprite->setUserObject(CCNode::create());
-        return button;
-    }
 };
 
-class $modify(CommentCell) {
+class $modify(MyCommentCell, CommentCell) {
     struct Fields {
         CCMenuItemSpriteExtra* badgeButton = nullptr;
+        StreakData::BadgeInfo* equippedBadgeInfo = nullptr;
     };
+
+    void onBadgeInfoClick(CCObject*) {
+        if (m_fields->equippedBadgeInfo) {
+            auto badge = m_fields->equippedBadgeInfo;
+            std::string title = badge->displayName;
+            std::string category = g_streakData.getCategoryName(badge->category);
+
+            // Usamos fmt::format para dar color al texto del mensaje
+            std::string message = fmt::format(
+                "<cy>{}</c>\n\n<cg>Unlocked at {} days</c>",
+                category,
+                badge->daysRequired
+            );
+
+            FLAlertLayer::create(title.c_str(), message, "OK")->show();
+        }
+    }
 
     void loadFromComment(GJComment * p0) {
         CommentCell::loadFromComment(p0);
 
         // Solo mostrar en comentarios del usuario actual
-        if (p0->m_userID == GJAccountManager::get()->m_accountID) {
+        if (p0->m_accountID == GJAccountManager::get()->m_accountID) {
             auto layer = m_mainLayer;
             CCMenu* username_menu = static_cast<CCMenu*>(layer->getChildByIDRecursive("username-menu"));
 
@@ -1340,20 +1387,26 @@ class $modify(CommentCell) {
                 if (m_fields->badgeButton) {
                     m_fields->badgeButton->removeFromParent();
                     m_fields->badgeButton = nullptr;
+                    m_fields->equippedBadgeInfo = nullptr;
                 }
 
                 // Obtener insignia equipada
                 auto equippedBadge = g_streakData.getEquippedBadge();
                 if (equippedBadge) {
+                    // Guardar la información de la insignia para el popup
+                    m_fields->equippedBadgeInfo = equippedBadge;
+
                     // Crear sprite de la insignia
                     auto badgeSprite = CCSprite::create(equippedBadge->spriteName.c_str());
                     if (badgeSprite) {
                         badgeSprite->setScale(0.15f);
 
-                        // Crear botón con callback usando una lambda a través de un helper
-                        m_fields->badgeButton = createClickableSprite(badgeSprite, []() {
-                            RewardsPopup::create()->show();
-                            });
+                        // Crear el botón que llamará a onBadgeInfoClick
+                        m_fields->badgeButton = CCMenuItemSpriteExtra::create(
+                            badgeSprite,
+                            this,
+                            menu_selector(MyCommentCell::onBadgeInfoClick)
+                        );
                         m_fields->badgeButton->setID("streak-badge");
 
                         // Posicionar la insignia al lado del nombre de usuario
@@ -1363,15 +1416,5 @@ class $modify(CommentCell) {
                 }
             }
         }
-    }
-
-private:
-    // Función helper para crear botones clickeables
-    CCMenuItemSpriteExtra* createClickableSprite(CCSprite * sprite, std::function<void()> callback) {
-        auto button = CCMenuItemSpriteExtra::create(sprite, nullptr, nullptr);
-
-        // Hacer el sprite interactivo manualmente
-        sprite->setUserObject(CCNode::create());
-        return button;
     }
 };
