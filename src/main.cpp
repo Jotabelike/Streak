@@ -1624,14 +1624,13 @@ protected:
         m_currentStarsDisplay = static_cast<float>(m_starsBefore);
         m_targetStarsDisplay = m_currentStarsDisplay;
 
-        // SOLUCIÓN: Usar getWinSize() que está disponible en todas las plataformas
         auto winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
 
         m_barWidth = 160.0f;
         m_barHeight = 15.0f;
 
         m_barContainer = CCNode::create();
-        m_barContainer->setPosition(80, winSize.height - 180);
+        m_barContainer->setPosition(30, winSize.height - 280);
         this->addChild(m_barContainer);
 
         auto streakIcon = CCSprite::create(g_streakData.getRachaSprite().c_str());
@@ -1707,8 +1706,6 @@ protected:
         this->unscheduleUpdate();
     }
 
-    std::map<CCNode*, int> m_particleIndices;
-
     void spawnStarParticles() {
         auto winSize = CCDirector::sharedDirector()->getWinSize();
         CCPoint center = winSize / 2;
@@ -1720,59 +1717,61 @@ protected:
             starParticle->setPosition(center);
             this->addChild(starParticle, 10);
 
-            // Guardar el índice de la partícula
-            m_particleIndices[starParticle] = i + 1;
-
             CCPoint endPos = m_barContainer->getPosition() + CCPoint(3 + m_barWidth * (std::min(1.f, (float)(m_starsBefore + i + 1) / m_starsRequired)), 3 + m_barHeight / 2);
 
-            // Crear una trayectoria parabólica manualmente
-            std::vector<CCPoint> points;
-            int segments = 10;
-            CCPoint controlPoint = center + CCPoint((endPos.x - center.x) * 0.5f, (endPos.y - center.y) + 100);
+            // ANIMACIÓN ORIGINAL RESTAURADA - Usando curva de Bezier manual
+            ccBezierConfig bezier;
+            bezier.endPosition = endPos;
+            float explosionRadius = 150.f;
+            float randomAngle = (float)(rand() % 360);
+            bezier.controlPoint_1 = center + CCPoint((explosionRadius + (rand() % 50)) * cos(CC_DEGREES_TO_RADIANS(randomAngle)), (explosionRadius + (rand() % 50)) * sin(CC_DEGREES_TO_RADIANS(randomAngle)));
+            bezier.controlPoint_2 = endPos + CCPoint(0, 100);
 
+            // Para Windows, necesitamos una implementación alternativa de Bezier
+            // ya que CCBezierTo/CCBezierBy pueden no estar disponibles
+            std::vector<CCPoint> bezierPoints;
+            int segments = 20;
             for (int j = 0; j <= segments; j++) {
                 float t = (float)j / segments;
-                CCPoint point = center * (1 - t) * (1 - t) + controlPoint * 2 * (1 - t) * t + endPos * t * t;
-                points.push_back(point);
+                float u = 1 - t;
+                float tt = t * t;
+                float uu = u * u;
+                float ut2 = 2 * u * t;
+
+                CCPoint point = center * uu + bezier.controlPoint_1 * ut2 + bezier.endPosition * tt;
+                bezierPoints.push_back(point);
             }
 
-            // Crear una secuencia de movimientos
-            CCArray* actions = CCArray::create();
-            for (size_t j = 1; j < points.size(); j++) {
-                float duration = 1.0f / segments;
-                actions->addObject(CCMoveTo::create(duration, points[j]));
+            CCArray* bezierActions = CCArray::create();
+            for (size_t j = 1; j < bezierPoints.size(); j++) {
+                bezierActions->addObject(CCMoveTo::create(1.0f / segments, bezierPoints[j]));
             }
 
             auto rotateAction = CCRotateBy::create(1.0f, 360 + (rand() % 180));
             auto scaleAction = CCScaleTo::create(1.0f, 0.4f);
 
-            // SOLUCIÓN PARA WINDOWS: Usar CCCallFuncN y una función miembro
+            // SOLUCIÓN COMPATIBLE: Usar CCCallFuncO para pasar el índice como objeto
+            auto starIndexObj = CCInteger::create(i + 1);
             starParticle->runAction(CCSequence::create(
                 CCDelayTime::create(i * delayPerStar),
                 CCSpawn::create(
-                    CCSequence::create(actions),
+                    CCSequence::create(bezierActions),
                     rotateAction,
                     scaleAction,
                     nullptr
                 ),
-                CCCallFuncN::create(this, callfuncN_selector(StreakProgressBar::onStarReachedBar)),
+                CCCallFuncO::create(this, callfuncO_selector(StreakProgressBar::onStarHitBar), starIndexObj),
                 CCRemoveSelf::create(),
                 nullptr
             ));
         }
     }
 
-    // Función miembro para manejar el callback
-    void onStarReachedBar(CCNode* starParticle) {
-        auto it = m_particleIndices.find(starParticle);
-        if (it != m_particleIndices.end()) {
-            int starIndex = it->second;
-            this->onStarHitBar(starIndex);
-            m_particleIndices.erase(it);
-        }
-    }
+    // Función callback que recibe el índice como objeto
+    void onStarHitBar(CCObject* starIndexObj) {
+        CCInteger* indexInt = static_cast<CCInteger*>(starIndexObj);
+        int starIndex = indexInt->getValue();
 
-    void onStarHitBar(int starIndex) {
         int currentTotalStars = m_starsBefore + starIndex;
 
         m_targetPercent = std::min(1.f, static_cast<float>(currentTotalStars) / m_starsRequired);
@@ -1782,24 +1781,29 @@ protected:
         auto popDown = CCEaseSineIn::create(CCScaleTo::create(0.1f, 1.0f, 1.0f));
         m_barFg->runAction(CCSequence::create(popUp, popDown, nullptr));
 
+        // CORRECCIÓN: Calcular la posición correcta del flash
+        // La posición X es el ancho actual de la barra (donde está el progreso)
+        // La posición Y es la mitad de la altura de la barra
+        float currentBarWidth = m_barWidth * m_currentPercent;
+        CCPoint flashPosition = m_barContainer->getPosition() +
+            CCPoint(3 + currentBarWidth, 3 + m_barHeight / 2);
+
         auto flash = CCSprite::createWithSpriteFrameName("GJ_bigStar_001.png");
-        flash->setPosition(m_barContainer->getPosition() + CCPoint(3 + m_barWidth * m_currentPercent, 3 + m_barHeight / 2));
+        flash->setPosition(flashPosition);  // Posición corregida
         flash->setScale(0.1f);
         flash->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
         flash->runAction(CCSequence::create(
-            CCSpawn::create(CCScaleTo::create(0.3f, 1.0f), CCFadeOut::create(0.3f), nullptr),
+            CCSpawn::create(
+                CCScaleTo::create(0.3f, 1.0f),
+                CCFadeOut::create(0.3f),
+                nullptr
+            ),
             CCRemoveSelf::create(),
             nullptr
         ));
-        m_barContainer->addChild(flash, 20);
+        this->addChild(flash, 20);  // Añadir al layer principal, no al contenedor de la barra
 
-        FMODAudioEngine::sharedEngine()->playEffect("collect_1.mp3"_spr);
-    }
-
-    // Asegurarse de limpiar el mapa cuando se destruya
-    virtual void onExit() override {
-        m_particleIndices.clear();
-        CCLayerColor::onExit();
+        FMODAudioEngine::sharedEngine()->playEffect("coin.mp3"_spr);
     }
 
 public:
