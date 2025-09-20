@@ -1610,8 +1610,6 @@ protected:
 
     float m_barWidth;
     float m_barHeight;
-
-   
     float m_currentPercent;
     float m_targetPercent;
     float m_currentStarsDisplay;
@@ -1624,7 +1622,6 @@ protected:
         m_starsBefore = starsBefore;
         m_starsRequired = starsRequired;
 
-      
         m_currentPercent = std::min(1.f, static_cast<float>(m_starsBefore) / m_starsRequired);
         m_targetPercent = m_currentPercent;
         m_currentStarsDisplay = static_cast<float>(m_starsBefore);
@@ -1637,7 +1634,7 @@ protected:
         m_barHeight = 15.0f;
 
         m_barContainer = CCNode::create();
-        m_barContainer->setPosition(origin + CCPoint(40, visibleSize.height - 280));
+        m_barContainer->setPosition(origin + CCPoint(80, visibleSize.height - 180));
         this->addChild(m_barContainer);
 
         auto streakIcon = CCSprite::create(g_streakData.getRachaSprite().c_str());
@@ -1765,7 +1762,7 @@ protected:
         flash->runAction(CCSequence::create(CCSpawn::create(CCScaleTo::create(0.3f, 1.0f), CCFadeOut::create(0.3f), nullptr), CCRemoveSelf::create(), nullptr));
         m_barContainer->addChild(flash, 20);
 
-        FMODAudioEngine::sharedEngine()->playEffect("coin.mp3"_spr);
+        FMODAudioEngine::sharedEngine()->playEffect("collect_1.mp3"_spr);
     }
 
 public:
@@ -1780,7 +1777,6 @@ public:
     }
 };
 
-
 class $modify(MyPlayLayer, PlayLayer) {
     void levelComplete() {
         PlayLayer::levelComplete();
@@ -1789,7 +1785,10 @@ class $modify(MyPlayLayer, PlayLayer) {
         if (starsGained > 0) {
             g_streakData.load();
 
+            // EL TRUCO ESTÁ AQUÍ:
+            // Leemos el total de estrellas actual (que ya fue incrementado por tu GameStatsManager)
             int starsNow = g_streakData.starsToday;
+            // Y le restamos las estrellas que acabamos de ganar para saber cuántas había ANTES
             int starsBefore = starsNow - starsGained;
 
             int starsRequired = g_streakData.getRequiredStars();
