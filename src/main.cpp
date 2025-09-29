@@ -21,13 +21,11 @@
 #include <Geode/modify/PauseLayer.hpp>
 #include <Geode/ui/ListView.hpp>
 #include <functional> 
-#include <km7dev.server_api/include/ServerAPIEvents.hpp>
 #include <map> 
-#include <Geode/ui/ListView.hpp>
 #include <matjson.hpp> 
 #include <Geode/ui/ScrollLayer.hpp>
 
-
+using namespace geode::prelude;
 
 // ================== SISTEMA DE RACHAS Y RECOMPENSAS ==================
 struct StreakData {
@@ -154,57 +152,56 @@ struct StreakData {
         }
     }
 
+    // En la función load() de StreakData:
     void load() {
-        currentStreak = Mod::get()->getSavedValue<int>("streak", 0);
-        starsToday = Mod::get()->getSavedValue<int>("starsToday", 0);
-        hasNewStreak = Mod::get()->getSavedValue<bool>("hasNewStreak", false);
-        lastDay = Mod::get()->getSavedValue<std::string>("lastDay", "");
-        equippedBadge = Mod::get()->getSavedValue<std::string>("equippedBadge", "");
-        superStars = Mod::get()->getSavedValue<int>("superStars", 0);
-        lastRouletteIndex = Mod::get()->getSavedValue<int>("lastRouletteIndex", 0);
-        totalSpins = Mod::get()->getSavedValue<int>("totalSpins", 0);
-        starTickets = Mod::get()->getSavedValue<int>("starTickets", 0);
+        currentStreak = geode::Mod::get()->getSavedValue<int>("streak", 0);
+        starsToday = geode::Mod::get()->getSavedValue<int>("starsToday", 0);
+        hasNewStreak = geode::Mod::get()->getSavedValue<bool>("hasNewStreak", false);
+        lastDay = geode::Mod::get()->getSavedValue<std::string>("lastDay", "");
+        equippedBadge = geode::Mod::get()->getSavedValue<std::string>("equippedBadge", "");
+        superStars = geode::Mod::get()->getSavedValue<int>("superStars", 0);
+        lastRouletteIndex = geode::Mod::get()->getSavedValue<int>("lastRouletteIndex", 0);
+        totalSpins = geode::Mod::get()->getSavedValue<int>("totalSpins", 0);
+        starTickets = geode::Mod::get()->getSavedValue<int>("starTickets", 0);
 
-        starMission1Claimed = Mod::get()->getSavedValue<bool>("starMission1Claimed", false);
-        starMission2Claimed = Mod::get()->getSavedValue<bool>("starMission2Claimed", false);
-        starMission3Claimed = Mod::get()->getSavedValue<bool>("starMission3Claimed", false);
+        starMission1Claimed = geode::Mod::get()->getSavedValue<bool>("starMission1Claimed", false);
+        starMission2Claimed = geode::Mod::get()->getSavedValue<bool>("starMission2Claimed", false);
+        starMission3Claimed = geode::Mod::get()->getSavedValue<bool>("starMission3Claimed", false);
 
-        streakCompletedLevels = Mod::get()->getSavedValue<std::vector<int>>("streakCompletedLevels", {});
+        streakCompletedLevels = geode::Mod::get()->getSavedValue<std::vector<int>>("streakCompletedLevels", {});
 
         // Cargar insignias desbloqueadas
         unlockedBadges.resize(badges.size(), false);
         for (size_t i = 0; i < badges.size(); i++) {
-            unlockedBadges[i] = Mod::get()->getSavedValue<bool>(badges[i].badgeID, false);
+            unlockedBadges[i] = geode::Mod::get()->getSavedValue<bool>(badges[i].badgeID, false);
         }
 
-        // La carga del historial ahora es una sola línea simple
-        starHistory = Mod::get()->getSavedValue<std::map<std::string, int>>("starHistory", {});
+        starHistory = geode::Mod::get()->getSavedValue<std::map<std::string, int>>("starHistory", {});
     }
 
     void save() {
-        Mod::get()->setSavedValue<int>("streak", currentStreak);
-        Mod::get()->setSavedValue<int>("starsToday", starsToday);
-        Mod::get()->setSavedValue<bool>("hasNewStreak", hasNewStreak);
-        Mod::get()->setSavedValue<std::string>("lastDay", lastDay);
-        Mod::get()->setSavedValue<std::string>("equippedBadge", equippedBadge);
-        Mod::get()->setSavedValue<int>("superStars", superStars);
-        Mod::get()->setSavedValue<int>("lastRouletteIndex", lastRouletteIndex);
-        Mod::get()->setSavedValue<int>("totalSpins", totalSpins);
-        Mod::get()->setSavedValue<int>("starTickets", starTickets);
+        geode::Mod::get()->setSavedValue<int>("streak", currentStreak);
+        geode::Mod::get()->setSavedValue<int>("starsToday", starsToday);
+        geode::Mod::get()->setSavedValue<bool>("hasNewStreak", hasNewStreak);
+        geode::Mod::get()->setSavedValue<std::string>("lastDay", lastDay);
+        geode::Mod::get()->setSavedValue<std::string>("equippedBadge", equippedBadge);
+        geode::Mod::get()->setSavedValue<int>("superStars", superStars);
+        geode::Mod::get()->setSavedValue<int>("lastRouletteIndex", lastRouletteIndex);
+        geode::Mod::get()->setSavedValue<int>("totalSpins", totalSpins);
+        geode::Mod::get()->setSavedValue<int>("starTickets", starTickets);
 
-        Mod::get()->setSavedValue<bool>("starMission1Claimed", starMission1Claimed);
-        Mod::get()->setSavedValue<bool>("starMission2Claimed", starMission2Claimed);
-        Mod::get()->setSavedValue<bool>("starMission3Claimed", starMission3Claimed);
+        geode::Mod::get()->setSavedValue<bool>("starMission1Claimed", starMission1Claimed);
+        geode::Mod::get()->setSavedValue<bool>("starMission2Claimed", starMission2Claimed);
+        geode::Mod::get()->setSavedValue<bool>("starMission3Claimed", starMission3Claimed);
 
-        Mod::get()->setSavedValue<std::vector<int>>("streakCompletedLevels", streakCompletedLevels);
+        geode::Mod::get()->setSavedValue<std::vector<int>>("streakCompletedLevels", streakCompletedLevels);
 
         // Guardar insignias desbloqueadas
         for (size_t i = 0; i < badges.size(); i++) {
-            Mod::get()->setSavedValue<bool>(badges[i].badgeID, unlockedBadges[i]);
+            geode::Mod::get()->setSavedValue<bool>(badges[i].badgeID, unlockedBadges[i]);
         }
 
-        // El guardado del historial ahora también es una sola línea
-        Mod::get()->setSavedValue("starHistory", starHistory);
+        geode::Mod::get()->setSavedValue("starHistory", starHistory);
     }
 
     std::string getCurrentDate() {
@@ -408,13 +405,14 @@ class $modify(MyGameStatsManager, GameStatsManager) {
 
 
 // NUEVA función con colores más brillantes solo para la ruleta
+
 ccColor3B getBrightQualityColor(StreakData::BadgeCategory category) {
     switch (category) {
-    case StreakData::BadgeCategory::COMMON:   return ccc3(220, 220, 220); // Gris Brillante
-    case StreakData::BadgeCategory::SPECIAL:  return ccc3(0, 255, 80);    // Verde Brillante
-    case StreakData::BadgeCategory::EPIC:     return ccc3(255, 0, 255);   // Magenta
-    case StreakData::BadgeCategory::LEGENDARY:return ccc3(255, 200, 0);   // Dorado
-    case StreakData::BadgeCategory::MYTHIC:   return ccc3(255, 60, 60);   // Rojo Intenso
+    case StreakData::BadgeCategory::COMMON:   return ccc3(220, 220, 220);
+    case StreakData::BadgeCategory::SPECIAL:  return ccc3(0, 255, 80);
+    case StreakData::BadgeCategory::EPIC:     return ccc3(255, 0, 255);
+    case StreakData::BadgeCategory::LEGENDARY:return ccc3(255, 200, 0);
+    case StreakData::BadgeCategory::MYTHIC:   return ccc3(255, 60, 60);
     default:                                  return ccc3(255, 255, 255);
     }
 }
@@ -451,29 +449,27 @@ struct GenericPrizeResult {
 
 
 // HistoryCell hereda de CCLayer de nuevo, es solo un contenedor transparente
-class HistoryCell : public CCLayer {
+class HistoryCell : public cocos2d::CCLayer {
 protected:
     bool init(const std::string& date, int stars) {
-        if (!CCLayer::init()) return false;
-        // Altura de la celda reducida para un diseño más compacto
-        this->setContentSize({ 280.f, 25.f });
+        if (!cocos2d::CCLayer::init()) return false;
 
+        this->setContentSize({ 280.f, 25.f });
         float cellHeight = this->getContentSize().height;
 
-        // Todos los elementos se centran a la nueva altura de 25px
-        auto dateLabel = CCLabelBMFont::create(date.c_str(), "goldFont.fnt");
+        auto dateLabel = cocos2d::CCLabelBMFont::create(date.c_str(), "goldFont.fnt");
         dateLabel->setScale(0.5f);
         dateLabel->setAnchorPoint({ 0.0f, 0.5f });
         dateLabel->setPosition({ 10.f, cellHeight / 2 });
         this->addChild(dateLabel);
 
-        auto starLabel = CCLabelBMFont::create(std::to_string(stars).c_str(), "bigFont.fnt");
+        auto starLabel = cocos2d::CCLabelBMFont::create(std::to_string(stars).c_str(), "bigFont.fnt");
         starLabel->setScale(0.4f);
         starLabel->setAnchorPoint({ 1.0f, 0.5f });
         starLabel->setPosition({ this->getContentSize().width - 10.f, cellHeight / 2 });
         this->addChild(starLabel);
 
-        auto starIcon = CCSprite::createWithSpriteFrameName("GJ_starsIcon_001.png");
+        auto starIcon = cocos2d::CCSprite::createWithSpriteFrameName("GJ_starsIcon_001.png");
         starIcon->setScale(0.5f);
         starIcon->setPosition({ starLabel->getPositionX() - starLabel->getScaledContentSize().width - 5.f, cellHeight / 2 });
         this->addChild(starIcon);
@@ -3713,8 +3709,7 @@ class $modify(MyPauseLayer, PauseLayer) {
     void customSetup() {
         PauseLayer::customSetup();
 
-        // Leemos si la opción está activada
-        if (Mod::get()->getSettingValue<bool>("show-in-pause")) {
+        if (geode::Mod::get()->getSettingValue<bool>("show-in-pause")) {
             auto winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
 
             // Leemos las posiciones X e Y desde los ajustes
