@@ -24,7 +24,8 @@
 #include <map> 
 #include <matjson.hpp> 
 #include <Geode/ui/ScrollLayer.hpp>
-
+#include <iomanip>
+#include <sstream>
 using namespace geode::prelude;
 
 // ================== SISTEMA DE RACHAS Y RECOMPENSAS ==================
@@ -223,37 +224,62 @@ struct StreakData {
 
 
     void dailyUpdate() {
+        time_t now_t = time(nullptr);
         std::string today = getCurrentDate();
-        if (lastDay != today && !lastDay.empty()) {
-            int yesterdayStars = starsToday;
-            int requiredStars = getRequiredStars();
 
-            // Se resetean los valores para el nuevo día
-            starsToday = 0;
+        // Si es la primera vez que se ejecuta o los datos están vacíos
+        if (lastDay.empty()) {
             lastDay = today;
-            starMission1Claimed = false;
-            starMission2Claimed = false;
-            starMission3Claimed = false;
+            starsToday = 0;
+            save();
+            return;
+        }
 
-            // Comprueba si se perdió la racha
-            if (yesterdayStars < requiredStars) {
-                currentStreak = 0;
+        // Si sigue siendo el mismo día, no hacemos nada
+        if (lastDay == today) {
+            return;
+        }
 
-                // --- ¡NUEVO! ---
-                // Si la racha se pierde, el historial se borra.
-                starHistory.clear();
-                // -----------------
+        // --- LÓGICA CORREGIDA ---
+        // Si la fecha es diferente, calculamos cuántos días han pasado.
 
-                FLAlertLayer::create("Streak Lost", "You didn't get enough stars yesterday!", "OK")->show();
+        tm last_tm = {};
+        std::stringstream ss(lastDay);
+        // Usamos std::get_time para convertir el string "YYYY-MM-DD" a un objeto de tiempo
+        ss >> std::get_time(&last_tm, "%Y-%m-%d");
+        time_t last_t = mktime(&last_tm);
+
+        // Calculamos la diferencia de tiempo en segundos y la convertimos a días
+        double seconds_passed = difftime(now_t, last_t);
+        double days_passed = seconds_passed / (60.0 * 60.0 * 24.0);
+
+        bool streak_should_be_lost = false;
+
+        if (days_passed >= 2.0) {
+            // Si han pasado 2 días o más, la racha se pierde automáticamente.
+            streak_should_be_lost = true;
+        }
+        else if (days_passed >= 1.0) {
+            // Si ha pasado solo 1 día, comprobamos si se cumplió la meta de estrellas.
+            if (starsToday < getRequiredStars()) {
+                streak_should_be_lost = true;
             }
+        }
 
-            save();
+        if (streak_should_be_lost) {
+            currentStreak = 0;
+            starHistory.clear(); // Limpiamos el historial al perder la racha
+            FLAlertLayer::create("Streak Lost", "You missed a day!", "OK")->show();
         }
-        else if (lastDay.empty()) {
-            lastDay = today;
-            starsToday = 0;
-            save();
-        }
+
+        // Finalmente, reiniciamos los valores para el nuevo día (hoy)
+        starsToday = 0;
+        lastDay = today;
+        starMission1Claimed = false;
+        starMission2Claimed = false;
+        starMission3Claimed = false;
+
+        save();
     }
 
     void checkRewards() {
@@ -2780,7 +2806,6 @@ public:
     }
 };
 
-// Esta función auxiliar no cambia
 CCAction* createShakeAction(float duration, float strength) {
     auto shake = CCArray::create();
     int steps = static_cast<int>(duration * 30);
@@ -2797,12 +2822,11 @@ CCAction* createShakeAction(float duration, float strength) {
 
 
 
-// ============= POPUP PRINCIPAL (VERSIÓN FINAL) ==============
 class InfoPopup : public Popup<> {
 protected:
     bool setup() override {
         g_streakData.dailyUpdate();
-     
+
 
         this->setTitle("My Streak");
         auto winSize = m_mainLayer->getContentSize();
@@ -3027,10 +3051,14 @@ protected:
         daysLabel->setTag(3);
         animLayer->addChild(daysLabel, 5);
 
+        // --- MODIFICACIÓN PARA MÓVILES ---
+        // Solo creamos la estela de partículas en plataformas que no son móviles
+#if !defined(GEODE_IS_MOBILE)
         auto trail = ManualParticleEmitter::create();
         trail->setPosition(rachaSprite->getPosition());
         trail->setTag(5);
         animLayer->addChild(trail, 1);
+#endif
 
         float entranceDuration = 0.8f;
         auto entranceMove = CCEaseElasticOut::create(CCMoveTo::create(entranceDuration, { winSize.width / 2, winSize.height / 2 }), 0.5f);
@@ -3038,16 +3066,26 @@ protected:
         auto entranceRotate = CCEaseExponentialOut::create(CCRotateTo::create(entranceDuration, 0.f));
 
         auto auraMove = CCMoveTo::create(entranceDuration, { winSize.width / 2, winSize.height / 2 });
+
+        // --- MODIFICACIÓN PARA MÓVILES ---
+#if !defined(GEODE_IS_MOBILE)
         auto trailMove = CCMoveTo::create(entranceDuration, { winSize.width / 2, winSize.height / 2 });
+#endif
+
         auto shineMove = CCMoveTo::create(entranceDuration, { winSize.width / 2, winSize.height / 2 });
 
         aura->runAction(auraMove);
 
-        trail->runAction(CCSequence::create(
-            trailMove,
-            CCCallFunc::create(trail, callfunc_selector(ManualParticleEmitter::stopEmitting)),
-            nullptr
-        ));
+        // --- MODIFICACIÓN PARA MÓVILES ---
+#if !defined(GEODE_IS_MOBILE)
+        if (auto trail = static_cast<ManualParticleEmitter*>(animLayer->getChildByTag(5))) {
+            trail->runAction(CCSequence::create(
+                trailMove,
+                CCCallFunc::create(trail, callfunc_selector(ManualParticleEmitter::stopEmitting)),
+                nullptr
+            ));
+        }
+#endif
 
         shineBurst->runAction(CCSequence::create(
             CCSpawn::create(
@@ -3141,6 +3179,9 @@ protected:
             daysLabel->runAction(CCSequence::create(CCDelayTime::create(0.4f), CCSpawn::create(CCFadeIn::create(0.5f), CCEaseBackOut::create(CCScaleTo::create(0.5f, 1.0f)), nullptr), nullptr));
         }
 
+        // --- MODIFICACIÓN PARA MÓVILES ---
+        // La explosión de partículas solo ocurre en PC
+#if !defined(GEODE_IS_MOBILE)
         animLayer->runAction(CCSequence::create(
             CCDelayTime::create(1.0f),
             CCCallFunc::create(this, callfunc_selector(InfoPopup::spawnStarBurst)),
@@ -3152,8 +3193,19 @@ protected:
             CCCallFunc::create(this, callfunc_selector(InfoPopup::onAnimationExit)),
             nullptr
         ));
+#else
+// En móvil, la animación es más corta porque no hay partículas
+        animLayer->runAction(CCSequence::create(
+            CCDelayTime::create(3.0f), // Tiempo de espera para poder ver la animación
+            CCCallFunc::create(this, callfunc_selector(InfoPopup::onAnimationExit)),
+            nullptr
+        ));
+#endif
     }
 
+    // --- MODIFICACIÓN PARA MÓVILES ---
+    // Esta función ahora solo se compilará en plataformas que no son móviles
+#if !defined(GEODE_IS_MOBILE)
     void spawnStarBurst() {
         auto winSize = CCDirector::sharedDirector()->getWinSize();
         auto animLayer = static_cast<CCLayer*>(this->getChildByTag(111));
@@ -3194,6 +3246,7 @@ protected:
             animLayer->addChild(particle, 1);
         }
     }
+#endif
 
     void onAnimationExit() {
         auto animLayer = this->getChildByTag(111);
@@ -3221,9 +3274,14 @@ protected:
         if (auto aura = static_cast<CCSprite*>(animLayer->getChildByTag(4))) {
             aura->runAction(CCFadeOut::create(0.5f));
         }
+
+        // --- MODIFICACIÓN PARA MÓVILES ---
+#if !defined(GEODE_IS_MOBILE)
         if (auto trail = static_cast<ManualParticleEmitter*>(animLayer->getChildByTag(5))) {
             trail->stopEmitting();
         }
+#endif
+
         if (auto shineBurst = static_cast<CCSprite*>(animLayer->getChildByTag(6))) {
             shineBurst->stopAllActions();
             shineBurst->runAction(CCFadeOut::create(0.5f));

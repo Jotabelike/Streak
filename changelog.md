@@ -1,3 +1,6 @@
+# 1.6.0 Fix bugs
+- fix compatibility
+
 # 1.5.7 BETA New Roulette and Badges!
 - New Roulette
 - New Badge collection
