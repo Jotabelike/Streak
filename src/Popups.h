@@ -1,5 +1,5 @@
 ﻿#pragma once
-
+#include "FirebaseManager.h"
 #include "StreakData.h"
 #include <Geode/ui/Popup.hpp>
 #include <Geode/binding/ButtonSprite.hpp>
@@ -1384,6 +1384,7 @@ protected:
             g_streakData.equipBadge(m_badgeID);
             FLAlertLayer::create("Success", "Badge equipped!", "OK")->show();
         }
+        updatePlayerDataInFirebase();
         this->onClose(nullptr);
     }
 

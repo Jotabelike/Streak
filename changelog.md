@@ -1,3 +1,6 @@
+# 1.7.9 Online Mode 
+- online mode was added
+
 # 1.7.7 Bye bye Stars
 - New scoring system
 - Added total streak points to profile stats

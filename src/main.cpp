@@ -2,7 +2,6 @@
 #include "Popups.h"
 
 #include <Geode/modify/MenuLayer.hpp>
-#include <Geode/modify/ProfilePage.hpp>
 #include <Geode/modify/CommentCell.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/PauseLayer.hpp>
@@ -11,33 +10,36 @@
 #include <Geode/binding/GJAccountManager.hpp>
 #include <Geode/binding/GJUserScore.hpp>
 #include <Geode/binding/GJComment.hpp>
-
-
+#include "FirebaseManager.h"
+#include <Geode/utils/web.hpp>
+#include <Geode/loader/Event.hpp>
+#include <matjson.hpp>
 
 
 class $modify(MyPlayLayer, PlayLayer) {
     void levelComplete() {
-        
+
         PlayLayer::levelComplete();
         int stars = this->m_level->m_stars;
         int pointsGained = 0;
         if (stars > 0 && !this->m_isPracticeMode) {
-            if (stars >= 1 && stars <= 3) {                
+            if (stars >= 1 && stars <= 3) {
                 pointsGained = 1;
             }
-            else if (stars >= 4 && stars <= 5) {               
+            else if (stars >= 4 && stars <= 5) {
                 pointsGained = 3;
             }
-            else if (stars >= 6 && stars <= 7) {              
+            else if (stars >= 6 && stars <= 7) {
                 pointsGained = 4;
             }
-            else if (stars >= 8 && stars <= 9) {                
-                pointsGained = 5;            }
-            else if (stars == 10) {              
+            else if (stars >= 8 && stars <= 9) {
+                pointsGained = 5;
+            }
+            else if (stars == 10) {
                 pointsGained = 6;
             }
 
-           
+
             if (pointsGained > 0) {
                 g_streakData.load();
                 int pointsBefore = g_streakData.streakPointsToday;
@@ -52,7 +54,7 @@ class $modify(MyPlayLayer, PlayLayer) {
                 }
             }
         }
-        
+
     }
 };
 
@@ -114,74 +116,10 @@ class $modify(MyMenuLayer, MenuLayer) {
     }
 };
 
-class $modify(MyProfilePage, ProfilePage) {
-
-    void onStreakStatClick(CCObject * sender) {
-        g_streakData.load();
-        std::string alertContent = fmt::format(
-            "You have a streak of\n<cy>{}</c> days!",
-            g_streakData.currentStreak
-        );
-        FLAlertLayer::create("Daily Streak", alertContent, "OK")->show();
-    }
-
-    void loadPageFromUserInfo(GJUserScore * score) {
-        ProfilePage::loadPageFromUserInfo(score);
-
-        if (score->m_accountID == GJAccountManager::get()->get()->m_accountID) {
-
-            if (auto statsMenu = m_mainLayer->getChildByIDRecursive("stats-menu")) {
-
-                g_streakData.load();
-
-                auto pointsLabel = CCLabelBMFont::create(std::to_string(g_streakData.totalStreakPoints).c_str(), "bigFont.fnt");
-                pointsLabel->setScale(0.6f);
-
-                auto pointIcon = CCSprite::create("gold_streak_.png"_spr);
-                pointIcon->setScale(0.2f);
-
-                auto canvas = CCSprite::create();
-                canvas->setContentSize({
-                    pointsLabel->getScaledContentSize().width + pointIcon->getScaledContentSize().width + 2.f,
-                    28.0f
-                    });
-                canvas->setOpacity(0);
-
-                float totalInnerWidth = pointsLabel->getScaledContentSize().width + pointIcon->getScaledContentSize().width + 2.f;
-                pointsLabel->setPosition(ccp(
-                    (canvas->getContentSize().width / 2) - (totalInnerWidth / 2) + (pointsLabel->getScaledContentSize().width / 2),
-                    canvas->getContentSize().height / 2
-                ));
-                pointIcon->setPosition(ccp(
-                    pointsLabel->getPositionX() + (pointsLabel->getScaledContentSize().width / 2) + (pointIcon->getScaledContentSize().width / 2) + 2.f,
-                    canvas->getContentSize().height / 2
-                ));
-
-                canvas->addChild(pointsLabel);
-                canvas->addChild(pointIcon);
-
-                auto statItem = CCMenuItemSpriteExtra::create(
-                    canvas,
-                    this,
-                    menu_selector(MyProfilePage::onStreakStatClick)
-                );
-
-                statsMenu->addChild(statItem);
-
-                statsMenu->setContentSize({
-                    statsMenu->getContentSize().width + statItem->getScaledContentSize().width + 10.f,
-                    statsMenu->getContentSize().height
-                    });
-
-                statsMenu->updateLayout();
-            }
-        }
-    }
-};
-
 class $modify(MyCommentCell, CommentCell) {
     struct Fields {
         CCMenuItemSpriteExtra* badgeButton = nullptr;
+        EventListener<web::WebTask> m_badgeListener;
     };
 
     void onBadgeInfoClick(CCObject * sender) {
@@ -199,45 +137,67 @@ class $modify(MyCommentCell, CommentCell) {
         }
     }
 
-    
     void loadFromComment(GJComment * p0) {
         CommentCell::loadFromComment(p0);
 
         if (p0->m_accountID == GJAccountManager::get()->get()->m_accountID) {
             if (auto username_menu = m_mainLayer->getChildByIDRecursive("username-menu")) {
-
                 g_streakData.load();
                 auto equippedBadge = g_streakData.getEquippedBadge();
-
                 if (equippedBadge) {
-                    cocos2d::CCArray* otherBadges = cocos2d::CCArray::create();
-                    for (size_t i = 1; i < username_menu->getChildrenCount(); ++i) {
-                        if (auto item = dynamic_cast<CCMenuItem*>(username_menu->getChildren()->objectAtIndex(i))) {
-                            otherBadges->addObject(item);
-                        }
-                    }
-
-                    
-                    for (auto* item : CCArrayExt<CCNode*>(otherBadges)) {
-                        item->removeFromParent();
-                    }
                     auto badgeSprite = CCSprite::create(equippedBadge->spriteName.c_str());
                     if (badgeSprite) {
                         badgeSprite->setScale(0.15f);
-
                         auto badgeButton = CCMenuItemSpriteExtra::create(
-                            badgeSprite,
-                            this,
-                            menu_selector(MyCommentCell::onBadgeInfoClick)
+                            badgeSprite, this, menu_selector(MyCommentCell::onBadgeInfoClick)
                         );
                         badgeButton->setUserObject(CCString::create(equippedBadge->badgeID));
                         badgeButton->setID("streak-badge"_spr);
-
                         username_menu->addChild(badgeButton);
                         username_menu->updateLayout();
                     }
                 }
             }
+        }
+        
+        else {
+            std::string url = fmt::format(
+                "https://streak-44a83-default-rtdb.firebaseio.com/players/{}.json",
+                p0->m_accountID
+            );
+
+            m_fields->m_badgeListener.bind([this, p0](web::WebTask::Event* e) {
+                if (web::WebResponse* res = e->getValue()) {
+                    if (res->ok() && res->json().isOk()) {
+                        try {
+                            auto playerData = res->json().unwrap();
+                            std::string badgeId = playerData["equipped_badge_id"].as<std::string>().unwrap();
+
+                            if (!badgeId.empty()) {
+                                auto badgeInfo = g_streakData.getBadgeInfo(badgeId);
+                                if (badgeInfo) {
+                                    if (auto username_menu = m_mainLayer->getChildByIDRecursive("username-menu")) {
+                                        auto badgeSprite = CCSprite::create(badgeInfo->spriteName.c_str());
+                                        badgeSprite->setScale(0.15f);
+                                        auto badgeButton = CCMenuItemSpriteExtra::create(
+                                            badgeSprite, this, menu_selector(MyCommentCell::onBadgeInfoClick)
+                                        );
+                                        badgeButton->setUserObject(CCString::create(badgeInfo->badgeID));
+                                        username_menu->addChild(badgeButton);
+                                        username_menu->updateLayout();
+                                    }
+                                }
+                            }
+                        }
+                        catch (const std::exception& ex) {
+                            log::debug("Player {} (commenter) has no badge: {}", p0->m_accountID, ex.what());
+                        }
+                    }
+                }
+                });
+
+            auto req = web::WebRequest();
+            m_fields->m_badgeListener.setFilter(req.get(url));
         }
     }
 };
@@ -291,3 +251,4 @@ class $modify(MyPauseLayer, PauseLayer) {
         }
     }
 };
+
