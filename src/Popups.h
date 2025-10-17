@@ -7,7 +7,7 @@
 #include <Geode/ui/ScrollLayer.hpp>
 #include <Geode/cocos/particle_nodes/CCParticleSystemQuad.h>
 #include <Geode/cocos/extensions/cocos-ext.h>
-
+#include <Geode/ui/TextInput.hpp>
 
 class ShopPopup;
 
@@ -115,14 +115,14 @@ protected:
         m_pageContainer = CCLayer::create();
         m_pageContainer->setPosition(popupCenter - listSize / 2);
         m_mainLayer->addChild(m_pageContainer);
-      
+
         auto leftSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
         m_leftArrow = CCMenuItemSpriteExtra::create(leftSpr, this, menu_selector(HistoryPopup::onPrevPage));
         auto rightSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
         rightSpr->setFlipX(true);
         m_rightArrow = CCMenuItemSpriteExtra::create(rightSpr, this, menu_selector(HistoryPopup::onNextPage));
 
-        
+
         CCArray* navItems = CCArray::create();
         navItems->addObject(m_leftArrow);
         navItems->addObject(m_rightArrow);
@@ -630,6 +630,164 @@ public:
     }
 };
 
+
+class RedeemCodePopup : public Popup<> {
+protected:
+    TextInput* m_textInput;
+    CCMenuItemSpriteExtra* m_okBtn;
+    LoadingCircle* m_loadingCircle;
+    EventListener<web::WebTask> m_redeemListener;
+    bool m_isRequesting;
+
+    bool setup() override {
+        this->setTitle("Redeem Code");
+        auto winSize = m_mainLayer->getContentSize();
+
+
+
+        m_textInput = TextInput::create(280.f, "Enter Code Here");
+        m_textInput->setPosition({ winSize.width / 2, winSize.height / 2 + 10.f }); 
+        m_textInput->setFilter("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-");
+        m_textInput->setMaxCharCount(24);
+        m_mainLayer->addChild(m_textInput);
+
+        m_okBtn = CCMenuItemSpriteExtra::create(
+            ButtonSprite::create("OK"),
+            this,
+            menu_selector(RedeemCodePopup::onOk)
+        );
+
+        auto menu = CCMenu::createWithItem(m_okBtn);
+        menu->setPosition({ winSize.width / 2, winSize.height / 2 - 45.f });
+        m_mainLayer->addChild(menu);
+
+        m_loadingCircle = nullptr;
+        m_isRequesting = false;
+
+        m_redeemListener.bind(this, &RedeemCodePopup::onWebResponse);
+
+        return true;
+    }
+
+    void onOk(CCObject*) {
+        if (m_isRequesting) {
+            return;
+        }
+
+        this->showLoading();
+
+        std::string code = m_textInput->getString();
+        int accountID = GJAccountManager::sharedState()->m_accountID;
+
+        if (accountID == 0) {
+            FLAlertLayer::create("Error", "You must be logged in to redeem a code.", "OK")->show();
+            this->hideLoading();
+            return;
+        }
+
+        if (code.empty()) {
+            FLAlertLayer::create("Error", "Please enter a code.", "OK")->show();
+            this->hideLoading();
+            return;
+        }
+
+        matjson::Value payload = matjson::Value::object();
+        payload.set("code", code);
+        payload.set("accountID", accountID);
+
+        auto req = web::WebRequest();
+        m_redeemListener.setFilter(
+            req.bodyJSON(payload).post("https://streak-servidor.onrender.com/redeem-code")
+        );
+    }
+
+    void onWebResponse(web::WebTask::Event* e) {
+        if (!e->getValue() && !e->isCancelled()) {
+            return;
+        }
+
+        this->hideLoading();
+
+        if (web::WebResponse* res = e->getValue()) {
+            if (res->ok() && res->json().isOk()) {
+                auto responseJson = res->json().unwrap();
+                std::string message = responseJson["message"].as<std::string>().unwrapOr("Success!");
+
+                if (responseJson.contains("rewardType")) {
+                    std::string rewardType = responseJson["rewardType"].as<std::string>().unwrapOr("");
+                    if (rewardType == "super_stars") {
+                        g_streakData.superStars += responseJson["rewardValue"].as<int>().unwrapOr(0);
+                    }
+                    else if (rewardType == "star_tickets") {
+                        g_streakData.starTickets += responseJson["rewardValue"].as<int>().unwrapOr(0);
+                    }
+                    else if (rewardType == "badge") {
+                        g_streakData.unlockBadge(responseJson["rewardValue"].as<std::string>().unwrapOr(""));
+                    }
+                    updatePlayerDataInFirebase();
+                }
+
+                FLAlertLayer::create("Success", message.c_str(), "OK")->show();
+                this->onClose(nullptr);
+            }
+            else {
+                std::string errorMsg = "An unknown error occurred.";
+                if (res->json().isOk()) {
+                    errorMsg = res->json().unwrap()["error"].as<std::string>().unwrapOr("Invalid request.");
+                }
+                FLAlertLayer::create("Error", errorMsg.c_str(), "OK")->show();
+            }
+        }
+        else if (e->isCancelled()) {
+            log::error("[Streak!]: Connection Error or task cancelled.");
+            FLAlertLayer::create("Error", "Could not connect to the server.", "OK")->show();
+        }
+    }
+
+    void showLoading() {
+        if (m_isRequesting) return;
+        m_isRequesting = true;
+
+        m_okBtn->setEnabled(false);
+        m_textInput->getInputNode()->setTouchEnabled(false);
+
+        if (m_textInput->getInputNode()->m_textField) {
+            m_textInput->getInputNode()->m_textField->setOpacity(100);
+        }
+        m_loadingCircle = LoadingCircle::create();
+        this->addChild(m_loadingCircle);
+        m_loadingCircle->show();
+    }
+
+    void hideLoading() {
+        m_isRequesting = false;
+
+        if (m_loadingCircle) {
+
+            m_loadingCircle->removeFromParent();
+
+
+            m_loadingCircle = nullptr;
+        }
+        m_okBtn->setEnabled(true);
+        m_textInput->getInputNode()->setTouchEnabled(true);
+        if (m_textInput->getInputNode()->m_textField) {
+            m_textInput->getInputNode()->m_textField->setOpacity(255);
+        }
+    }
+
+public:
+    static RedeemCodePopup* create() {
+        auto ret = new RedeemCodePopup();
+        if (ret && ret->initAnchored(340.f, 160.f)) {
+            ret->autorelease();
+            return ret;
+        }
+        CC_SAFE_DELETE(ret);
+        return nullptr;
+    }
+};
+
 class ShopPopup : public Popup<> {
 protected:
     CCLabelBMFont* m_ticketCounterLabel = nullptr;
@@ -645,6 +803,8 @@ protected:
             {"diamante_mc_badge", 550},
             {"platino_streak_badge", 30},
             {"diamante_gd_badge", 40},
+            {"hounter_badge", 60},
+            {"gd_badge", 130},
             {"ncs_badge", 150},
             {"dark_streak_badge", 500},
             {"gold_streak_badge", 1200},
@@ -740,6 +900,7 @@ protected:
                 checkmark->setPosition(badgeSprite->getPosition());
                 itemNode->addChild(checkmark, 2);
             }
+            updatePlayerDataInFirebase();
         }
     }
 
@@ -767,6 +928,7 @@ protected:
                     m_ticketCounterLabel->setString(std::to_string(g_streakData.starTickets).c_str());
                     updateItems();
                 }
+                updatePlayerDataInFirebase();
             }
         );
     }
@@ -824,6 +986,7 @@ protected:
             );
             node->runAction(popAction);
         }
+
     }
 
     bool setup() override {
@@ -1012,6 +1175,7 @@ protected:
         }
         actions->addObject(CCCallFunc::create(this, callfunc_selector(RoulettePopup::onSpinEnd)));
         m_selectorSprite->runAction(CCSequence::create(actions));
+        updatePlayerDataInFirebase();
     }
 
     void onSpinMultiple(CCObject*) {
@@ -1067,6 +1231,7 @@ protected:
                         g_streakData.starTickets += tickets;
                         totalTicketsWon += tickets;
                         result.ticketsFromDuplicate = tickets;
+                        g_streakData.save();
                     }
                 }
                 break;
@@ -1115,6 +1280,7 @@ protected:
         m_currentSelectorIndex = lastIndex;
         actions->addObject(CCCallFunc::create(this, callfunc_selector(RoulettePopup::onMultiSpinEnd)));
         m_selectorSprite->runAction(CCSequence::create(actions));
+        updatePlayerDataInFirebase();
     }
 
     void flashWinningSlot(CCObject* pSender) {
@@ -1256,6 +1422,8 @@ protected:
                 break;
             }
             }
+            g_streakData.save();
+
             GenericPrizePopup::create(result, [ticketsWon]() {
                 if (ticketsWon > 0) {
                     CCDirector::sharedDirector()->getRunningScene()->addChild(TicketAnimationLayer::create(ticketsWon), 1000);
@@ -1268,6 +1436,7 @@ protected:
 
     void onOpenShop(CCObject*) {
         ShopPopup::create()->show();
+
     }
 
     void onShowProbabilities(CCObject*) {
@@ -1385,10 +1554,10 @@ protected:
             FLAlertLayer::create("Success", "Badge equipped!", "OK")->show();
         }
 
-       
+
         g_streakData.save();
 
-       
+
         updatePlayerDataInFirebase();
 
         this->onClose(nullptr);
@@ -1418,7 +1587,7 @@ protected:
         float y = winSize.height / 2 + 20.f;
         float spacing = 50.f;
 
-        
+
         std::vector<std::tuple<std::string, int, int>> rachas = {
             { "racha1.png"_spr, 1,  2 },
             { "racha2.png"_spr, 10, 3 },
@@ -1610,16 +1779,16 @@ public:
 
 
 
+
+
 class MissionsPopup : public Popup<> {
 protected:
-    
     int m_currentPage = 0;
     CCLayer* m_pageContainer;
     CCMenuItemSpriteExtra* m_leftArrow;
     CCMenuItemSpriteExtra* m_rightArrow;
     bool m_isAnimating = false;
 
-   
     CCNode* createPointMissionNode(int missionID) {
         int targetPoints, reward;
         bool isClaimed;
@@ -1634,7 +1803,6 @@ protected:
         default: return nullptr;
         }
 
-       
         bool isComplete = g_streakData.streakPointsToday >= targetPoints;
         auto container = cocos2d::extension::CCScale9Sprite::create("GJ_square01.png");
         container->setContentSize({ 250.f, 45.f });
@@ -1709,7 +1877,8 @@ protected:
         m_mainLayer->addChild(background);
 
         m_pageContainer = CCLayer::create();
-        m_pageContainer->setPosition(background->getPosition());
+        m_pageContainer->setPosition(background->getPosition()); 
+     
         m_mainLayer->addChild(m_pageContainer);
 
         auto leftSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
@@ -1763,17 +1932,36 @@ protected:
         m_pageContainer->removeAllChildren();
         auto availableMissions = getAvailableMissionIDs();
 
+        if (availableMissions.empty()) {
+            m_leftArrow->setVisible(false);
+            m_rightArrow->setVisible(false);
+
+            auto allDoneText = "You have claimed all missions.\nCome back tomorrow.";
+            auto allDoneLabel = CCLabelBMFont::create(allDoneText, "bigFont.fnt");
+            allDoneLabel->setScale(0.5f);
+            allDoneLabel->setAlignment(CCTextAlignment::kCCTextAlignmentCenter);
+
+           
+            allDoneLabel->setPosition({ 0.f, 0.f });
+
+            allDoneLabel->setID("all-done-label");
+            m_pageContainer->addChild(allDoneLabel);
+            return;
+        }
+       
+
         int missionsPerPage = 3;
         int startIndex = m_currentPage * missionsPerPage;
 
         float topY = 50.f;
-        float spacing = 50.f;
+        float spacing = 50.f; 
 
         for (int i = 0; i < missionsPerPage; ++i) {
             int missionIndex = startIndex + i;
             if (missionIndex < availableMissions.size()) {
                 int missionID = availableMissions[missionIndex];
                 if (auto missionNode = createPointMissionNode(missionID)) {
+                   
                     missionNode->setPosition(0, topY - (i * spacing));
                     missionNode->setTag(missionID);
                     m_pageContainer->addChild(missionNode);
@@ -1792,7 +1980,7 @@ protected:
         m_rightArrow->setVisible(m_currentPage < totalPages - 1);
     }
 
-    
+
     void onSwitchPage(CCObject* sender) {
         if (m_isAnimating) return;
         int direction = sender->getTag();
@@ -1804,45 +1992,23 @@ protected:
         if (m_isAnimating) return;
         m_isAnimating = true;
 
-        
         FMODAudioEngine::sharedEngine()->playEffect("claim_mission.mp3"_spr);
 
         int missionID = sender->getTag();
-        this->setTag(missionID); 
+        this->setTag(missionID);
 
-        auto availableMissions = getAvailableMissionIDs();
         auto claimedNode = m_pageContainer->getChildByTag(missionID);
         if (!claimedNode) {
             m_isAnimating = false;
             return;
         }
 
+       
         claimedNode->runAction(CCSequence::create(
-            CCSpawn::create(CCEaseSineIn::create(CCMoveBy::create(0.3f, { 400, 0 })), CCFadeOut::create(0.3f), nullptr),
+            CCSpawn::create(CCEaseSineIn::create(CCMoveBy::create(0.3f, { 20, 0 })), CCFadeOut::create(0.3f), nullptr),
             CCRemoveSelf::create(),
             nullptr
         ));
-
-        
-        for (auto* child : CCArrayExt<CCNode*>(m_pageContainer->getChildren())) {
-            if (child->getPositionY() < claimedNode->getPositionY()) {
-                child->runAction(CCEaseSineInOut::create(CCMoveBy::create(0.3f, { 0, 50.f })));
-            }
-        }
-
-        
-        int missionsPerPage = 3;
-        int nextMissionIndex = m_currentPage * missionsPerPage + missionsPerPage;
-
-        if (nextMissionIndex < availableMissions.size()) {
-            int nextMissionID = availableMissions[nextMissionIndex];
-            if (auto newNode = createPointMissionNode(nextMissionID)) {
-                newNode->setTag(nextMissionID);
-                newNode->setPosition({ -300.f, -50.f }); 
-                m_pageContainer->addChild(newNode);
-                newNode->runAction(CCEaseSineInOut::create(CCMoveTo::create(0.3f, { 0, -50.f }))); 
-            }
-        }
 
         this->runAction(CCSequence::create(
             CCDelayTime::create(0.4f),
@@ -1853,7 +2019,8 @@ protected:
 
     void onAnimationEnd() {
         int missionID = this->getTag();
-        g_streakData.load();
+
+       
         switch (missionID) {
         case 0: g_streakData.superStars += 2; g_streakData.pointMission1Claimed = true; break;
         case 1: g_streakData.superStars += 3; g_streakData.pointMission2Claimed = true; break;
@@ -1862,14 +2029,37 @@ protected:
         case 4: g_streakData.superStars += 9; g_streakData.pointMission5Claimed = true; break;
         case 5: g_streakData.superStars += 10; g_streakData.pointMission6Claimed = true; break;
         }
+
+       
         g_streakData.save();
 
+       
         auto countLabel = static_cast<CCLabelBMFont*>(this->m_mainLayer->getChildByIDRecursive("super-star-label"));
         if (countLabel) {
             countLabel->setString(std::to_string(g_streakData.superStars).c_str());
+            countLabel->runAction(CCSequence::create(
+                CCScaleTo::create(0.1f, 0.7f),
+                CCScaleTo::create(0.1f, 0.5f),
+                nullptr
+            ));
+            if (auto icon = static_cast<CCSprite*>(this->m_mainLayer->getChildByIDRecursive("super-star-icon"))) {
+                icon->runAction(CCSequence::create(
+                    CCScaleTo::create(0.1f, 0.22f),
+                    CCScaleTo::create(0.1f, 0.18f),
+                    nullptr
+                ));
+            }
         }
 
-        
+       
+        auto availableMissions = getAvailableMissionIDs();
+        int missionsPerPage = 3;
+        int startIndex = m_currentPage * missionsPerPage;
+        if (startIndex >= availableMissions.size() && m_currentPage > 0) {
+            m_currentPage = 0;
+        }
+
+       
         updatePage();
         m_isAnimating = false;
     }
@@ -2183,130 +2373,198 @@ CCAction* createShakeAction(float duration, float strength) {
 
 class InfoPopup : public Popup<> {
 protected:
-    bool setup() override {
-        g_streakData.dailyUpdate();
-        this->setTitle("My Streak");
-        auto winSize = m_mainLayer->getContentSize();
-        float centerY = winSize.height / 2 + 25;
-        auto rachaSprite = CCSprite::create(g_streakData.getRachaSprite().c_str());
-        rachaSprite->setScale(0.4f);
-        auto rachaBtn = CCMenuItemSpriteExtra::create(rachaSprite, this, menu_selector(InfoPopup::onRachaClick));
-        auto menuRacha = CCMenu::createWithItem(rachaBtn);
-        menuRacha->setPosition({ winSize.width / 2, centerY });
-        m_mainLayer->addChild(menuRacha, 3);
-        rachaSprite->runAction(CCRepeatForever::create(CCSequence::create(CCMoveBy::create(1.5f, { 0, 8 }), CCMoveBy::create(1.5f, { 0, -8 }), nullptr)));
-        auto streakLabel = CCLabelBMFont::create(("Daily streak: " + std::to_string(g_streakData.currentStreak)).c_str(), "goldFont.fnt");
-        streakLabel->setScale(0.55f);
-        streakLabel->setPosition({ winSize.width / 2, centerY - 60 });
-        m_mainLayer->addChild(streakLabel);
-        float barWidth = 140.0f;
-        float barHeight = 16.0f;
-        int requiredPoints = g_streakData.getRequiredPoints();
-        float percent = requiredPoints > 0 ? std::min(static_cast<float>(g_streakData.streakPointsToday) / requiredPoints, 1.0f) : 0.f;
-        auto barBg = CCLayerColor::create({ 45, 45, 45, 255 }, barWidth, barHeight);
-        barBg->setPosition({ winSize.width / 2 - barWidth / 2, centerY - 90 });
-        m_mainLayer->addChild(barBg, 1);
-        auto barFg = CCLayerGradient::create({ 250, 225, 60, 255 }, { 255, 165, 0, 255 });
-        barFg->setContentSize({ barWidth * percent, barHeight });
-        barFg->setPosition({ winSize.width / 2 - barWidth / 2, centerY - 90 });
-        m_mainLayer->addChild(barFg, 2);
-        auto border = CCLayerColor::create({ 255, 255, 255, 120 }, barWidth + 2, barHeight + 2);
-        border->setPosition({ winSize.width / 2 - barWidth / 2 - 1, centerY - 91 });
-        m_mainLayer->addChild(border, 4);
-        auto outer = CCLayerColor::create({ 0, 0, 0, 70 }, barWidth + 6, barHeight + 6);
-        outer->setPosition({ winSize.width / 2 - barWidth / 2 - 3, centerY - 93 });
-        m_mainLayer->addChild(outer, 0);
-        auto pointIcon = CCSprite::create("streak_point.png"_spr);
-        pointIcon->setScale(0.12f);
-        pointIcon->setPosition({ winSize.width / 2 - 35, centerY - 82 });
-        m_mainLayer->addChild(pointIcon, 5);
-        auto barText = CCLabelBMFont::create((std::to_string(g_streakData.streakPointsToday) + " / " + std::to_string(requiredPoints)).c_str(), "bigFont.fnt");
-        barText->setScale(0.45f);
-        barText->setPosition({ winSize.width / 2 + 10, centerY - 82 });
-        m_mainLayer->addChild(barText, 5);
-        std::string indicatorSpriteName = (g_streakData.streakPointsToday >= requiredPoints) ? g_streakData.getRachaSprite() : "racha0.png"_spr;
-        auto rachaIndicator = CCSprite::create(indicatorSpriteName.c_str());
-        rachaIndicator->setScale(0.14f);
-        rachaIndicator->setPosition({ winSize.width / 2 + barWidth / 2 + 20, centerY - 82 });
-        m_mainLayer->addChild(rachaIndicator, 5);
-        auto menuSide = CCMenu::create();
-        menuSide->setPosition(0, 0);
-        m_mainLayer->addChild(menuSide, 10);
-        auto statsIcon = CCSprite::create("BtnStats.png"_spr);
-        statsIcon->setScale(0.7f);
-        auto statsBtn = CCMenuItemSpriteExtra::create(statsIcon, this, menu_selector(InfoPopup::onOpenStats));
-        statsBtn->setPosition({ winSize.width - 22, centerY });
-        menuSide->addChild(statsBtn);
-        auto rewardsIcon = CCSprite::create("RewardsBtn.png"_spr);
-        rewardsIcon->setScale(0.7f);
-        auto rewardsBtn = CCMenuItemSpriteExtra::create(rewardsIcon, this, menu_selector(InfoPopup::onOpenRewards));
-        rewardsBtn->setPosition({ winSize.width - 22, centerY - 37 });
-        menuSide->addChild(rewardsBtn);
-        auto missionsIcon = CCSprite::create("super_star_btn.png"_spr);
-        missionsIcon->setScale(0.7f);
-        auto missionsBtn = CCMenuItemSpriteExtra::create(missionsIcon, this, menu_selector(InfoPopup::onOpenMissions));
-        missionsBtn->setPosition({ 22, centerY });
-        menuSide->addChild(missionsBtn);
-        auto rouletteIcon = CCSprite::create("boton_ruleta.png"_spr);
-        rouletteIcon->setScale(0.7f);
-        auto rouletteBtn = CCMenuItemSpriteExtra::create(rouletteIcon, this, menu_selector(InfoPopup::onOpenRoulette));
-        rouletteBtn->setPosition({ 22, centerY - 37 });
-        menuSide->addChild(rouletteBtn);
-        auto infoIcon = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
-        infoIcon->setScale(0.6f);
-        auto infoBtn = CCMenuItemSpriteExtra::create(infoIcon, this, menu_selector(InfoPopup::onInfo));
-        infoBtn->setPosition({ winSize.width - 20, winSize.height - 20 });
-        menuSide->addChild(infoBtn);
-        auto historyIcon = CCSprite::create("historial_btn.png"_spr);
-        historyIcon->setScale(0.7f);
-        auto historyBtn = CCMenuItemSpriteExtra::create(historyIcon, this, menu_selector(InfoPopup::onOpenHistory));
-        historyBtn->setPosition({ 20, 20 });
-        menuSide->addChild(historyBtn);
-        if (g_streakData.shouldShowAnimation()) {
-            this->showStreakAnimation(g_streakData.currentStreak);
-        }
-        return true;
-    }
+   
+    CCLabelBMFont* m_streakLabel = nullptr;
+    CCLayerGradient* m_barFg = nullptr;
+    CCLabelBMFont* m_barText = nullptr;
+    CCSprite* m_rachaIndicator = nullptr;
 
+   
+    bool setup() override;
+
+  
+public:
+    void updateDisplay();
+
+protected:
+    
     void showStreakAnimation(int streakLevel);
     void onAnimationExit();
-    void onOpenHistory(CCObject*) { HistoryPopup::create()->show(); }
-    void onOpenStats(CCObject*) { DayProgressPopup::create()->show(); }
-    void onOpenRewards(CCObject*) { RewardsPopup::create()->show(); }
-    void onRachaClick(CCObject*) { AllRachasPopup::create()->show(); }
-    void onOpenMissions(CCObject*) { MissionsPopup::create()->show(); }
-    void onInfo(CCObject*) {
-        
-        std::string message =
-            "Complete rated levels every day to earn <cp>Streak Points</c> and increase your streak!\n\n"
-            "<cg>Point Rewards:</c>\n"
-            "- <cy>Auto / Easy / Normal</c> (1-3⭐): <cl>1 Point</c>\n"
-            "- <co>Hard</c> (4-5): <cl>3 Points</c>\n"
-            "- <cr>Harder</c> (6-7): <cl>4 Points</c>\n"
-            "- <cp>Insane</c> (8-9): <cl>5 Points</c>\n"
-            "- <cj>Demon</c> (10): <cl>6 Points</c>";
+    void onOpenHistory(CCObject*);
+    void onOpenStats(CCObject*);
+    void onOpenRewards(CCObject*);
+    void onRachaClick(CCObject*);
+    void onOpenMissions(CCObject*);
+    void onRedeemCode(CCObject*);
+    void onInfo(CCObject*);
+    void onOpenRoulette(CCObject*);
 
-        FLAlertLayer::create("About Streak!", message, "OK")->show();
-    }
-    void onOpenRoulette(CCObject*) {
-        g_streakData.load();
-        if (g_streakData.currentStreak < 1) {
-            FLAlertLayer::create("Roulette Locked", "You need a streak of at least <cg>1 day</c> to use the roulette.", "OK")->show();
-            return;
-        }
-        RoulettePopup::create()->show();
-    }
 public:
-    static InfoPopup* create() {
-        auto ret = new InfoPopup();
-        if (ret && ret->initAnchored(260.f, 220.f)) {
-            ret->autorelease();
-            return ret;
-        }
-        CC_SAFE_DELETE(ret);
-        return nullptr;
-    }
+   
+    static InfoPopup* create();
 };
+
+
+bool InfoPopup::setup() {
+
+    this->setTitle("My Streak");
+    auto winSize = m_mainLayer->getContentSize();
+    float centerY = winSize.height / 2 + 25;
+
+  
+    auto rachaSprite = CCSprite::create(g_streakData.getRachaSprite().c_str());
+    rachaSprite->setScale(0.4f);
+    auto rachaBtn = CCMenuItemSpriteExtra::create(rachaSprite, this, menu_selector(InfoPopup::onRachaClick));
+    auto menuRacha = CCMenu::createWithItem(rachaBtn);
+    menuRacha->setPosition({ winSize.width / 2, centerY });
+    m_mainLayer->addChild(menuRacha, 3);
+    rachaSprite->runAction(CCRepeatForever::create(CCSequence::create(CCMoveBy::create(1.5f, { 0, 8 }), CCMoveBy::create(1.5f, { 0, -8 }), nullptr)));
+
+  
+    m_streakLabel = CCLabelBMFont::create("Daily streak: ?", "goldFont.fnt");
+    m_streakLabel->setScale(0.55f);
+    m_streakLabel->setPosition({ winSize.width / 2, centerY - 60 });
+    m_mainLayer->addChild(m_streakLabel);
+
+    float barWidth = 140.0f;
+    float barHeight = 16.0f;
+    auto barBg = CCLayerColor::create({ 45, 45, 45, 255 }, barWidth, barHeight);
+    barBg->setPosition({ winSize.width / 2 - barWidth / 2, centerY - 90 });
+    m_mainLayer->addChild(barBg, 1);
+    m_barFg = CCLayerGradient::create({ 250, 225, 60, 255 }, { 255, 165, 0, 255 });
+    m_barFg->setContentSize({ 0, barHeight });
+    m_barFg->setPosition({ winSize.width / 2 - barWidth / 2, centerY - 90 });
+    m_mainLayer->addChild(m_barFg, 2);
+    auto border = CCLayerColor::create({ 255, 255, 255, 120 }, barWidth + 2, barHeight + 2);
+    border->setPosition({ winSize.width / 2 - barWidth / 2 - 1, centerY - 91 });
+    m_mainLayer->addChild(border, 4);
+    auto outer = CCLayerColor::create({ 0, 0, 0, 70 }, barWidth + 6, barHeight + 6);
+    outer->setPosition({ winSize.width / 2 - barWidth / 2 - 3, centerY - 93 });
+    m_mainLayer->addChild(outer, 0);
+    auto pointIcon = CCSprite::create("streak_point.png"_spr);
+    pointIcon->setScale(0.12f);
+    pointIcon->setPosition({ winSize.width / 2 - 35, centerY - 82 });
+    m_mainLayer->addChild(pointIcon, 5);
+    m_barText = CCLabelBMFont::create("? / ?", "bigFont.fnt");
+    m_barText->setScale(0.45f);
+    m_barText->setPosition({ winSize.width / 2 + 10, centerY - 82 });
+    m_mainLayer->addChild(m_barText, 5);
+    m_rachaIndicator = CCSprite::create("racha0.png"_spr);
+    m_rachaIndicator->setScale(0.14f);
+    m_rachaIndicator->setPosition({ winSize.width / 2 + barWidth / 2 + 20, centerY - 82 });
+    m_mainLayer->addChild(m_rachaIndicator, 5);
+
+    
+    auto menuSide = CCMenu::create();
+    menuSide->setPosition(0, 0);
+    m_mainLayer->addChild(menuSide, 10);
+
+    auto statsIcon = CCSprite::create("BtnStats.png"_spr);
+    statsIcon->setScale(0.7f);
+    auto statsBtn = CCMenuItemSpriteExtra::create(statsIcon, this, menu_selector(InfoPopup::onOpenStats));
+    statsBtn->setPosition({ winSize.width - 22, centerY });
+    menuSide->addChild(statsBtn);
+
+    auto rewardsIcon = CCSprite::create("RewardsBtn.png"_spr);
+    rewardsIcon->setScale(0.7f);
+    auto rewardsBtn = CCMenuItemSpriteExtra::create(rewardsIcon, this, menu_selector(InfoPopup::onOpenRewards));
+    rewardsBtn->setPosition({ winSize.width - 22, centerY - 37 });
+    menuSide->addChild(rewardsBtn);
+
+    auto missionsIcon = CCSprite::create("super_star_btn.png"_spr);
+    missionsIcon->setScale(0.7f);
+    auto missionsBtn = CCMenuItemSpriteExtra::create(missionsIcon, this, menu_selector(InfoPopup::onOpenMissions));
+    missionsBtn->setPosition({ 22, centerY });
+    menuSide->addChild(missionsBtn);
+
+    auto rouletteIcon = CCSprite::create("boton_ruleta.png"_spr);
+    rouletteIcon->setScale(0.7f);
+    auto rouletteBtn = CCMenuItemSpriteExtra::create(rouletteIcon, this, menu_selector(InfoPopup::onOpenRoulette));
+    rouletteBtn->setPosition({ 22, centerY - 37 });
+    menuSide->addChild(rouletteBtn);
+
+    auto infoIcon = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
+    infoIcon->setScale(0.6f);
+    auto infoBtn = CCMenuItemSpriteExtra::create(infoIcon, this, menu_selector(InfoPopup::onInfo));
+    infoBtn->setPosition({ winSize.width - 20, winSize.height - 20 });
+    menuSide->addChild(infoBtn);
+
+    auto historyIcon = CCSprite::create("historial_btn.png"_spr);
+    historyIcon->setScale(0.7f);
+    auto historyBtn = CCMenuItemSpriteExtra::create(historyIcon, this, menu_selector(InfoPopup::onOpenHistory));
+    historyBtn->setPosition({ 20, 20 });
+    menuSide->addChild(historyBtn);
+
+    auto redeemIcon = CCSprite::create("redemcode_btn.png"_spr);
+    redeemIcon->setScale(0.7f);
+    auto redeemBtn = CCMenuItemSpriteExtra::create(redeemIcon, this, menu_selector(InfoPopup::onRedeemCode));
+    redeemBtn->setPosition({ winSize.width - 20, 20 });
+    menuSide->addChild(redeemBtn);
+
+    
+    this->updateDisplay();
+
+    if (g_streakData.shouldShowAnimation()) {
+        this->showStreakAnimation(g_streakData.currentStreak);
+    }
+    return true;
+}
+
+void InfoPopup::updateDisplay() {
+    if (!m_streakLabel || !m_barFg || !m_barText || !m_rachaIndicator) {
+        log::warn("Intentando actualizar InfoPopup antes de que sus elementos esten listos.");
+        return;
+    }
+
+    int currentStreak = g_streakData.currentStreak;
+    int pointsToday = g_streakData.streakPointsToday;
+    int requiredPoints = g_streakData.getRequiredPoints();
+    float percent = requiredPoints > 0 ? std::min(static_cast<float>(pointsToday) / requiredPoints, 1.0f) : 0.f;
+    float barWidth = 140.0f;
+    float barHeight = 16.0f;
+
+    m_streakLabel->setString(fmt::format("Daily streak: {}", currentStreak).c_str());
+    m_barFg->setContentSize({ barWidth * percent, barHeight });
+    m_barText->setString(fmt::format("{}/{}", pointsToday, requiredPoints).c_str());
+
+    std::string indicatorSpriteName = (pointsToday >= requiredPoints) ? g_streakData.getRachaSprite() : "racha0.png"_spr;
+    if (auto newSprite = CCSprite::create(indicatorSpriteName.c_str())) {
+        if (auto newTexture = newSprite->getTexture()) {
+            m_rachaIndicator->setTexture(newTexture);
+          
+            m_rachaIndicator->setTextureRect(newSprite->getTextureRect());
+        }
+    }
+}
+
+
+void InfoPopup::onOpenHistory(CCObject*) { HistoryPopup::create()->show(); }
+void InfoPopup::onOpenStats(CCObject*) { DayProgressPopup::create()->show(); }
+void InfoPopup::onOpenRewards(CCObject*) { RewardsPopup::create()->show(); }
+void InfoPopup::onRachaClick(CCObject*) { AllRachasPopup::create()->show(); }
+void InfoPopup::onOpenMissions(CCObject*) { MissionsPopup::create()->show(); }
+void InfoPopup::onRedeemCode(CCObject*) { RedeemCodePopup::create()->show(); }
+
+void InfoPopup::onInfo(CCObject*) {
+    std::string message =
+        "Complete rated levels every day to earn <cp>Streak Points</c> and increase your streak!\n\n"
+        "<cg>Point Rewards:</c>\n"
+        "- <cy>Auto / Easy / Normal</c> (1-3⭐): <cl>1 Point</c>\n"
+        "- <co>Hard</c> (4-5): <cl>3 Points</c>\n"
+        "- <cr>Harder</c> (6-7): <cl>4 Points</c>\n"
+        "- <cp>Insane</c> (8-9): <cl>5 Points</c>\n"
+        "- <cj>Demon</c> (10): <cl>6 Points</c>";
+    FLAlertLayer::create("About Streak!", message, "OK")->show();
+}
+
+void InfoPopup::onOpenRoulette(CCObject*) {
+    if (g_streakData.currentStreak < 1) {
+        FLAlertLayer::create("Roulette Locked", "You need a streak of at least <cg>1 day</c> to use the roulette.", "OK")->show();
+        return;
+    }
+    RoulettePopup::create()->show();
+}
+
 
 void InfoPopup::showStreakAnimation(int streakLevel) {
     auto winSize = CCDirector::sharedDirector()->getWinSize();
@@ -2357,6 +2615,16 @@ void InfoPopup::onAnimationExit() {
         CCRemoveSelf::create(),
         nullptr
     ));
+}
+
+InfoPopup* InfoPopup::create() {
+    auto ret = new InfoPopup();
+    if (ret && ret->initAnchored(260.f, 220.f)) { 
+        ret->autorelease();
+        return ret;
+    }
+    CC_SAFE_DELETE(ret);
+    return nullptr;
 }
 
 class StreakProgressBar : public cocos2d::CCLayerColor {

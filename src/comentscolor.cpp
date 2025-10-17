@@ -92,7 +92,7 @@ class $modify(MyColoredCommentCell, CommentCell) {
                 }
                 });
 
-            // Hacemos la petición a nuestro servidor para obtener los datos.
+           
             auto req = web::WebRequest();
             m_fields->m_mythicCheckListener.setFilter(req.get(url));
         }
