@@ -527,13 +527,10 @@ protected:
     void onClaimMission(CCObject* sender) {
         int levelID = sender->getTag();
         log::info("Attempting to claim reward for level ID: {}", levelID);
-
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Estas variables no existían y causaban todos los errores.
         std::string rewardMessage = "";
         bool isNewBadge = false;
         GJGameLevel* level = GameLevelManager::sharedState()->getSavedLevel(levelID);
-        // --- FIN DE LA CORRECCIÓN ---
+      
 
         const LevelMission* missionPtr = nullptr;
         for (const auto& m : g_levelMissions) {
@@ -549,9 +546,9 @@ protected:
             return;
         }
 
-      
+        
         const LevelMission& mission = *missionPtr;
-      
+     
 
         if (g_streakData.isLevelMissionClaimed(levelID)) {
             log::warn("Attempted to claim already claimed mission ID {}", levelID);
@@ -568,7 +565,7 @@ protected:
             return;
         }
 
-      
+    
         if (!mission.rewardBadgeID.empty()) {
             isNewBadge = !g_streakData.isBadgeUnlocked(mission.rewardBadgeID);
             g_streakData.unlockBadge(mission.rewardBadgeID);
