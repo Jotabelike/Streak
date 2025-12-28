@@ -20,27 +20,11 @@
 		"online"
 
 	],
-	"dependencies": [
-
-		{
-			"id": "jouca.badgesapi",
-			"version": ">=v1.3.1",
-			"importance": "required"
-		},
-		{
-			"id": "geode.node-ids",
-			"version": ">=v1.21.1",
-			"importance": "required"
-		},
-		{
-			"id": "prevter.imageplus",
-			"version": ">=v1.0.3",
-			"importance": "required"
-		}
-
-
-
-	],
+	"dependencies": {
+		"geode.node-ids": ">=v1.21.1",
+		"prevter.imageplus": ">=v1.0.3",
+		"jouca.badgesapi": ">=v1.3.1"
+	},
 	"resources": {
 		"files": [
 			"resources/audio/*.mp3",
@@ -59,19 +43,6 @@
 		]
 
 	},
-	"incompatibilities": [
-		{
-			"id": "hiimjustin000.developer_badges",
-			"version": "*",
-			"importance": "breaking"
-		},
-		{
-			"id": "rifct.friend_badges",
-			"version": "*",
-			"importance": "breaking"
-		}
-	],
-
 	"settings": {
 		"show-in-pause": {
 			"name": "Show Streak in Pause Menu",

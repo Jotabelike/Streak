@@ -191,10 +191,12 @@ class $modify(MyProfilePage, ProfilePage) {
                 if (auto oldLoad = username_menu->getChildByID(LOADING_BADGE_ID)) {
                     oldLoad->removeFromParent();
                 }
+                /*
                 username_menu->addChild(
                     this->createSpinnerItem(LOADING_BADGE_ID)
                 );
                 username_menu->updateLayout();
+                */
             }
 
             if (auto statsMenu = m_mainLayer->getChildByIDRecursive("stats-menu")) {
