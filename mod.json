@@ -8,7 +8,7 @@
 	},
 	"id": "jotabelike.gd_racha",
 	"name": "Streak!",
-	"version": "v1.10.30",
+	"version": "v1.10.31-beta.1",
 	"developer": "XJotabelikeX",
 	"description": "Personal Streak! Prove you're the best and start a streak!",
 	"links": {
@@ -59,18 +59,7 @@
 		]
 
 	},
-	"incompatibilities": [
-		{
-			"id": "hiimjustin000.developer_badges",
-			"version": "*",
-			"importance": "breaking"
-		},
-		{
-			"id": "rifct.friend_badges",
-			"version": "*",
-			"importance": "breaking"
-		}
-	],
+
 
 	"settings": {
 		"show-in-pause": {

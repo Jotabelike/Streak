@@ -354,6 +354,7 @@ protected:
     TextInput* m_starsInput;
     TextInput* m_ticketsInput;
     TextInput* m_xpInput = nullptr;
+    TextInput* m_gemsInput = nullptr; // Input para Gemas
 
     CCLabelBMFont* m_badgeLabel = nullptr;
     CCLabelBMFont* m_bannerLabel = nullptr;
@@ -365,11 +366,13 @@ protected:
     int m_pendingStars = 0;
     int m_pendingTickets = 0;
     int m_pendingXP = 0;
+    int m_pendingGems = 0; // Variable para Gemas
 
     bool setup() override {
         this->setTitle("Create Code");
         auto winSize = m_mainLayer->getContentSize();
 
+        // Botón Mis Códigos (Izquierda)
         auto myCodesSpr = CCSprite::createWithSpriteFrameName("GJ_menuBtn_001.png");
         myCodesSpr->setScale(0.60f);
         auto myCodesBtn = CCMenuItemSpriteExtra::create(
@@ -381,16 +384,12 @@ protected:
         leftMenu->setPosition({ 25.f, 25.f });
         m_mainLayer->addChild(leftMenu);
 
+        // Menú Superior Derecho (Badge/Banner)
         auto topRightMenu = CCMenu::create();
-        topRightMenu->setPosition({
-            winSize.width - 90.f,
-            winSize.height - 30.f
-            });
+        topRightMenu->setPosition({ winSize.width - 90.f, winSize.height - 30.f });
         m_mainLayer->addChild(topRightMenu);
 
-        auto badgeBtnSprite = ButtonSprite::create(
-            "Badge", 0, 0, "goldFont.fnt", "GJ_button_05.png", 0, 0.4f
-        );
+        auto badgeBtnSprite = ButtonSprite::create("Badge", 0, 0, "goldFont.fnt", "GJ_button_05.png", 0, 0.4f);
         badgeBtnSprite->setScale(0.8f);
         auto badgeBtn = CCMenuItemSpriteExtra::create(
             badgeBtnSprite,
@@ -402,17 +401,12 @@ protected:
 
         m_badgeLabel = CCLabelBMFont::create("None", "chatFont.fnt");
         m_badgeLabel->setScale(0.35f);
-        m_badgeLabel->setPosition({
-            winSize.width - 135.f,
-            winSize.height - 55.f
-            });
+        m_badgeLabel->setPosition({ winSize.width - 135.f, winSize.height - 55.f });
         m_badgeLabel->setColor({ 200, 200, 200 });
         m_badgeLabel->limitLabelWidth(70.f, 0.35f, 0.1f);
         m_mainLayer->addChild(m_badgeLabel);
 
-        auto bannerBtnSprite = ButtonSprite::create(
-            "Banner", 0, 0, "goldFont.fnt", "GJ_button_04.png", 0, 0.4f
-        );
+        auto bannerBtnSprite = ButtonSprite::create("Banner", 0, 0, "goldFont.fnt", "GJ_button_04.png", 0, 0.4f);
         bannerBtnSprite->setScale(0.8f);
         auto bannerBtn = CCMenuItemSpriteExtra::create(
             bannerBtnSprite,
@@ -424,14 +418,12 @@ protected:
 
         m_bannerLabel = CCLabelBMFont::create("None", "chatFont.fnt");
         m_bannerLabel->setScale(0.35f);
-        m_bannerLabel->setPosition({
-            winSize.width - 45.f,
-            winSize.height - 55.f
-            });
+        m_bannerLabel->setPosition({ winSize.width - 45.f, winSize.height - 55.f });
         m_bannerLabel->setColor({ 200, 200, 200 });
         m_bannerLabel->limitLabelWidth(70.f, 0.35f, 0.1f);
         m_mainLayer->addChild(m_bannerLabel);
 
+        // --- FILA 1: Nombre y Usos ---
         float row1Y = winSize.height / 2 + 35.f;
 
         m_nameInput = TextInput::create(180.f, "Code Name", "chatFont.fnt");
@@ -445,43 +437,62 @@ protected:
         m_usesInput->setFilter("0123456789");
         m_mainLayer->addChild(m_usesInput);
 
+        // --- FILA 2: RECOMPENSAS (Stars, Tickets, XP, Gems) ---
         float row2Y = winSize.height / 2 - 20.f;
         float iconOffset = 20.f;
 
-        float starsX = winSize.width / 2 - 120.f;
-        float ticketsX = winSize.width / 2;
-        float xpX = winSize.width / 2 + 120.f;
+        // Posicionamiento para 4 elementos
+        float startX = winSize.width / 2 - 120.f;
+        float gap = 80.f;
 
+        // 1. Stars
         auto starIcon = CCSprite::create("super_star.png"_spr);
         starIcon->setScale(0.2f);
-        starIcon->setPosition({ starsX, row2Y + iconOffset });
+        starIcon->setPosition({ startX, row2Y + iconOffset });
         m_mainLayer->addChild(starIcon);
 
-        m_starsInput = TextInput::create(80.f, "Stars", "chatFont.fnt");
-        m_starsInput->setPosition({ starsX, row2Y - 8.f });
+        m_starsInput = TextInput::create(60.f, "Stars", "chatFont.fnt");
+        m_starsInput->setPosition({ startX, row2Y - 8.f });
         m_starsInput->setFilter("0123456789");
         m_mainLayer->addChild(m_starsInput);
 
+        // 2. Tickets
         auto ticketIcon = CCSprite::create("star_tiket.png"_spr);
         ticketIcon->setScale(0.25f);
-        ticketIcon->setPosition({ ticketsX, row2Y + iconOffset });
+        ticketIcon->setPosition({ startX + gap, row2Y + iconOffset });
         m_mainLayer->addChild(ticketIcon);
 
-        m_ticketsInput = TextInput::create(80.f, "Tickets", "chatFont.fnt");
-        m_ticketsInput->setPosition({ ticketsX, row2Y - 8.f });
+        m_ticketsInput = TextInput::create(60.f, "Tkts", "chatFont.fnt");
+        m_ticketsInput->setPosition({ startX + gap, row2Y - 8.f });
         m_ticketsInput->setFilter("0123456789");
         m_mainLayer->addChild(m_ticketsInput);
 
+        // 3. XP
         auto xpIcon = CCSprite::create("xp.png"_spr);
         xpIcon->setScale(0.25f);
-        xpIcon->setPosition({ xpX, row2Y + iconOffset });
+        xpIcon->setPosition({ startX + (gap * 2), row2Y + iconOffset });
         m_mainLayer->addChild(xpIcon);
 
-        m_xpInput = TextInput::create(80.f, "XP", "chatFont.fnt");
-        m_xpInput->setPosition({ xpX, row2Y - 8.f });
+        m_xpInput = TextInput::create(60.f, "XP", "chatFont.fnt");
+        m_xpInput->setPosition({ startX + (gap * 2), row2Y - 8.f });
         m_xpInput->setFilter("0123456789");
         m_mainLayer->addChild(m_xpInput);
 
+        // 4. Gems (NUEVO)
+        auto gemIcon = CCSprite::create("gem.png"_spr);
+        // Si no tienes gem.png registrado, usará el fallback o null check
+        if (gemIcon) {
+            gemIcon->setScale(0.35f);
+            gemIcon->setPosition({ startX + (gap * 3), row2Y + iconOffset });
+            m_mainLayer->addChild(gemIcon);
+        }
+
+        m_gemsInput = TextInput::create(60.f, "Gems", "chatFont.fnt");
+        m_gemsInput->setPosition({ startX + (gap * 3), row2Y - 8.f });
+        m_gemsInput->setFilter("0123456789");
+        m_mainLayer->addChild(m_gemsInput);
+
+        // Botón Crear
         auto createBtnSpr = ButtonSprite::create(
             "Create Code", 0, 0, "goldFont.fnt", "GJ_button_01.png", 0, 0.8f
         );
@@ -498,6 +509,8 @@ protected:
         m_createListener.bind(this, &CreateCodePopup::onWebResponse);
         return true;
     }
+
+    // --- FUNCIONES QUE FALTABAN O ESTABAN MAL ---
 
     void onOpenMyCodes(CCObject*) {
         MyCodesPopup::create()->show();
@@ -546,12 +559,14 @@ protected:
         int amountPerPersonStars = numFromString<int>(m_starsInput->getString()).unwrapOrDefault();
         int amountPerPersonTickets = numFromString<int>(m_ticketsInput->getString()).unwrapOrDefault();
         int amountPerPersonXP = m_xpInput ? numFromString<int>(m_xpInput->getString()).unwrapOrDefault() : 0;
+        int amountPerPersonGems = m_gemsInput ? numFromString<int>(m_gemsInput->getString()).unwrapOrDefault() : 0;
 
         m_pendingStars = amountPerPersonStars * uses;
         m_pendingTickets = amountPerPersonTickets * uses;
         m_pendingXP = amountPerPersonXP * uses;
+        m_pendingGems = amountPerPersonGems * uses;
 
-        if (m_pendingStars == 0 && m_pendingTickets == 0 && m_pendingXP == 0 && m_selectedBadgeID.empty() && m_selectedBannerID.empty()) {
+        if (m_pendingStars == 0 && m_pendingTickets == 0 && m_pendingXP == 0 && m_pendingGems == 0 && m_selectedBadgeID.empty() && m_selectedBannerID.empty()) {
             Notification::create("Add at least one reward", NotificationIcon::Error)->show();
             return;
         }
@@ -563,21 +578,13 @@ protected:
 
         matjson::Value rewards = matjson::Value::object();
 
-        if (m_pendingStars > 0) {
-            rewards.set("super_stars", m_pendingStars);
-        }
-        if (m_pendingTickets > 0) {
-            rewards.set("star_tickets", m_pendingTickets);
-        }
-        if (m_pendingXP > 0) {
-            rewards.set("xp", m_pendingXP);
-        }
-        if (!m_selectedBadgeID.empty()) {
-            rewards.set("badge", m_selectedBadgeID);
-        }
-        if (!m_selectedBannerID.empty()) {
-            rewards.set("banner", m_selectedBannerID);
-        }
+        if (m_pendingStars > 0) rewards.set("super_stars", m_pendingStars);
+        if (m_pendingTickets > 0) rewards.set("star_tickets", m_pendingTickets);
+        if (m_pendingXP > 0) rewards.set("xp", m_pendingXP);
+        if (m_pendingGems > 0) rewards.set("gems", m_pendingGems);
+
+        if (!m_selectedBadgeID.empty()) rewards.set("badge", m_selectedBadgeID);
+        if (!m_selectedBannerID.empty()) rewards.set("banner", m_selectedBannerID);
 
         matjson::Value payload = matjson::Value::object();
         payload.set("modAccountID", GJAccountManager::sharedState()->m_accountID);
@@ -725,17 +732,21 @@ protected:
             if (res->ok() && res->json().isOk()) {
                 auto json = res->json().unwrap();
 
+                // 1. Variables para recompensas
                 int codeStars = 0;
                 int codeTickets = 0;
                 int codeXP = 0;
+                int codeGems = 0; // <--- AÑADIDO: Variable para gemas
                 std::string badgeID = "";
                 std::string bannerID = "";
 
+                // 2. Leer del JSON
                 if (json.contains("rewards")) {
                     auto r = json["rewards"];
                     if (r.contains("super_stars")) codeStars = r["super_stars"].as<int>().unwrapOr(0);
                     if (r.contains("star_tickets")) codeTickets = r["star_tickets"].as<int>().unwrapOr(0);
                     if (r.contains("xp")) codeXP = r["xp"].as<int>().unwrapOr(0);
+                    if (r.contains("gems")) codeGems = r["gems"].as<int>().unwrapOr(0); // <--- AÑADIDO: Leer gemas
                     if (r.contains("badge")) badgeID = r["badge"].as<std::string>().unwrapOr("");
                     if (r.contains("banner")) bannerID = r["banner"].as<std::string>().unwrapOr("");
                 }
@@ -751,9 +762,11 @@ protected:
                     levelsGained = l["levelsGained"].as<int>().unwrapOr(0);
                 }
 
+                // 3. Capturar estado inicial (para notificaciones)
                 int starsStart = g_streakData.superStars;
                 int ticketsStart = g_streakData.starTickets;
                 int xpStart = g_streakData.currentXP;
+                int gemsStart = g_streakData.gems; // <--- AÑADIDO: Inicio de gemas
 
                 bool isNewBadge = false;
                 if (!badgeID.empty()) {
@@ -765,8 +778,10 @@ protected:
                     isNewBanner = !g_streakData.isBannerUnlocked(bannerID);
                 }
 
+                // 4. Actualizar Datos Locales
                 g_streakData.superStars += (codeStars + levelStars);
                 g_streakData.starTickets += (codeTickets + levelTickets);
+                g_streakData.gems += codeGems; // <--- AÑADIDO: Sumar gemas
                 if (codeXP > 0) g_streakData.addXP(codeXP);
 
                 if (isNewBadge) g_streakData.unlockBadge(badgeID);
@@ -774,6 +789,7 @@ protected:
 
                 g_streakData.save();
 
+                // 5. Función para mostrar notificaciones
                 auto showSideNotifications = [=]() {
                     if (codeXP > 0) {
                         RewardNotification::show("xp.png"_spr, xpStart, codeXP);
@@ -787,6 +803,11 @@ protected:
                     int totalTickets = codeTickets + levelTickets;
                     if (totalTickets > 0) {
                         RewardNotification::show("star_tiket.png"_spr, ticketsStart, totalTickets);
+                    }
+
+                    // <--- AÑADIDO: Notificación de Gemas
+                    if (codeGems > 0) {
+                        RewardNotification::show("gem.png"_spr, gemsStart, codeGems);
                     }
 
                     if (isNewBanner && !bannerID.empty()) {
@@ -830,6 +851,7 @@ protected:
                     showSideNotifications();
                 }
 
+                // 6. Callback final (Actualiza el InfoPopup)
                 if (m_onSuccessCallback) {
                     m_onSuccessCallback();
                 }

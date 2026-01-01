@@ -54,10 +54,11 @@ struct StreakData {
         std::string creator;
     };
 
-
+    std::vector<bool> gemRouletteState;
     std::map<int, std::string> userBadgeCache;
     int currentStreak;
     int streakPointsToday;
+    std::string gemRouletteHash = "";
     int totalStreakPoints;
     bool hasNewStreak;
     bool isTaskEnabled;
@@ -72,6 +73,8 @@ struct StreakData {
     bool isBanned = false;
     std::string banReason = "";
     int starTickets;
+    int gems;
+    int gemRouletteSpinCount = 0;
     std::string streakID = "";
     std::vector<int> streakCompletedLevels;
     std::map<std::string, int> streakPointsHistory;
@@ -141,6 +144,7 @@ struct StreakData {
         {0, "past1_badge.png"_spr, "Purple Edition", BadgeCategory::MYTHIC, "past1_badge", true, "XJotaBeLikeX"},
         {0, "past2_badge.png"_spr, "green Edition", BadgeCategory::LEGENDARY, "past2_badge", true, "XJotaBeLikeX"},
         {0, "past3_badge.png"_spr, "Red Edition", BadgeCategory::LEGENDARY, "past3_badge", true, "XJotaBeLikeX"},
+        {0, "moon_badge.png"_spr, "Moon", BadgeCategory::EPIC, "moon_badge", true, "XJotaBeLikeX"},
 
         //misiones
         {0, "shiver_badge.png"_spr, "Shiver!", BadgeCategory::SPECIAL, "shiver_badge", true, "XJotaBeLikeX"},
@@ -159,11 +163,11 @@ struct StreakData {
         {0, "tlt.png"_spr, "The Living Tombstone", BadgeCategory::EPIC, "tlt_badge", true, "XJotaBeLikeX"},
 
         // shop
-        {0, "Frostbite_badge.png"_spr, "Frostbite", BadgeCategory::SPECIAL, "Frostbite_badge", true, "la Fluffaroni"},
-        {0, "Skybound_badge.png"_spr, "Skybound", BadgeCategory::EPIC, "Skybound_badge", true, "la Fluffaroni"},
-        {0, "Steampunk_Dash_badge.png"_spr, "Steampunk", BadgeCategory::COMMON, "Steampunk_Dash_badge", true, "la Fluffaroni"},
+        {0, "Frostbite_badge.png"_spr, "Frostbite", BadgeCategory::SPECIAL, "Frostbite_badge", true, "LaFluffaroni"},
+        {0, "Skybound_badge.png"_spr, "Skybound", BadgeCategory::EPIC, "Skybound_badge", true, "LaFluffaroni"},
+        {0, "Steampunk_Dash_badge.png"_spr, "Steampunk", BadgeCategory::COMMON, "Steampunk_Dash_badge", true, "LaFluffaroni"},
         {0, "money_badge.png"_spr, "Money Money", BadgeCategory::SPECIAL, "money_badge", true, "XJotaBeLikeX"},
-        {0, "Skeletal_Shenanigans_badge.png"_spr, "Skeletal Shenanigans", BadgeCategory::LEGENDARY, "Skeletal_Shenanigans_badge", true, "la Fluffaroni"},
+        {0, "Skeletal_Shenanigans_badge.png"_spr, "Skeletal Shenanigans", BadgeCategory::LEGENDARY, "Skeletal_Shenanigans_badge", true, "LaFluffaroni"},
         {0, "random_badge.png"_spr, "GD Randomizer", BadgeCategory::SPECIAL, "random_badge", true, "XJotaBeLikeX"},
         {0, "mai_badge.png"_spr, "Mai Waifu", BadgeCategory::EPIC, "mai_badge", true, "XJotaBeLikeX"},
 
@@ -209,9 +213,9 @@ struct StreakData {
             {"banner_10", "banner10.png"_spr, "peace", BadgeCategory::LEGENDARY, "XJotaBeLikeX"},
             {"banner_11", "banner11.png"_spr, "Awww", BadgeCategory::SPECIAL, "XJotaBeLikeX"},
             {"banner_12", "banner12.png"_spr, "Ok?..", BadgeCategory::COMMON, "XJotaBeLikeX"},
-            {"banner_13", "banner13.png"_spr, "I am the Bloodlust", BadgeCategory::EPIC, "la Fluffaroni"},
-            {"banner_14", "banner14.png"_spr, "red prison", BadgeCategory::COMMON, "la Fluffaroni"},
-            {"banner_15", "banner15.png"_spr, "I always come back", BadgeCategory::MYTHIC, "la Fluffaroni"},
+            {"banner_13", "banner13.png"_spr, "I am the Bloodlust", BadgeCategory::EPIC, "LaFluffaroni"},
+            {"banner_14", "banner14.png"_spr, "red prison", BadgeCategory::COMMON, "LaFluffaroni"},
+            {"banner_15", "banner15.png"_spr, "I always come back", BadgeCategory::MYTHIC, "LaFluffaroni"},
             {"banner_16", "banner16.png"_spr, "Miku v2", BadgeCategory::SPECIAL, "XJotaBeLikeX"},
             {"banner_17", "banner17.png"_spr, "Where am I?", BadgeCategory::LEGENDARY, "XJotaBeLikeX"},
             {"banner_18", "banner18.png"_spr, "there we go", BadgeCategory::EPIC, "XJotaBeLikeX"},
@@ -238,6 +242,15 @@ struct StreakData {
             {"banner_39", "banner39.png"_spr, "Emerald Realm", BadgeCategory::LEGENDARY, "XJotaBeLikeX"},
             {"banner_40", "banner40.png"_spr, "Stellar", BadgeCategory::MYTHIC, "XJotaBeLikeX"},
             {"banner_41", "banner41.png"_spr, "V.I.P", BadgeCategory::MYTHIC, "XJotaBeLikeX"},
+            {"banner_42", "banner42.png"_spr, "pink flowers", BadgeCategory::EPIC, "XJotaBeLikeX"},
+            {"banner_43", "banner43.png"_spr, "light party", BadgeCategory::SPECIAL, "XJotaBeLikeX"},
+            {"banner_44", "banner44.png"_spr, "magic night", BadgeCategory::MYTHIC, "XJotaBeLikeX"},
+            {"banner_45", "banner45.png"_spr, "Emerald Realm II", BadgeCategory::MYTHIC, "XJotaBeLikeX"},
+            {"banner_46", "banner46.png"_spr, "FNAF 2", BadgeCategory::EPIC, "XJotaBeLikeX"},
+            {"banner_47", "banner47.png"_spr, "FNAF 2 Room", BadgeCategory::SPECIAL, "XJotaBeLikeX"},
+            {"banner_48", "banner48.png"_spr, "what's up", BadgeCategory::COMMON, "XJotaBeLikeX"},
+            {"banner_49", "banner49.png"_spr, "mountains", BadgeCategory::SPECIAL, "XJotaBeLikeX"}
+            
     };
 
 
@@ -295,6 +308,7 @@ struct StreakData {
     struct LevelRewards {
         int stars;
         int tickets;
+        int gems;
     };
     LevelRewards getRewardsForLevel(int level);
 };

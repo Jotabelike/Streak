@@ -36,7 +36,7 @@ class $modify(MyProfilePage, ProfilePage) {
         spinner->setLoading("");
         spinner->setScale(scale);
 
-       
+
         auto dummyNode = CCNode::create();
         dummyNode->setContentSize({ 30.f, 30.f });
 
@@ -191,9 +191,7 @@ class $modify(MyProfilePage, ProfilePage) {
                 if (auto oldLoad = username_menu->getChildByID(LOADING_BADGE_ID)) {
                     oldLoad->removeFromParent();
                 }
-                username_menu->addChild(
-                    this->createSpinnerItem(LOADING_BADGE_ID)
-                );
+
                 username_menu->updateLayout();
             }
 

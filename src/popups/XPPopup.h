@@ -62,11 +62,29 @@ protected:
             m_list->m_contentLayer->addChild(lblLvl);
 
             auto rewards = g_streakData.getRewardsForLevel(i);
-            float iconX = 120.f;
+            float iconX = 90.f;
 
+          
+            if (rewards.gems > 0) {
+
+                auto gemIcon = CCSprite::create("gem.png"_spr);
+                gemIcon->setScale(0.25f);
+                gemIcon->setPosition({ iconX, yPos });
+                m_list->m_contentLayer->addChild(gemIcon);
+
+                auto gemTxt = CCLabelBMFont::create(fmt::format("x{}", rewards.gems).c_str(), "bigFont.fnt");
+                gemTxt->setScale(0.35f);
+                gemTxt->setAnchorPoint({ 0.f, 0.5f });
+                gemTxt->setPosition({ iconX + 15.f, yPos });
+                m_list->m_contentLayer->addChild(gemTxt);
+
+                iconX += 70.f; 
+            }
+
+          
             if (rewards.stars > 0) {
                 auto starIcon = CCSprite::create("super_star.png"_spr);
-                starIcon->setScale(0.2f);
+                starIcon->setScale(0.25f);
                 starIcon->setPosition({ iconX, yPos });
                 m_list->m_contentLayer->addChild(starIcon);
 
@@ -75,9 +93,11 @@ protected:
                 starTxt->setAnchorPoint({ 0.f, 0.5f });
                 starTxt->setPosition({ iconX + 15.f, yPos });
                 m_list->m_contentLayer->addChild(starTxt);
-                iconX += 70.f;
+
+                iconX += 70.f;  
             }
 
+        
             if (rewards.tickets > 0) {
                 auto tickIcon = CCSprite::create("star_tiket.png"_spr);
                 tickIcon->setScale(0.25f);
@@ -89,8 +109,9 @@ protected:
                 tickTxt->setAnchorPoint({ 0.f, 0.5f });
                 tickTxt->setPosition({ iconX + 15.f, yPos });
                 m_list->m_contentLayer->addChild(tickTxt);
-            }
 
+              
+            }
            
             float indicatorX = listSize.width - 30.f;
 

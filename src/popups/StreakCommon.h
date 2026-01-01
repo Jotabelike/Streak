@@ -65,23 +65,23 @@ inline ccColor3B getBrightQualityColor(StreakData::BadgeCategory category) {
 
 
 inline std::vector<LevelMission> g_levelMissions = {
-    {44062068,  "Future Funk",         "dual_badge",    LevelRewardType::StarTickets,  25,     "star_tiket.png"_spr,    "+25 Tickets"},
+    {44062068,  "Future Funk",         "dual_badge",    LevelRewardType::StarTickets,  7500,     "star_tiket.png"_spr,    "+7500 Tickets"},
     {34085027,  "B",                   "b_badge",       LevelRewardType::None,          0,     "",                      ""},
-    {125070012, "The Towerverse II",   "ttv_badge",     LevelRewardType::SuperStars,    5,     "super_star.png"_spr,    "+5 Super Stars"},
+    {125070012, "The Towerverse II",   "ttv_badge",     LevelRewardType::SuperStars,    40,     "super_star.png"_spr,    "+40 Super Stars"},
     {90475473,  "Change of Scene",     "cos_badge",     LevelRewardType::None,          0,     "",                      ""},
-    {89886591,  "iSpyWithMyLittleEye", "spy_badge",     LevelRewardType::StarTickets,  50,      "star_tiket.png"_spr,   "+50 Tickets"},
-    {56210242,  "Shiver",              "shiver_badge",  LevelRewardType::SuperStars,    3,      "super_star.png"_spr,   "+3 Super Stars"},
-    {58270823,  "Nantendo",            "nantendo_badge",LevelRewardType::StarTickets,  100,     "star_tiket.png"_spr,   "+100 Star tickets"},
-    {126094460, "Funhouse",            "funhouse_badge",LevelRewardType::SuperStars,    10,     "super_star.png"_spr,   "+10 Super Stars"},
-    {114832829, "Miku Party",          "miku_badge",    LevelRewardType::SuperStars,    15,     "super_star.png"_spr,   "+15 Super Stars"},
-    {96978035,  "Oxidize",             "cobre_badge",   LevelRewardType::SuperStars,   10,     "super_star.png"_spr,   "+10 Super Stars"},
-    {103032383, "Koi no uta",          "tsukasa_badge", LevelRewardType::StarTickets,   120,    "star_tiket.png"_spr,   "+120 Star Tickets"},
-    {113469866, "Skybound",            "Skybound_badge",LevelRewardType::SuperStars,     5,      "super_star.png"_spr,        "+5 Super Stars"},
-    {118509879, "Skeletal Shenanigans","Skeletal_Shenanigans_badge", LevelRewardType::SuperStars, 10, "super_star.png"_spr, "+10 Super Stars"},
-    {112690334, "Frostbite",           "Frostbite_badge", LevelRewardType::SuperStars,   75,      "star_tiket.png"_spr,        "+75 Star Tickets" },
-	{126765939, "GD Randomizer",      "random_badge", LevelRewardType::StarTickets, 700, "star_tiket.png"_spr, "+700 Star Tickets" },
-    {38637027, "Wild","tlt_badge", LevelRewardType::StarTickets, 800, "star_tiket.png"_spr, "+800 Star Tickets" },
-    {109508844, "Stargaze","ncs_badge", LevelRewardType::SuperStars, 30, "super_star.png"_spr, "+30 Super Stars" }
+    {89886591,  "iSpyWithMyLittleEye", "spy_badge",     LevelRewardType::StarTickets,  3000,      "star_tiket.png"_spr,   "+3000 Tickets"},
+    {56210242,  "Shiver",              "shiver_badge",  LevelRewardType::SuperStars,    35,      "super_star.png"_spr,   "+35 Super Stars"},
+    {58270823,  "Nantendo",            "nantendo_badge",LevelRewardType::StarTickets,  8300,     "star_tiket.png"_spr,   "+8300 Star tickets"},
+    {126094460, "Funhouse",            "funhouse_badge",LevelRewardType::SuperStars,    20,     "super_star.png"_spr,   "+20 Super Stars"},
+    {114832829, "Miku Party",          "miku_badge",    LevelRewardType::SuperStars,    20,     "super_star.png"_spr,   "+20 Super Stars"},
+    {96978035,  "Oxidize",             "cobre_badge",   LevelRewardType::SuperStars,   60,     "super_star.png"_spr,   "+60 Super Stars"},
+    {103032383, "Koi no uta",          "tsukasa_badge", LevelRewardType::StarTickets,   7000,    "star_tiket.png"_spr,   "+7000 Star Tickets"},
+    {113469866, "Skybound",            "Skybound_badge",LevelRewardType::SuperStars,     10,      "super_star.png"_spr,        "+10 Super Stars"},
+    {118509879, "Skeletal Shenanigans","Skeletal_Shenanigans_badge", LevelRewardType::SuperStars, 75, "super_star.png"_spr, "+75 Super Stars"},
+    {112690334, "Frostbite",           "Frostbite_badge", LevelRewardType::SuperStars,   15,      "super_star.png"_spr,        "+15 Star Tickets" },
+	{126765939, "GD Randomizer",      "random_badge", LevelRewardType::StarTickets, 4000, "star_tiket.png"_spr, "+4000 Star Tickets" },
+    {38637027, "Wild","tlt_badge", LevelRewardType::StarTickets, 8000, "star_tiket.png"_spr, "+8000 Star Tickets" },
+    {109508844, "Stargaze","ncs_badge", LevelRewardType::SuperStars, 40, "super_star.png"_spr, "+40 Super Stars" }
   
 
 

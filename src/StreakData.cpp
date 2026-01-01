@@ -11,6 +11,9 @@
 #include "SystemNotification.h"
 #include "RewardNotification.h"
 
+// --- IMPORTANTE: Declaramos la función externa aquí ---
+extern void completeLevelInFirebase(int stars);
+
 std::queue<NotificationData> SystemNotification::s_queue;
 SystemNotification* SystemNotification::s_activeNotification = nullptr;
 
@@ -23,6 +26,8 @@ void StreakData::resetToDefault() {
     hasNewStreak = false;
     lastDay = "";
     equippedBadge = "";
+    gemRouletteHash = "";
+    gems = 0;
     superStars = 0;
     globalRank = 0;
     streakID = "";
@@ -34,6 +39,8 @@ void StreakData::resetToDefault() {
     lastRouletteIndex = 0;
     totalSpins = 0;
     currentXP = 0;
+    gemRouletteSpinCount = 0;
+    gemRouletteState.assign(7, false);
     currentLevel = 1;
     isTaskEnabled = false;
     taskStatuses.clear();
@@ -76,28 +83,62 @@ void StreakData::save() {
 }
 
 void StreakData::parseServerResponse(const matjson::Value& data) {
-    currentStreak = data["current_streak_days"].as<int>().unwrapOr(0);
-    lastStreakAnimated = data["last_streak_animated"].as<int>().unwrapOr(0);
-    totalStreakPoints = data["total_streak_points"].as<int>().unwrapOr(0);
+    auto safeInt = [](const matjson::Value& json, const std::string& key, int defaultVal = 0) -> int {
+        if (!json.contains(key)) return defaultVal;
+        auto val = json[key];
+        if (val.isNumber()) return val.as<int>().unwrapOr(defaultVal);
+        if (val.isString()) {
+            std::string s = val.as<std::string>().unwrapOr("");
+            try { return std::stoi(s); }
+            catch (...) { return defaultVal; }
+        }
+        return defaultVal;
+        };
+
+    currentStreak = safeInt(data, "current_streak_days", 0);
+    lastStreakAnimated = safeInt(data, "last_streak_animated", 0);
+    totalStreakPoints = safeInt(data, "total_streak_points", 0);
+
     equippedBadge = data["equipped_badge_id"].as<std::string>().unwrapOr("");
     equippedBanner = data["equipped_banner_id"].as<std::string>().unwrapOr("");
-    superStars = data["super_stars"].as<int>().unwrapOr(0);
-    starTickets = data["star_tickets"].as<int>().unwrapOr(0);
-    lastRouletteIndex = data["last_roulette_index"].as<int>().unwrapOr(0);
-    totalSpins = data["total_spins"].as<int>().unwrapOr(0);
-    lastDay = data["last_day"].as<std::string>().unwrapOr("");
-    streakPointsToday = data["streakPointsToday"].as<int>().unwrapOr(0);
-    streakID = data["streakID"].as<std::string>().unwrapOr("Pending...");
-    currentXP = data["current_xp"].as<int>().unwrapOr(0);
-    currentLevel = data["current_level"].as<int>().unwrapOr(1);
 
-    hasNewStreak = false;
+    superStars = safeInt(data, "super_stars", 0);
+    starTickets = safeInt(data, "star_tickets", 0);
+    lastRouletteIndex = safeInt(data, "last_roulette_index", 0);
+    totalSpins = safeInt(data, "total_spins", 0);
+
+    lastDay = data["last_day"].as<std::string>().unwrapOr("");
+
+    streakPointsToday = safeInt(data, "streakPointsToday", 0);
+
+    gems = safeInt(data, "gems", 0);
+    gemRouletteSpinCount = safeInt(data, "gem_roulette_spin_count", 0);
+    gemRouletteHash = data["gem_roulette_hash"].as<std::string>().unwrapOr("");
+
+    if (data.contains("gem_roulette_state")) {
+        gemRouletteState = data["gem_roulette_state"].as<std::vector<bool>>().unwrapOr(std::vector<bool>(7, false));
+    }
+    else {
+        gemRouletteState.assign(7, false);
+    }
+
+    streakID = data["streakID"].as<std::string>().unwrapOr("Pending...");
+    currentXP = safeInt(data, "current_xp", 0);
+    currentLevel = safeInt(data, "current_level", 1);
+
+    int reqPoints = this->getRequiredPoints();
+    if (streakPointsToday >= reqPoints && reqPoints > 0) {
+        hasNewStreak = true;
+    }
+    else {
+        hasNewStreak = false;
+    }
 
     if (data.contains("rank")) {
-        globalRank = data["rank"].as<int>().unwrapOr(0);
+        globalRank = safeInt(data, "rank", 0);
     }
     else if (data.contains("global_rank")) {
-        globalRank = data["global_rank"].as<int>().unwrapOr(0);
+        globalRank = safeInt(data, "global_rank", 0);
     }
 
     if (data.contains("task_enabled")) {
@@ -128,12 +169,12 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
             if (roleStr == "admin" || roleStr == "administrator") userRole = 2;
             else if (roleStr == "moderator" || roleStr == "mod") userRole = 1;
         }
-        else if (data["role"].isNumber()) {
-            userRole = data["role"].as<int>().unwrapOr(0);
+        else {
+            userRole = safeInt(data, "role", 0);
         }
     }
 
-    dailyMsgCount = data["daily_msg_count"].as<int>().unwrapOr(0);
+    dailyMsgCount = safeInt(data, "daily_msg_count", 0);
     isBanned = data["ban"].as<bool>().unwrapOr(false);
     banReason = data["ban_reason"].as<std::string>().unwrapOr("No reason provided.");
 
@@ -193,7 +234,13 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     if (data.contains("history")) {
         auto h = data["history"].as<std::map<std::string, matjson::Value>>();
         if (h.isOk()) {
-            for (const auto& [date, val] : h.unwrap()) streakPointsHistory[date] = val.as<int>().unwrapOr(0);
+            for (const auto& [date, val] : h.unwrap()) {
+                if (val.isNumber()) streakPointsHistory[date] = val.as<int>().unwrapOr(0);
+                else if (val.isString()) {
+                    try { streakPointsHistory[date] = std::stoi(val.as<std::string>().unwrapOr("0")); }
+                    catch (...) { streakPointsHistory[date] = 0; }
+                }
+            }
         }
     }
 
@@ -275,7 +322,6 @@ bool StreakData::isBadgeEquipped(const std::string& badgeID) {
 
 void StreakData::dailyUpdate() {
     if (!isDataLoaded) return;
-
     time_t now_t = time(nullptr);
     std::string today = getCurrentDate();
     if (today.empty()) return;
@@ -284,6 +330,7 @@ void StreakData::dailyUpdate() {
         lastDay = today;
         streakPointsToday = 0;
         dailyMsgCount = 0;
+        // Reset missions
         pointMission1Claimed = false;
         pointMission2Claimed = false;
         pointMission3Claimed = false;
@@ -300,16 +347,16 @@ void StreakData::dailyUpdate() {
     dailyMsgCount = 0;
     lastDay = today;
     hasNewStreak = false;
+    // Reset missions
     pointMission1Claimed = false;
     pointMission2Claimed = false;
     pointMission3Claimed = false;
     pointMission4Claimed = false;
     pointMission5Claimed = false;
     pointMission6Claimed = false;
-
-    save();
 }
 
+// CORRECCIÓN AQUÍ: Función limpia sin código pegado dentro
 void StreakData::checkRewards() {
     bool changed = false;
     if (unlockedBadges.size() != badges.size()) unlockedBadges.assign(badges.size(), false);
@@ -326,61 +373,49 @@ void StreakData::checkRewards() {
     if (changed) save();
 }
 
+// CORRECCIÓN AQUÍ: Evitamos duplicación delegando todo al servidor
 void StreakData::addPoints(int count) {
     if (!isDataLoaded) return;
     if (count <= 0) return;
 
+    // Lógica de tiempo
+    static auto s_lastPointTime = std::chrono::steady_clock::time_point();
+    static int s_lastPointAmount = -1;
     auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastPointTime).count();
-    if (elapsed < 1000) {
-        return;
-    }
-    lastPointTime = now;
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastPointTime).count();
+    if (elapsed < 500) return;
+    if (elapsed < 2000 && count == s_lastPointAmount) return;
+
+    s_lastPointTime = now;
+    s_lastPointAmount = count;
+    this->lastPointTime = now;
 
     dailyUpdate();
 
-    int currentRequired = getRequiredPoints();
-    bool alreadyReachedGoalToday = (streakPointsToday >= currentRequired);
-
-  
+    // Actualización visual local (la barra sube inmediatamente)
     streakPointsToday += count;
     totalStreakPoints += count;
 
     std::string today = getCurrentDate();
     if (!today.empty()) streakPointsHistory[today] = streakPointsToday;
 
-    bool stuckAtZero = (currentStreak == 0 && streakPointsToday >= currentRequired);
+    // NO LLAMAMOS A SAVE() AQUÍ.
 
-    if ((!alreadyReachedGoalToday || stuckAtZero) && streakPointsToday >= currentRequired && !hasNewStreak) {
-        currentStreak++;
-        hasNewStreak = true;
+    // Cálculo de estrellas para enviar
+    int starsToSend = 1;
+    if (count >= 6) starsToSend = 10;
+    else if (count >= 5) starsToSend = 9;
+    else if (count >= 4) starsToSend = 7;
+    else if (count >= 3) starsToSend = 5;
+    else if (count >= 2) starsToSend = 4;
+    else starsToSend = 1;
 
- 
-        int starsToSend = 1;
-        if (count >= 6) starsToSend = 10;
-        else if (count >= 5) starsToSend = 9;
-        else if (count >= 4) starsToSend = 7;
-        else if (count >= 3) starsToSend = 5;
-        else if (count >= 2) starsToSend = 4;
-        else starsToSend = 1;
+    // MODIFICACIÓN CLAVE: No calculamos niveles ni recompensas localmente.
+    // Solo enviamos la señal al servidor. El servidor hará la matemática y nos devolverá
+    // el nuevo nivel y las recompensas, evitando duplicación.
 
-        completeLevelInFirebase(starsToSend);
-
-    }
-    else {
-      
-        int starsToSend = 1;
-        if (count >= 6) starsToSend = 10;
-        else if (count >= 5) starsToSend = 9;
-        else if (count >= 4) starsToSend = 7;
-        else if (count >= 3) starsToSend = 5;
-        else if (count >= 2) starsToSend = 4;
-        else starsToSend = 1;
-
-        completeLevelInFirebase(starsToSend);
-
-       
-    }
+    // Llamada segura a función externa
+    completeLevelInFirebase(starsToSend);
 }
 
 bool StreakData::shouldShowAnimation() {
@@ -491,15 +526,24 @@ void StreakData::addXP(int amount) {
     if (levelsGained > 0) {
         int totalStarsGained = 0;
         int totalTicketsGained = 0;
+        int totalGemsGained = 0;
 
         for (int i = 1; i <= levelsGained; i++) {
             auto rewards = getRewardsForLevel(preLevel + i);
             totalStarsGained += rewards.stars;
             totalTicketsGained += rewards.tickets;
+            totalGemsGained += rewards.gems;
         }
+
+        int startGems = this->gems;
+        int startStars = this->superStars;
+        int startTickets = this->starTickets;
 
         this->superStars += totalStarsGained;
         this->starTickets += totalTicketsGained;
+        this->gems += totalGemsGained;
+
+        // Guardamos
         this->save();
 
         SystemNotification::show(
@@ -508,6 +552,10 @@ void StreakData::addXP(int amount) {
             "xp.png"_spr,
             0.3f
         );
+
+        if (totalGemsGained > 0) RewardNotification::show("gem.png"_spr, startGems, totalGemsGained);
+        if (totalStarsGained > 0) RewardNotification::show("super_star.png"_spr, startStars, totalStarsGained);
+        if (totalTicketsGained > 0) RewardNotification::show("star_tiket.png"_spr, startTickets, totalTicketsGained);
     }
     else {
         this->save();
@@ -517,6 +565,7 @@ void StreakData::addXP(int amount) {
 StreakData::LevelRewards StreakData::getRewardsForLevel(int level) {
     int r_tickets = 0;
     int r_stars = 0;
+    int r_gems = 0;
 
     if (level < 10) r_tickets = 40;
     else if (level < 20) r_tickets = 48;
@@ -531,7 +580,10 @@ StreakData::LevelRewards StreakData::getRewardsForLevel(int level) {
         int tier = (level / 10) - 1;
         r_stars = 20 + (tier * 20);
     }
-    return { r_stars, r_tickets };
+
+    r_gems = ((level - 1) / 10) + 1;
+
+    return { r_stars, r_tickets, r_gems };
 }
 
 void StreakData::unlockBanner(const std::string& bannerID) {

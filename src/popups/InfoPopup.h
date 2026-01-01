@@ -34,6 +34,7 @@ protected:
 
     CCSprite* m_xpIndicator = nullptr;
     CCLabelBMFont* m_xpProgressLabel = nullptr;
+    CCLabelBMFont* m_gemsLabel = nullptr;
 
     EventListener<web::WebTask> m_msgCheckListener;
 
@@ -180,6 +181,21 @@ protected:
         }
 
         this->setTitle("Streak");
+
+        auto gemSprite = CCSprite::create("gem.png"_spr);
+      
+
+        if (gemSprite) {
+            gemSprite->setScale(0.2f); 
+            gemSprite->setPosition({ 25.0f, winSize.height - 25.0f });
+            m_mainLayer->addChild(gemSprite, 10);
+
+            m_gemsLabel = CCLabelBMFont::create("0", "goldFont.fnt");
+            m_gemsLabel->setScale(0.5f);
+            m_gemsLabel->setAnchorPoint({ 0.0f, 0.5f });
+            m_gemsLabel->setPosition({ 45.0f, winSize.height - 25.0f }); 
+            m_mainLayer->addChild(m_gemsLabel, 10);
+        }
 
         float contentCenterY = winSize.height / 2 + 25.0f;
 
@@ -518,6 +534,12 @@ protected:
                 );
             }
         }
+
+       
+        if (m_gemsLabel) {
+            m_gemsLabel->setString(std::to_string(g_streakData.gems).c_str());
+        }
+      
 
         if (m_xpBarFg && m_xpLabel && m_xpProgressLabel) {
             float xpBarWidth = 140.0f;
