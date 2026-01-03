@@ -9,7 +9,7 @@
 #include <Geode/binding/FLAlertLayer.hpp> 
 #include <matjson.hpp>
 #include "../StatusSpinner.h"
-#include "RewardNotification.h"
+#include "../RewardNotification.h"
 
 using namespace geode::prelude;
 
