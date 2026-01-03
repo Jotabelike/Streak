@@ -79,6 +79,8 @@ struct StreakData {
     std::vector<int> streakCompletedLevels;
     std::map<std::string, int> streakPointsHistory;
 
+    long long seasonEndTime = 0; // Timestamp del fin de temporada
+    int pendingSeasonRank = 0;   // 1, 2, o 3 si ganó. 0 si no.
     
     std::chrono::steady_clock::time_point lastPointTime;
 

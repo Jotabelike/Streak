@@ -122,6 +122,13 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
         gemRouletteState.assign(7, false);
     }
 
+    if (data.contains("pending_season_reward")) {
+        pendingSeasonRank = safeInt(data, "pending_season_reward", 0);
+    }
+    else {
+        pendingSeasonRank = 0;
+    }
+
     streakID = data["streakID"].as<std::string>().unwrapOr("Pending...");
     currentXP = safeInt(data, "current_xp", 0);
     currentLevel = safeInt(data, "current_level", 1);
@@ -399,7 +406,7 @@ void StreakData::addPoints(int count) {
     std::string today = getCurrentDate();
     if (!today.empty()) streakPointsHistory[today] = streakPointsToday;
 
-    // NO LLAMAMOS A SAVE() AQUÍ.
+    this->save();
 
     // Cálculo de estrellas para enviar
     int starsToSend = 1;

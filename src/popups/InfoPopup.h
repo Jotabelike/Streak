@@ -20,6 +20,7 @@
 #include "ProfileCardPopup.h"
 #include "TaskPopup.h"
 #include "StProgressPopup.h"
+#include "LevelLockPopup.h"
 
 class InfoPopup : public Popup<> {
 protected:
@@ -508,23 +509,55 @@ protected:
         int currentStreak = g_streakData.currentStreak;
         int pointsToday = g_streakData.streakPointsToday;
         int requiredPoints = g_streakData.getRequiredPoints();
-        float percent = (requiredPoints > 0) ? std::min(static_cast<float>(pointsToday) / requiredPoints, 1.0f) : 0.f;
 
+        // LOG DE DEPURACIÓN
+        log::debug("Visual Update -> Points: {}, Required: {}", pointsToday, requiredPoints);
+
+        // --- CÁLCULO DE PORCENTAJE ---
+        float percent = 0.0f;
+        if (requiredPoints > 0) {
+            percent = static_cast<float>(pointsToday) / static_cast<float>(requiredPoints);
+        }
+
+        // Aseguramos que no pase del 100% ni sea menor a 0
+        if (percent > 1.0f) percent = 1.0f;
+        if (percent < 0.0f) percent = 0.0f;
+
+        // Configuramos la UI
         float barWidth = 140.0f;
         float barHeight = 16.0f;
 
         m_streakLabel->setString(fmt::format("Daily streak: {}", currentStreak).c_str());
+
+        // Aplicamos el tamaño calculado a la barra
         m_barFg->setContentSize({ barWidth * percent, barHeight });
+
+        // Actualizamos el texto numérico
         m_barText->setString(fmt::format("{}/{}", pointsToday, requiredPoints).c_str());
 
+        // Movemos el icono de punto (fueguito pequeño)
         if (m_pointIcon) {
             float startX = (m_mainLayer->getContentSize().width / 2) - (barWidth / 2);
             float newX = startX + (barWidth * percent);
             m_pointIcon->setPositionX(newX);
         }
 
-        std::string indicatorSpriteName = (pointsToday >= requiredPoints) ? g_streakData.getRachaSprite() : "racha0.png"_spr;
+        // --- CORRECCIÓN DEL ICONO DE RACHA (Llama derecha) ---
+        std::string indicatorSpriteName;
 
+        // Si tienes los puntos necesarios (ej: 3/3 o 13/3), mostramos la llama encendida.
+        if (pointsToday >= requiredPoints) {
+            // Si la racha actual es 0 (jugador nuevo) pero ya completó la barra hoy,
+            // mostramos visualmente la racha 1 para que se vea encendida.
+            int visualStreak = (currentStreak > 0) ? currentStreak : 1;
+            indicatorSpriteName = g_streakData.getRachaSprite(visualStreak);
+        }
+        else {
+            // Si no ha completado la meta, mostramos la llama apagada.
+            indicatorSpriteName = "racha0.png"_spr;
+        }
+
+        // Aplicamos la textura (SIN usar variables static para evitar bugs al reabrir)
         if (auto newSprite = CCSprite::create(indicatorSpriteName.c_str())) {
             if (auto newTexture = newSprite->getTexture()) {
                 m_rachaIndicator->setTexture(newTexture);
@@ -540,6 +573,7 @@ protected:
             m_gemsLabel->setString(std::to_string(g_streakData.gems).c_str());
         }
 
+        // --- BARRA DE XP ---
         if (m_xpBarFg && m_xpLabel && m_xpProgressLabel) {
             float xpBarWidth = 140.0f;
             float xpBarHeight = 6.0f;
@@ -557,11 +591,9 @@ protected:
                     fmt::format("{}/{}", currentXP, requiredXP).c_str()
                 );
             }
-
             m_xpBarFg->setContentSize({ xpBarWidth * xpPercent, xpBarHeight });
-            m_xpLabel->setString(
-                fmt::format("Lvl. {}", g_streakData.currentLevel).c_str()
-            );
+
+            m_xpLabel->setString(fmt::format("Lvl. {}", g_streakData.currentLevel).c_str());
 
             if (m_xpIndicator) {
                 float xpStartX = (m_mainLayer->getContentSize().width / 2) - (xpBarWidth / 2);
@@ -634,6 +666,14 @@ protected:
     }
 
     void onOpenLeaderboard(CCObject*) {
+        // --- NUEVA CARACTERÍSTICA: BLOQUEO POR NIVEL ---
+        // Verificamos si el nivel es menor a 7
+        if (g_streakData.currentLevel < 7) {
+            LevelLockPopup::create()->show();
+            return;
+        }
+
+        // Si cumple el nivel, abre el leaderboard normalmente
         LeaderboardPopup::create()->show();
     }
 

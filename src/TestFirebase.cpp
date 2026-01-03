@@ -83,7 +83,8 @@ void updatePlayerDataInFirebase() {
     playerData.set("super_stars", g_streakData.superStars);
     playerData.set("star_tickets", g_streakData.starTickets);
     playerData.set("gems", g_streakData.gems);
-   
+    playerData.set("current_level", g_streakData.currentLevel);
+    playerData.set("current_xp", g_streakData.currentXP);
 
     // --- ESTADOS DE MINIJUEGOS/MISIONES (Se pueden mantener si la lógica es local) ---
     playerData.set("gem_roulette_spin_count", g_streakData.gemRouletteSpinCount);
