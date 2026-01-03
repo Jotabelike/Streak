@@ -556,11 +556,13 @@ protected:
             return;
         }
 
+     
         int amountPerPersonStars = numFromString<int>(m_starsInput->getString()).unwrapOrDefault();
         int amountPerPersonTickets = numFromString<int>(m_ticketsInput->getString()).unwrapOrDefault();
         int amountPerPersonXP = m_xpInput ? numFromString<int>(m_xpInput->getString()).unwrapOrDefault() : 0;
         int amountPerPersonGems = m_gemsInput ? numFromString<int>(m_gemsInput->getString()).unwrapOrDefault() : 0;
 
+      
         m_pendingStars = amountPerPersonStars * uses;
         m_pendingTickets = amountPerPersonTickets * uses;
         m_pendingXP = amountPerPersonXP * uses;
@@ -578,10 +580,13 @@ protected:
 
         matjson::Value rewards = matjson::Value::object();
 
-        if (m_pendingStars > 0) rewards.set("super_stars", m_pendingStars);
-        if (m_pendingTickets > 0) rewards.set("star_tickets", m_pendingTickets);
-        if (m_pendingXP > 0) rewards.set("xp", m_pendingXP);
-        if (m_pendingGems > 0) rewards.set("gems", m_pendingGems);
+       
+
+        if (amountPerPersonStars > 0) rewards.set("super_stars", amountPerPersonStars);
+        if (amountPerPersonTickets > 0) rewards.set("star_tickets", amountPerPersonTickets);
+        if (amountPerPersonXP > 0) rewards.set("xp", amountPerPersonXP);
+        if (amountPerPersonGems > 0) rewards.set("gems", amountPerPersonGems);
+        // -----------------------
 
         if (!m_selectedBadgeID.empty()) rewards.set("badge", m_selectedBadgeID);
         if (!m_selectedBannerID.empty()) rewards.set("banner", m_selectedBannerID);

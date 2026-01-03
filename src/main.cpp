@@ -53,9 +53,11 @@ class $modify(MyPlayLayer, PlayLayer) {
                 log::info("Legally completed level ({} stars -> {} points)", stars, points);
                 g_streakData.addPoints(points);
 
-               
-                if (auto scene = CCDirector::sharedDirector()->getRunningScene()) {
-                    scene->addChild(StreakProgressBar::create(points, before, required), 100);
+
+                if (geode::Mod::get()->getSavedValue<bool>("enable_streak_bar", true)) {
+                    if (auto scene = CCDirector::sharedDirector()->getRunningScene()) {
+                        scene->addChild(StreakProgressBar::create(points, before, required), 100);
+                    }
                 }
             }
         }
@@ -415,53 +417,90 @@ class $modify(MyCommentCell, CommentCell) {
 class $modify(MyPauseLayer, PauseLayer) {
     void customSetup() {
         PauseLayer::customSetup();
-        if (geode::Mod::get()->getSettingValue<bool>("show-in-pause")) {
-            auto winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
-            double posX = Mod::get()->getSettingValue<double>("pause-pos-x");
-            double posY = Mod::get()->getSettingValue<double>("pause-pos-y");
-            int pointsToday = g_streakData.streakPointsToday;
-            int requiredPoints = g_streakData.getRequiredPoints();
-            int streakDays = g_streakData.currentStreak;
-            auto streakNode = CCNode::create();
-            auto streakIcon = CCSprite::create(g_streakData.getRachaSprite().c_str());
+
+        // 1. VERIFICAR MODO (0: Original, 1: Hidden)
+        int mode = geode::Mod::get()->getSavedValue<int>("pause_hud_mode", 0);
+        if (mode == 1) return; // Si es Hidden, salimos.
+
+        auto winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
+
+        // 2. CARGAR CONFIGURACIÓN
+        double posX = Mod::get()->getSavedValue<double>("pause-pos-x", 0.10);
+        double posY = Mod::get()->getSavedValue<double>("pause-pos-y", 0.90);
+        double scale = Mod::get()->getSavedValue<double>("pause-scale", 0.80);
+
+        // Limitamos la escala al cargar también, por seguridad
+        if (scale < 0.5) scale = 0.5;
+        if (scale > 10.0) scale = 10.0;
+
+        int pointsToday = g_streakData.streakPointsToday;
+        int requiredPoints = g_streakData.getRequiredPoints();
+        int streakDays = g_streakData.currentStreak;
+
+        // 3. CREAR NODO
+        auto streakNode = CCNode::create();
+        streakNode->setID("streak-hud-node"_spr);
+        streakNode->setScale(static_cast<float>(scale));
+
+        // --- ICONO DE RACHA ---
+        std::string spriteName = g_streakData.getRachaSprite();
+        CCSprite* streakIcon = nullptr;
+
+        // Intentamos crear el sprite, si falla o el nombre está vacío, usamos uno por defecto
+        if (!spriteName.empty()) {
+            streakIcon = CCSprite::create(spriteName.c_str());
+        }
+        if (!streakIcon) {
+            streakIcon = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
+        }
+
+        if (streakIcon) {
             streakIcon->setScale(0.2f);
             streakNode->addChild(streakIcon);
-            auto daysLabel = CCLabelBMFont::create(
-                CCString::createWithFormat("Day %d", streakDays)->getCString(), "goldFont.fnt"
-            );
-
-
-            daysLabel->setScale(0.35f);
-            daysLabel->setPosition({ 0, -22 });
-            streakNode->addChild(daysLabel);
-            auto pointCounterNode = CCNode::create();
-            pointCounterNode->setPosition({ 0, -37 });
-            streakNode->addChild(pointCounterNode);
-            auto pointLabel = CCLabelBMFont::create(
-                CCString::createWithFormat("%d / %d", pointsToday, requiredPoints)->getCString(), "bigFont.fnt"
-            );
-
-
-            pointLabel->setScale(0.35f);
-            pointCounterNode->addChild(pointLabel);
-            auto pointIcon = CCSprite::create("streak_point.png"_spr);
-            pointIcon->setScale(0.18f);
-            pointCounterNode->addChild(pointIcon);
-
-            pointCounterNode->setContentSize({
-                pointLabel->getScaledContentSize().width + pointIcon->getScaledContentSize().width + 5,
-                pointLabel->getScaledContentSize().height 
-                }
-            );
-
-            pointLabel->setPosition({ -pointIcon->getScaledContentSize().width / 2, 0 });
-            pointIcon->setPosition({ pointLabel->getScaledContentSize().width / 2 + 5, 0 });
-            streakNode->setPosition({
-                winSize.width * static_cast<float>(posX),
-                winSize.height * static_cast<float>(posY)
-                }
-            );
-            this->addChild(streakNode);
         }
+
+        // --- TEXTO DÍAS ---
+        auto daysLabel = CCLabelBMFont::create(
+            CCString::createWithFormat("Day %d", streakDays)->getCString(), "goldFont.fnt"
+        );
+        daysLabel->setScale(0.35f);
+        daysLabel->setPosition({ 0, -22 });
+        streakNode->addChild(daysLabel);
+
+        // --- PUNTOS ---
+        auto pointCounterNode = CCNode::create();
+        pointCounterNode->setPosition({ 0, -37 });
+        streakNode->addChild(pointCounterNode);
+
+        auto pointLabel = CCLabelBMFont::create(
+            CCString::createWithFormat("%d / %d", pointsToday, requiredPoints)->getCString(), "bigFont.fnt"
+        );
+        pointLabel->setScale(0.35f);
+        pointCounterNode->addChild(pointLabel);
+
+        auto pointIcon = CCSprite::create("streak_point.png"_spr);
+        // Si no existe el icono de punto, usamos una estrella del juego
+        if (!pointIcon) pointIcon = CCSprite::createWithSpriteFrameName("starSmall_001.png");
+
+        pointIcon->setScale(0.12f);
+        pointCounterNode->addChild(pointIcon);
+
+        // Ajuste de centro
+        pointCounterNode->setContentSize({
+            pointLabel->getScaledContentSize().width + pointIcon->getScaledContentSize().width + 5,
+            pointLabel->getScaledContentSize().height
+            });
+
+        pointLabel->setPosition({ -pointIcon->getScaledContentSize().width / 2, 0 });
+        pointIcon->setPosition({ pointLabel->getScaledContentSize().width / 2 + 5, 0 });
+
+        // 4. POSICIÓN FINAL
+        streakNode->setPosition({
+            winSize.width * static_cast<float>(posX),
+            winSize.height * static_cast<float>(posY)
+            });
+
+        // IMPORTANTE: Z-Order alto para que se vea
+        this->addChild(streakNode, 100);
     }
 };

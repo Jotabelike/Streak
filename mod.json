@@ -8,7 +8,7 @@
 	},
 	"id": "jotabelike.gd_racha",
 	"name": "Streak!",
-	"version": "v1.10.31-beta.1",
+	"version": "v1.10.31-beta.2",
 	"developer": "XJotabelikeX",
 	"description": "Personal Streak! Prove you're the best and start a streak!",
 	"links": {
@@ -58,37 +58,8 @@
 
 		]
 
-	},
-
-
-	"settings": {
-		"show-in-pause": {
-			"name": "Show Streak in Pause Menu",
-			"description": "Displays your current streak and star progress in the pause menu.",
-			"type": "bool",
-			"default": true
-		},
-		"pause-pos-x": {
-			"name": "Pause Menu X Position",
-			"description": "The horizontal position of the streak display. A higher number moves it to the right.",
-			"type": "float",
-			"default": 0.9,
-			"min": 0,
-			"max": 1,
-			"control": {
-				"slider": true
-			}
-		},
-		"pause-pos-y": {
-			"name": "Pause Menu Y Position",
-			"description": "The vertical position of the streak display. A higher number moves it up.",
-			"type": "float",
-			"default": 0.9,
-			"min": 0,
-			"max": 1,
-			"control": {
-				"slider": true
-			}
-		}
 	}
+
+
+	
 }

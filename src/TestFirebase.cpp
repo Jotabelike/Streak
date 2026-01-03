@@ -201,7 +201,7 @@ void completeLevelInFirebase(int stars) {
                 if (data.contains("super_stars")) g_streakData.superStars = data["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
                 if (data.contains("star_tickets")) g_streakData.starTickets = data["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
                 if (data.contains("current_streak_days")) g_streakData.currentStreak = data["current_streak_days"].as<int>().unwrapOr(g_streakData.currentStreak);
-
+                if (data.contains("gems")) g_streakData.gems = data["gems"].as<int>().unwrapOr(g_streakData.gems);
                 // CORRECCIÓN 2: Sincronización visual obligatoria (Barra de progreso y Racha)
                 // Esto permite que la barra se actualice correctamente sin llamar a save() extra.
                 if (data.contains("streakPointsToday")) g_streakData.streakPointsToday = data["streakPointsToday"].as<int>().unwrapOr(g_streakData.streakPointsToday);

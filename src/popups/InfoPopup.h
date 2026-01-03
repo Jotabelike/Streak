@@ -21,7 +21,6 @@
 #include "TaskPopup.h"
 #include "StProgressPopup.h"
 
-
 class InfoPopup : public Popup<> {
 protected:
     CCLabelBMFont* m_streakLabel = nullptr;
@@ -31,7 +30,6 @@ protected:
     CCSprite* m_pointIcon = nullptr;
     CCLayerGradient* m_xpBarFg = nullptr;
     CCLabelBMFont* m_xpLabel = nullptr;
-
     CCSprite* m_xpIndicator = nullptr;
     CCLabelBMFont* m_xpProgressLabel = nullptr;
     CCLabelBMFont* m_gemsLabel = nullptr;
@@ -41,6 +39,10 @@ protected:
     static int s_lastPendingLevelCount;
     static int s_lastPendingDailyCount;
     static int s_lastNewMsgCount;
+
+    void refreshTimer(float dt) {
+        this->updateDisplay();
+    }
 
     void onCreateProfile(CCObject*) {
         auto am = GJAccountManager::sharedState();
@@ -58,7 +60,6 @@ protected:
         updatePlayerDataInFirebase();
         this->onClose(nullptr);
     }
-  
 
     void checkAllNotifications() {
         int currentPendingLevel = 0;
@@ -183,17 +184,15 @@ protected:
         this->setTitle("Streak");
 
         auto gemSprite = CCSprite::create("gem.png"_spr);
-      
-
         if (gemSprite) {
-            gemSprite->setScale(0.2f); 
+            gemSprite->setScale(0.2f);
             gemSprite->setPosition({ 25.0f, winSize.height - 25.0f });
             m_mainLayer->addChild(gemSprite, 10);
 
             m_gemsLabel = CCLabelBMFont::create("0", "goldFont.fnt");
             m_gemsLabel->setScale(0.5f);
             m_gemsLabel->setAnchorPoint({ 0.0f, 0.5f });
-            m_gemsLabel->setPosition({ 45.0f, winSize.height - 25.0f }); 
+            m_gemsLabel->setPosition({ 45.0f, winSize.height - 25.0f });
             m_mainLayer->addChild(m_gemsLabel, 10);
         }
 
@@ -492,10 +491,11 @@ protected:
             this->checkAllNotifications();
             });
 
-      
         Loader::get()->queueInMainThread([this] {
             this->checkNewMessages();
             });
+
+        this->schedule(schedule_selector(InfoPopup::refreshTimer), 0.2f);
 
         return true;
     }
@@ -524,6 +524,7 @@ protected:
         }
 
         std::string indicatorSpriteName = (pointsToday >= requiredPoints) ? g_streakData.getRachaSprite() : "racha0.png"_spr;
+
         if (auto newSprite = CCSprite::create(indicatorSpriteName.c_str())) {
             if (auto newTexture = newSprite->getTexture()) {
                 m_rachaIndicator->setTexture(newTexture);
@@ -535,11 +536,9 @@ protected:
             }
         }
 
-       
         if (m_gemsLabel) {
             m_gemsLabel->setString(std::to_string(g_streakData.gems).c_str());
         }
-      
 
         if (m_xpBarFg && m_xpLabel && m_xpProgressLabel) {
             float xpBarWidth = 140.0f;
@@ -572,7 +571,6 @@ protected:
         }
     }
 
-
     void onOpenAccount(CCObject*) {
         ProfileData myData;
         auto am = GJAccountManager::sharedState();
@@ -598,7 +596,6 @@ protected:
 
         ProfileCardPopup::create(myData)->show();
     }
-
 
     void onOpenStProgress(CCObject*) {
         StProgressPopup::create()->show();
@@ -680,18 +677,14 @@ protected:
         RoulettePopup::create()->show();
     }
 
-    
-
     void showStreakAnimation(int streakLevel) {
         auto winSize = CCDirector::sharedDirector()->getWinSize();
 
-       
         auto bgLayer = CCLayerColor::create({ 0, 0, 0, 0 });
         bgLayer->setTag(110);
         this->addChild(bgLayer, 1000);
         bgLayer->runAction(CCFadeTo::create(0.5f, 200));
 
-       
         auto contentLayer = CCLayer::create();
         contentLayer->setTag(111);
         contentLayer->ignoreAnchorPointForPosition(false);
@@ -700,20 +693,16 @@ protected:
         contentLayer->setContentSize(winSize);
         this->addChild(contentLayer, 1001);
 
-        
         auto shineGlow = CCSprite::createWithSpriteFrameName("particle_171_001.png");
         if (shineGlow) {
             shineGlow->setPosition(winSize / 2);
             shineGlow->setScale(0.0f);
-
-       
             shineGlow->setColor({ 255, 255, 255 });
             shineGlow->setOpacity(200);
             shineGlow->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
 
             contentLayer->addChild(shineGlow, 1);
 
-           
             shineGlow->runAction(CCSequence::create(
                 CCDelayTime::create(0.1f),
                 CCEaseSineOut::create(CCScaleTo::create(1.0f, 7.5f)),
@@ -723,21 +712,18 @@ protected:
             shineGlow->runAction(CCRepeatForever::create(CCRotateBy::create(15.0f, 360.f)));
         }
 
-      
         auto titleSprite = CCSprite::create("NewStreak.png"_spr);
         if (titleSprite) {
             titleSprite->setPosition({ winSize.width / 2, winSize.height / 2 + 110.f });
             titleSprite->setScale(0.0f);
             contentLayer->addChild(titleSprite, 3);
 
-         
             titleSprite->runAction(CCSequence::create(
                 CCDelayTime::create(0.2f),
                 CCEaseBackOut::create(CCScaleTo::create(0.5f, 1.0f)),
                 nullptr
             ));
 
-            
             titleSprite->runAction(CCSequence::create(
                 CCDelayTime::create(1.0f),
                 CCRepeatForever::create(CCSequence::create(
@@ -749,21 +735,18 @@ protected:
             ));
         }
 
-     
         auto rachaSprite = CCSprite::create(g_streakData.getRachaSprite().c_str());
         if (rachaSprite) {
             rachaSprite->setPosition(winSize / 2);
             rachaSprite->setScale(0.0f);
             contentLayer->addChild(rachaSprite, 2);
 
-           
             rachaSprite->runAction(CCSequence::create(
                 CCDelayTime::create(0.3f),
                 CCEaseElasticOut::create(CCScaleTo::create(1.2f, 1.0f), 0.6f),
                 nullptr
             ));
 
-         
             rachaSprite->runAction(CCSequence::create(
                 CCDelayTime::create(1.5f),
                 CCRepeatForever::create(CCSequence::create(
@@ -774,7 +757,6 @@ protected:
                 nullptr
             ));
 
-          
             rachaSprite->runAction(CCSequence::create(
                 CCDelayTime::create(1.5f),
                 CCRepeatForever::create(CCSequence::create(
@@ -786,7 +768,6 @@ protected:
             ));
         }
 
-     
         auto daysLabel = CCLabelBMFont::create(
             fmt::format("Day {}!", streakLevel).c_str(),
             "goldFont.fnt"
@@ -801,7 +782,6 @@ protected:
             nullptr
         ));
 
-        
         FMODAudioEngine::sharedEngine()->playEffect("achievement.mp3"_spr);
 
         contentLayer->runAction(CCSequence::create(

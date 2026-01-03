@@ -5,6 +5,8 @@
 #include <Geode/utils/web.hpp> 
 #include "../StreakData.h"
 #include "HistoryPopup.h" 
+#include <Geode/ui/TextInput.hpp>
+
 
 using namespace geode::prelude;
 
@@ -12,15 +14,21 @@ class SettingsPopup : public Popup<> {
 protected:
     ScrollLayer* m_scrollLayer = nullptr;
     float m_listWidth = 230.0f;
+    CCNode* m_posContainer = nullptr;
+    TextInput* m_inputX = nullptr;
+    TextInput* m_inputY = nullptr;
+    TextInput* m_inputScale = nullptr;
+ 
 
     std::vector<std::string> m_listOptions = { "10", "50" };
+    std::vector<std::string> m_pauseModes = { "On", "Off" };
 
-    CCNode* createBaseCell() {
+    CCNode* createBaseCell(float height = 40.f) { 
         auto cell = CCNode::create();
-        cell->setContentSize({ m_listWidth, 40.f });
+        cell->setContentSize({ m_listWidth, height });
 
         auto cellBg = CCScale9Sprite::create("geode.loader/GE_square03.png");
-        cellBg->setContentSize({ m_listWidth, 40.f });
+        cellBg->setContentSize({ m_listWidth, height });
         cellBg->setOpacity(75);
         cellBg->setPosition(cell->getContentSize() / 2);
 
@@ -253,6 +261,198 @@ protected:
         m_scrollLayer->m_contentLayer->addChild(cell);
     }
 
+    void addPauseModeSetting(const std::string& name, const std::string& saveKey, const std::string& infoText) {
+        float cellHeight = 90.0f;
+        auto cell = createBaseCell(cellHeight);
+
+        auto menu = CCMenu::create();
+        menu->setPosition(0, 0);
+        cell->addChild(menu);
+ 
+        float topRowY = 65.0f;
+
+        auto nameLabel = CCLabelBMFont::create(name.c_str(), "goldFont.fnt");
+        nameLabel->setAnchorPoint({ 0.0f, 0.5f });
+        nameLabel->setPosition({ 15.f, topRowY });
+        nameLabel->setScale(0.5f);
+        cell->addChild(nameLabel);
+
+        auto infoSpr = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
+        infoSpr->setScale(0.35f);
+        auto infoBtn = CCMenuItemSpriteExtra::create(infoSpr, this, menu_selector(SettingsPopup::onInfo));
+        infoBtn->setPosition({ 15.f + nameLabel->getScaledContentSize().width + 12.f, topRowY });
+        infoBtn->setUserObject(CCString::create(infoText));
+        menu->addChild(infoBtn);
+
+        int currentVal = Mod::get()->getSavedValue<int>(saveKey, 0);
+        auto valLabel = CCLabelBMFont::create(m_pauseModes[currentVal].c_str(), "bigFont.fnt");
+        valLabel->setScale(0.4f);
+        valLabel->setColor({ 255, 255, 0 });
+        valLabel->setPosition({ m_listWidth - 45.f, topRowY });
+        cell->addChild(valLabel);
+
+        auto arrowL = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        arrowL->setScale(0.35f);
+        auto btnL = CCMenuItemSpriteExtra::create(arrowL, this, menu_selector(SettingsPopup::onPauseArrowLeft));
+        btnL->setPosition({ m_listWidth - 70.f, topRowY });
+        btnL->setUserObject(CCString::create(saveKey));
+        btnL->setUserData(valLabel);
+        menu->addChild(btnL);
+
+        auto arrowR = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        arrowR->setFlipX(true);
+        arrowR->setScale(0.35f);
+        auto btnR = CCMenuItemSpriteExtra::create(arrowR, this, menu_selector(SettingsPopup::onPauseArrowRight));
+        btnR->setPosition({ m_listWidth - 20.f, topRowY });
+        btnR->setUserObject(CCString::create(saveKey));
+        btnR->setUserData(valLabel);
+        menu->addChild(btnR);
+
+       
+        m_posContainer = CCNode::create();
+        m_posContainer->setContentSize({ m_listWidth, 40.f });
+        m_posContainer->setPosition({ 0, 0 });
+        m_posContainer->setVisible(true);
+        cell->addChild(m_posContainer);
+
+        float bottomRowY = 25.0f;
+
+         
+        float startX = 15.0f;   
+        float gap = 55.0f;    
+        float inputOff = 22.0f;  
+       
+        float xPos = startX;
+        auto labelX = CCLabelBMFont::create("X:", "chatFont.fnt");
+        labelX->setPosition({ xPos, bottomRowY });
+        labelX->setScale(0.5f);
+        m_posContainer->addChild(labelX);
+
+        m_inputX = TextInput::create(35.f, "0.10", "chatFont.fnt");
+        m_inputX->setFilter("0123456789.");
+        m_inputX->setPosition({ xPos + inputOff, bottomRowY });
+        m_inputX->setScale(0.6f);
+        double savedX = Mod::get()->getSavedValue<double>("pause-pos-x", 0.10);
+        m_inputX->setString(fmt::format("{:.2f}", savedX));
+        m_inputX->setCallback([this](const std::string& val) {
+            try { Mod::get()->setSavedValue<double>("pause-pos-x", std::stod(val)); }
+            catch (...) {}
+            });
+        m_posContainer->addChild(m_inputX);
+
+        
+        float yPos = startX + gap;  
+        auto labelY = CCLabelBMFont::create("Y:", "chatFont.fnt");
+        labelY->setPosition({ yPos, bottomRowY });
+        labelY->setScale(0.5f);
+        m_posContainer->addChild(labelY);
+
+        m_inputY = TextInput::create(35.f, "0.90", "chatFont.fnt");
+        m_inputY->setFilter("0123456789.");
+        m_inputY->setPosition({ yPos + inputOff, bottomRowY });
+        m_inputY->setScale(0.6f);
+        double savedY = Mod::get()->getSavedValue<double>("pause-pos-y", 0.90);
+        m_inputY->setString(fmt::format("{:.2f}", savedY));
+        m_inputY->setCallback([this](const std::string& val) {
+            try { Mod::get()->setSavedValue<double>("pause-pos-y", std::stod(val)); }
+            catch (...) {}
+            });
+        m_posContainer->addChild(m_inputY);
+
+         
+        float sPos = startX + (gap * 2); 
+        auto labelS = CCLabelBMFont::create("S:", "chatFont.fnt");
+        labelS->setPosition({ sPos, bottomRowY });
+        labelS->setScale(0.5f);
+        m_posContainer->addChild(labelS);
+
+        m_inputScale = TextInput::create(35.f, "0.80", "chatFont.fnt");
+        m_inputScale->setFilter("0123456789.");
+        m_inputScale->setPosition({ sPos + inputOff, bottomRowY });
+        m_inputScale->setScale(0.6f);
+        double savedScale = Mod::get()->getSavedValue<double>("pause-scale", 0.80);
+        m_inputScale->setString(fmt::format("{:.2f}", savedScale));
+        m_inputScale->setCallback([this](const std::string& val) {
+            try {
+                double d = std::stod(val);
+                if (d < 0.5) d = 0.5;
+                if (d > 10.0) d = 10.0;
+                Mod::get()->setSavedValue<double>("pause-scale", d);
+            }
+            catch (...) {}
+            });
+        m_posContainer->addChild(m_inputScale);
+
+       
+        float resetPos = startX + (gap * 3) + 5.0f;  
+        auto resetSpr = CCSprite::createWithSpriteFrameName("GJ_updateBtn_001.png");
+        resetSpr->setScale(0.4f);
+        auto resetBtn = CCMenuItemSpriteExtra::create(resetSpr, this, menu_selector(SettingsPopup::onResetPausePos));
+        resetBtn->setPosition({ resetPos, bottomRowY });
+
+        auto controlsMenu = CCMenu::create();
+        controlsMenu->setPosition(0, 0);
+        controlsMenu->addChild(resetBtn);
+        m_posContainer->addChild(controlsMenu);
+
+        m_scrollLayer->m_contentLayer->addChild(cell);
+    }
+
+    void onResetPausePos(CCObject*) {
+        double defX = 0.10;
+        double defY = 0.90;
+        double defScale = 0.80;  
+
+        Mod::get()->setSavedValue<double>("pause-pos-x", defX);
+        Mod::get()->setSavedValue<double>("pause-pos-y", defY);
+        Mod::get()->setSavedValue<double>("pause-scale", defScale);
+
+        if (m_inputX) m_inputX->setString("0.10");
+        if (m_inputY) m_inputY->setString("0.90");
+        if (m_inputScale) m_inputScale->setString("0.80"); 
+
+        Notification::create("Layout Reset", NotificationIcon::Success)->show();
+    }
+
+    void updatePosVisibility(int mode) {
+       
+        if (m_posContainer) {
+            m_posContainer->setVisible(true);
+        }
+    }
+
+ 
+
+    void onPauseArrowLeft(CCObject* sender) {
+        auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
+        auto keyStr = static_cast<CCString*>(btn->getUserObject());
+        auto label = static_cast<CCLabelBMFont*>(btn->getUserData());
+        if (!keyStr) return;
+
+        int current = Mod::get()->getSavedValue<int>(keyStr->getCString(), 0);
+        int next = (current - 1 + m_pauseModes.size()) % m_pauseModes.size();
+        Mod::get()->setSavedValue<int>(keyStr->getCString(), next);
+        label->setString(m_pauseModes[next].c_str());
+
+        // Actualizar visibilidad inputs
+        updatePosVisibility(next);
+    }
+
+    void onPauseArrowRight(CCObject* sender) {
+        auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
+        auto keyStr = static_cast<CCString*>(btn->getUserObject());
+        auto label = static_cast<CCLabelBMFont*>(btn->getUserData());
+        if (!keyStr) return;
+
+        int current = Mod::get()->getSavedValue<int>(keyStr->getCString(), 0);
+        int next = (current + 1) % m_pauseModes.size();
+        Mod::get()->setSavedValue<int>(keyStr->getCString(), next);
+        label->setString(m_pauseModes[next].c_str());
+
+        // Actualizar visibilidad inputs
+        updatePosVisibility(next);
+    }
+
     bool setup() override {
         this->setTitle("Settings");
         auto winSize = m_mainLayer->getContentSize();
@@ -283,31 +483,21 @@ protected:
             ->setAxisAlignment(AxisAlignment::Start)
             ->setAutoGrowAxis(scrollSize.height)
         );
-       
 
-        addToggleSetting(
-            "Welcome Noti",             
-            "enable_welcome_notif",  
-            "Toggle the welcome message on startup" 
+        addButtonSetting(
+            "Streak ID",
+            "Copy",
+            menu_selector(SettingsPopup::onCopyStreakID),
+            "Copy your unique Streak ID"
         );
 
-        addToggleSetting(
-            "Streak Ani",
-            "enable_streak_anim",
-            "Disables the Streak animation"
-        );
+
 
         addImageButtonSetting(
             "History",
             "historial_btn.png"_spr,
             menu_selector(SettingsPopup::onOpenHistory),
             "Check your daily points history"
-        );
-
-        addArrowSetting(
-            "Expand Top List",
-            "leaderboard_capacity_idx",
-            "Show 10 or 50 players"
         );
 
         addImageButtonSetting(
@@ -317,14 +507,40 @@ protected:
             "Join our Discord Server!"
         );
 
-        addButtonSetting(
-            "Streak ID",
-            "Copy",
-            menu_selector(SettingsPopup::onCopyStreakID),
-            "Copy your unique Streak ID"
+     
+        addArrowSetting(
+            "Expand Top List",
+            "leaderboard_capacity_idx",
+            "Show 10 or 50 players"
         );
 
-        addVersionSetting("Mod Version", "1.10.30-beta1");
+       
+        addPauseModeSetting(
+            "Streak counter",
+            "pause_hud_mode",
+            "Streak counter in the pause menu"
+        );
+
+        addToggleSetting(
+            "Streak Bar ",
+            "enable_streak_bar",
+            "Show the Streak progress bar you complete levels."
+        );
+
+        addToggleSetting(
+            "Welcome Noti",
+            "enable_welcome_notif",
+            "Toggle the welcome message on startup"
+        );
+
+        addToggleSetting(
+            "Streak Ani",
+            "enable_streak_anim",
+            "Disables the Streak animation"
+        );
+     
+
+        addVersionSetting("Mod Version", "1.10.31-beta2");
 
         content->updateLayout();
         m_mainLayer->addChild(m_scrollLayer);
