@@ -1,6 +1,6 @@
 #pragma once
 #include <Geode/Geode.hpp>
-#include "StreakData.h"
+#include "../StreakData.h"
 
 using namespace geode::prelude;
 
