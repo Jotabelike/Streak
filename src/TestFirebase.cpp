@@ -156,12 +156,11 @@ void updatePlayerDataInFirebase() {
     }
     playerData.set("completedLevelMissions", completed_levels_obj);
 
-    matjson::Value streakGoalsJson = matjson::Value::object();
+    std::vector<int> goalsArray;
     for (int index : g_streakData.claimedStreakGoals) {
-      
-        streakGoalsJson.set(std::to_string(index), true);
+        goalsArray.push_back(index);
     }
-    playerData.set("claimed_streak_goals", streakGoalsJson);
+    playerData.set("claimed_streak_goals", goalsArray);
 
   
     std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);

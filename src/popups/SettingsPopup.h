@@ -540,7 +540,7 @@ protected:
         );
      
 
-        addVersionSetting("Mod Version", "1.10.31");
+        addVersionSetting("Mod Version", "1.10.32");
 
         content->updateLayout();
         m_mainLayer->addChild(m_scrollLayer);
