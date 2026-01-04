@@ -174,7 +174,7 @@ protected:
             m_roulettePrizes = GemRouletteConfig::getPrizes();
         }
         else {
-            // STANDARD MODE PRIZES
+           
             m_roulettePrizes = {
                 { RewardType::Badge, "freddy_badge", 1, "", "Freddy", 1, StreakData::BadgeCategory::MYTHIC },
                 { RewardType::Badge, "past2_badge", 1, "", "Mythic Past Green", 3, StreakData::BadgeCategory::LEGENDARY },
@@ -457,7 +457,7 @@ protected:
        
         float labelW = m_currencyLabel->getScaledContentSize().width;
         float iconW = m_currencyIcon->getScaledContentSize().width;
-        float spacing = 2.0f; // Espacio mínimo
+        float spacing = 2.0f;  
         float totalWidth = labelW + spacing + iconW;
 
          
@@ -505,7 +505,15 @@ protected:
             g_streakData.save();
         }
 
-        m_mythicColors = { ccc3(255, 0, 0), ccc3(255, 165, 0), ccc3(255, 255, 0), ccc3(0, 255, 0), ccc3(0, 0, 255), ccc3(75, 0, 130), ccc3(238, 130, 238) };
+        m_mythicColors = {
+            ccc3(255, 0, 0),
+            ccc3(255, 165, 0),
+            ccc3(255, 255, 0), 
+            ccc3(0, 255, 0), 
+            ccc3(0, 0, 255), 
+            ccc3(75, 0, 130), 
+            ccc3(238, 130, 238)
+        };
         m_currentColor = m_mythicColors[0]; m_targetColor = m_mythicColors[1];
 
         m_rouletteNode = CCNode::create();
@@ -940,7 +948,6 @@ protected:
         if (m_skipToggle->isToggled()) {
             m_currentSelectorIndex = winningIndices.back();
             m_selectorSprite->setPosition(m_orderedSlots[m_currentSelectorIndex]->getPosition());
- 
             this->spawnImpactParticles(m_orderedSlots[m_currentSelectorIndex]->getPosition());
 
             this->onMultiSpinEnd();
@@ -1138,8 +1145,10 @@ protected:
  
         if (!isMythicAnimation) {
             if (showBadgeNotify) BadgeNotification::show(prize.id);
-            if (pendingTickets > 0) RewardNotification::show("star_tiket.png"_spr, g_streakData.starTickets - pendingTickets, pendingTickets);
-            if (pendingStars > 0) RewardNotification::show("super_star.png"_spr, g_streakData.superStars - pendingStars, pendingStars);
+            if (pendingTickets > 0) RewardNotification::show("star_tiket.png"_spr,
+                g_streakData.starTickets - pendingTickets, pendingTickets);
+            if (pendingStars > 0) RewardNotification::show("super_star.png"_spr,
+                g_streakData.superStars - pendingStars, pendingStars);
         }
     }
 
@@ -1151,7 +1160,9 @@ protected:
             if (m_roulettePrizes[i].type != RewardType::Badge) continue;
             if (g_streakData.isBadgeUnlocked(m_roulettePrizes[i].id) && !m_orderedSlots[i]->getChildByTag(199)) {
                 auto cm = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
-                cm->setScale(0.5f); cm->setPosition({ m_slotSize / 2 - 5, -m_slotSize / 2 + 5 }); cm->setTag(199);
+                cm->setScale(0.5f);
+                cm->setPosition({ m_slotSize / 2 - 5, -m_slotSize / 2 + 5 });
+                cm->setTag(199);
                 m_orderedSlots[i]->addChild(cm, 3);
             }
         }

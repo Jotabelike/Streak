@@ -354,7 +354,7 @@ protected:
     TextInput* m_starsInput;
     TextInput* m_ticketsInput;
     TextInput* m_xpInput = nullptr;
-    TextInput* m_gemsInput = nullptr; // Input para Gemas
+    TextInput* m_gemsInput = nullptr;  
 
     CCLabelBMFont* m_badgeLabel = nullptr;
     CCLabelBMFont* m_bannerLabel = nullptr;
@@ -366,13 +366,13 @@ protected:
     int m_pendingStars = 0;
     int m_pendingTickets = 0;
     int m_pendingXP = 0;
-    int m_pendingGems = 0; // Variable para Gemas
+    int m_pendingGems = 0;  
 
     bool setup() override {
         this->setTitle("Create Code");
         auto winSize = m_mainLayer->getContentSize();
 
-        // Botón Mis Códigos (Izquierda)
+     
         auto myCodesSpr = CCSprite::createWithSpriteFrameName("GJ_menuBtn_001.png");
         myCodesSpr->setScale(0.60f);
         auto myCodesBtn = CCMenuItemSpriteExtra::create(
@@ -384,7 +384,7 @@ protected:
         leftMenu->setPosition({ 25.f, 25.f });
         m_mainLayer->addChild(leftMenu);
 
-        // Menú Superior Derecho (Badge/Banner)
+       
         auto topRightMenu = CCMenu::create();
         topRightMenu->setPosition({ winSize.width - 90.f, winSize.height - 30.f });
         m_mainLayer->addChild(topRightMenu);
@@ -423,7 +423,7 @@ protected:
         m_bannerLabel->limitLabelWidth(70.f, 0.35f, 0.1f);
         m_mainLayer->addChild(m_bannerLabel);
 
-        // --- FILA 1: Nombre y Usos ---
+      
         float row1Y = winSize.height / 2 + 35.f;
 
         m_nameInput = TextInput::create(180.f, "Code Name", "chatFont.fnt");
@@ -437,15 +437,15 @@ protected:
         m_usesInput->setFilter("0123456789");
         m_mainLayer->addChild(m_usesInput);
 
-        // --- FILA 2: RECOMPENSAS (Stars, Tickets, XP, Gems) ---
+       
         float row2Y = winSize.height / 2 - 20.f;
         float iconOffset = 20.f;
 
-        // Posicionamiento para 4 elementos
+        
         float startX = winSize.width / 2 - 120.f;
         float gap = 80.f;
 
-        // 1. Stars
+        
         auto starIcon = CCSprite::create("super_star.png"_spr);
         starIcon->setScale(0.2f);
         starIcon->setPosition({ startX, row2Y + iconOffset });
@@ -456,7 +456,7 @@ protected:
         m_starsInput->setFilter("0123456789");
         m_mainLayer->addChild(m_starsInput);
 
-        // 2. Tickets
+         
         auto ticketIcon = CCSprite::create("star_tiket.png"_spr);
         ticketIcon->setScale(0.25f);
         ticketIcon->setPosition({ startX + gap, row2Y + iconOffset });
@@ -467,7 +467,7 @@ protected:
         m_ticketsInput->setFilter("0123456789");
         m_mainLayer->addChild(m_ticketsInput);
 
-        // 3. XP
+       
         auto xpIcon = CCSprite::create("xp.png"_spr);
         xpIcon->setScale(0.25f);
         xpIcon->setPosition({ startX + (gap * 2), row2Y + iconOffset });
@@ -478,9 +478,8 @@ protected:
         m_xpInput->setFilter("0123456789");
         m_mainLayer->addChild(m_xpInput);
 
-        // 4. Gems (NUEVO)
-        auto gemIcon = CCSprite::create("gem.png"_spr);
-        // Si no tienes gem.png registrado, usará el fallback o null check
+        
+        auto gemIcon = CCSprite::create("gem.png"_spr);       
         if (gemIcon) {
             gemIcon->setScale(0.35f);
             gemIcon->setPosition({ startX + (gap * 3), row2Y + iconOffset });
@@ -492,7 +491,7 @@ protected:
         m_gemsInput->setFilter("0123456789");
         m_mainLayer->addChild(m_gemsInput);
 
-        // Botón Crear
+       
         auto createBtnSpr = ButtonSprite::create(
             "Create Code", 0, 0, "goldFont.fnt", "GJ_button_01.png", 0, 0.8f
         );
@@ -510,7 +509,7 @@ protected:
         return true;
     }
 
-    // --- FUNCIONES QUE FALTABAN O ESTABAN MAL ---
+    
 
     void onOpenMyCodes(CCObject*) {
         MyCodesPopup::create()->show();
@@ -586,7 +585,7 @@ protected:
         if (amountPerPersonTickets > 0) rewards.set("star_tickets", amountPerPersonTickets);
         if (amountPerPersonXP > 0) rewards.set("xp", amountPerPersonXP);
         if (amountPerPersonGems > 0) rewards.set("gems", amountPerPersonGems);
-        // -----------------------
+       
 
         if (!m_selectedBadgeID.empty()) rewards.set("badge", m_selectedBadgeID);
         if (!m_selectedBannerID.empty()) rewards.set("banner", m_selectedBannerID);
@@ -736,22 +735,21 @@ protected:
         if (web::WebResponse* res = e->getValue()) {
             if (res->ok() && res->json().isOk()) {
                 auto json = res->json().unwrap();
-
-                // 1. Variables para recompensas
+ 
                 int codeStars = 0;
                 int codeTickets = 0;
                 int codeXP = 0;
-                int codeGems = 0; // <--- AÑADIDO: Variable para gemas
+                int codeGems = 0;  
                 std::string badgeID = "";
                 std::string bannerID = "";
 
-                // 2. Leer del JSON
+               
                 if (json.contains("rewards")) {
                     auto r = json["rewards"];
                     if (r.contains("super_stars")) codeStars = r["super_stars"].as<int>().unwrapOr(0);
                     if (r.contains("star_tickets")) codeTickets = r["star_tickets"].as<int>().unwrapOr(0);
                     if (r.contains("xp")) codeXP = r["xp"].as<int>().unwrapOr(0);
-                    if (r.contains("gems")) codeGems = r["gems"].as<int>().unwrapOr(0); // <--- AÑADIDO: Leer gemas
+                    if (r.contains("gems")) codeGems = r["gems"].as<int>().unwrapOr(0); 
                     if (r.contains("badge")) badgeID = r["badge"].as<std::string>().unwrapOr("");
                     if (r.contains("banner")) bannerID = r["banner"].as<std::string>().unwrapOr("");
                 }
@@ -767,11 +765,11 @@ protected:
                     levelsGained = l["levelsGained"].as<int>().unwrapOr(0);
                 }
 
-                // 3. Capturar estado inicial (para notificaciones)
+            
                 int starsStart = g_streakData.superStars;
                 int ticketsStart = g_streakData.starTickets;
                 int xpStart = g_streakData.currentXP;
-                int gemsStart = g_streakData.gems; // <--- AÑADIDO: Inicio de gemas
+                int gemsStart = g_streakData.gems;  
 
                 bool isNewBadge = false;
                 if (!badgeID.empty()) {
@@ -783,10 +781,10 @@ protected:
                     isNewBanner = !g_streakData.isBannerUnlocked(bannerID);
                 }
 
-                // 4. Actualizar Datos Locales
+             
                 g_streakData.superStars += (codeStars + levelStars);
                 g_streakData.starTickets += (codeTickets + levelTickets);
-                g_streakData.gems += codeGems; // <--- AÑADIDO: Sumar gemas
+                g_streakData.gems += codeGems;  
                 if (codeXP > 0) g_streakData.addXP(codeXP);
 
                 if (isNewBadge) g_streakData.unlockBadge(badgeID);
@@ -794,7 +792,7 @@ protected:
 
                 g_streakData.save();
 
-                // 5. Función para mostrar notificaciones
+                
                 auto showSideNotifications = [=]() {
                     if (codeXP > 0) {
                         RewardNotification::show("xp.png"_spr, xpStart, codeXP);
@@ -810,7 +808,7 @@ protected:
                         RewardNotification::show("star_tiket.png"_spr, ticketsStart, totalTickets);
                     }
 
-                    // <--- AÑADIDO: Notificación de Gemas
+                   
                     if (codeGems > 0) {
                         RewardNotification::show("gem.png"_spr, gemsStart, codeGems);
                     }
@@ -856,7 +854,7 @@ protected:
                     showSideNotifications();
                 }
 
-                // 6. Callback final (Actualiza el InfoPopup)
+             
                 if (m_onSuccessCallback) {
                     m_onSuccessCallback();
                 }
@@ -904,7 +902,8 @@ protected:
         this->setTitle("Moderation Tool");
         auto winSize = m_mainLayer->getContentSize();
 
-        m_idInput = TextInput::create(200.f, "Target Streak ID", "chatFont.fnt");
+      
+        m_idInput = TextInput::create(220.f, "Streak ID (STK-...) or Account ID", "chatFont.fnt");
         m_idInput->setPosition({
             winSize.width / 2,
             winSize.height / 2 + 35.f
@@ -951,80 +950,74 @@ protected:
     }
 
     void onExecuteBan(CCObject*) {
-        std::string targetIDStr = m_idInput->getString();
+        std::string targetInput = m_idInput->getString();
         std::string reason = m_reasonInput->getString();
 
-        if (targetIDStr.empty()) {
-            Notification::create(
-                "Target ID is empty!",
-                NotificationIcon::Error
-            )->show();
+        if (targetInput.empty()) {
+            Notification::create("Target is empty!", NotificationIcon::Error)->show();
             return;
         }
         if (reason.empty()) {
-            Notification::create(
-                "Ban Reason is required!",
-                NotificationIcon::Error
-            )->show();
+            Notification::create("Reason is required!", NotificationIcon::Error)->show();
             return;
         }
 
         createQuickPopup(
             "Confirm Ban",
             "Are you sure you want to <cr>BAN</c> this user?",
-            "Cancel",
-            "BAN",
-            [this, targetIDStr, reason](FLAlertLayer*, bool btn2) {
+            "Cancel", "BAN",
+            [this, targetInput, reason](FLAlertLayer*, bool btn2) {
                 if (btn2) {
-                    this->sendRequest("ban", targetIDStr, reason);
+                   
+                    this->sendRequest("ban", targetInput, reason);
                 }
             }
         );
     }
 
     void onExecuteUnban(CCObject*) {
-        std::string targetIDStr = m_idInput->getString();
-        if (targetIDStr.empty()) {
-            Notification::create("Account ID required!", NotificationIcon::Error)->show();
+        std::string targetInput = m_idInput->getString();
+        if (targetInput.empty()) {
+            Notification::create("Target required!", NotificationIcon::Error)->show();
             return;
         }
 
         createQuickPopup(
             "Confirm Unban",
             "Are you sure you want to <cg>UNBAN</c> this user?",
-            "Cancel",
-            "UNBAN",
-            [this, targetIDStr](FLAlertLayer*, bool btn2) {
+            "Cancel", "UNBAN",
+            [this, targetInput](FLAlertLayer*, bool btn2) {
                 if (btn2) {
-                    this->sendRequest("unban", targetIDStr, "");
+                  
+                    this->sendRequest("unban", targetInput, "");
                 }
             }
         );
     }
-
-    void sendRequest(std::string endpoint, std::string targetStreakID, std::string reason) {
+     
+    void sendRequest(std::string action, std::string targetInput, std::string reason) {
         m_buttonMenu->setEnabled(false);
-
-        if (targetStreakID.empty()) {
-            Notification::create("Streak ID required!", NotificationIcon::Error)->show();
-            m_buttonMenu->setEnabled(true);
-            return;
-        }
 
         auto am = GJAccountManager::sharedState();
         matjson::Value payload = matjson::Value::object();
+
         payload.set("modAccountID", am->m_accountID);
-        payload.set("targetStreakID", targetStreakID);
+
+        
+        payload.set("targetAccountID", targetInput);
+
+      
+        payload.set("action", action);
 
         if (!reason.empty()) {
             payload.set("reason", reason);
         }
 
         auto req = web::WebRequest();
-        std::string url = fmt::format(
-            "https://streak-servidor.onrender.com/{}",
-            endpoint
-        );
+
+        
+        std::string url = "https://streak-servidor.onrender.com/ban-action";
+
         m_banListener.setFilter(req.bodyJSON(payload).post(url));
     }
 
@@ -1036,18 +1029,19 @@ protected:
 
         if (web::WebResponse* res = e->getValue()) {
             if (res->ok()) {
-                Notification::create(
-                    "Action completed!",
-                    NotificationIcon::Success
-                )->show();
+                Notification::create("Success!", NotificationIcon::Success)->show();
                 this->onClose(nullptr);
             }
             else {
-                std::string errorMsg = fmt::format("Error: Server returned {}", res->code());
+                std::string errorMsg = fmt::format("Error {}", res->code());
                 if (res->json().isOk()) {
-                    errorMsg = res->json().unwrap()["error"].as<std::string>().unwrapOr(errorMsg);
+                   
+                    auto json = res->json().unwrap();
+                    if (json.contains("error")) {
+                        errorMsg = json["error"].as<std::string>().unwrapOr(errorMsg);
+                    }
                 }
-                Notification::create(errorMsg.c_str(), NotificationIcon::Error)->show();
+                FLAlertLayer::create("Error", errorMsg.c_str(), "OK")->show();
             }
         }
     }

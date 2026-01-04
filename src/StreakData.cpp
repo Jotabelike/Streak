@@ -11,7 +11,7 @@
 #include "SystemNotification.h"
 #include "RewardNotification.h"
 
-// --- IMPORTANTE: Declaramos la función externa aquí ---
+
 extern void completeLevelInFirebase(int stars);
 
 std::queue<NotificationData> SystemNotification::s_queue;
@@ -27,6 +27,7 @@ void StreakData::resetToDefault() {
     lastDay = "";
     equippedBadge = "";
     gemRouletteHash = "";
+    claimedStreakGoals.clear();
     gems = 0;
     superStars = 0;
     globalRank = 0;
@@ -98,19 +99,14 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     currentStreak = safeInt(data, "current_streak_days", 0);
     lastStreakAnimated = safeInt(data, "last_streak_animated", 0);
     totalStreakPoints = safeInt(data, "total_streak_points", 0);
-
     equippedBadge = data["equipped_badge_id"].as<std::string>().unwrapOr("");
     equippedBanner = data["equipped_banner_id"].as<std::string>().unwrapOr("");
-
     superStars = safeInt(data, "super_stars", 0);
     starTickets = safeInt(data, "star_tickets", 0);
     lastRouletteIndex = safeInt(data, "last_roulette_index", 0);
     totalSpins = safeInt(data, "total_spins", 0);
-
     lastDay = data["last_day"].as<std::string>().unwrapOr("");
-
     streakPointsToday = safeInt(data, "streakPointsToday", 0);
-
     gems = safeInt(data, "gems", 0);
     gemRouletteSpinCount = safeInt(data, "gem_roulette_spin_count", 0);
     gemRouletteHash = data["gem_roulette_hash"].as<std::string>().unwrapOr("");
@@ -261,6 +257,25 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
         }
     }
 
+    claimedStreakGoals.clear();
+    if (data.contains("claimed_streak_goals")) {
+        auto goalsData = data["claimed_streak_goals"];
+      
+        if (goalsData.isObject()) {
+            for (const auto& [idStr, _] : goalsData.as<std::map<std::string, matjson::Value>>().unwrap()) {
+                try {
+                    claimedStreakGoals.insert(std::stoi(idStr));
+                }
+                catch (...) {}
+            }
+        }
+        else if (goalsData.isArray()) {
+            for (const auto& val : goalsData.as<std::vector<matjson::Value>>().unwrap()) {
+                claimedStreakGoals.insert(val.as<int>().unwrapOr(-1));
+            }
+        }
+    }
+
     this->checkRewards();
     isDataLoaded = true;
     m_initialized = true;
@@ -354,7 +369,7 @@ void StreakData::dailyUpdate() {
     dailyMsgCount = 0;
     lastDay = today;
     hasNewStreak = false;
-    // Reset missions
+ 
     pointMission1Claimed = false;
     pointMission2Claimed = false;
     pointMission3Claimed = false;
@@ -363,7 +378,7 @@ void StreakData::dailyUpdate() {
     pointMission6Claimed = false;
 }
 
-// CORRECCIÓN AQUÍ: Función limpia sin código pegado dentro
+
 void StreakData::checkRewards() {
     bool changed = false;
     if (unlockedBadges.size() != badges.size()) unlockedBadges.assign(badges.size(), false);
@@ -380,12 +395,11 @@ void StreakData::checkRewards() {
     if (changed) save();
 }
 
-// CORRECCIÓN AQUÍ: Evitamos duplicación delegando todo al servidor
+
 void StreakData::addPoints(int count) {
     if (!isDataLoaded) return;
     if (count <= 0) return;
-
-    // Lógica de tiempo
+ 
     static auto s_lastPointTime = std::chrono::steady_clock::time_point();
     static int s_lastPointAmount = -1;
     auto now = std::chrono::steady_clock::now();
@@ -399,7 +413,7 @@ void StreakData::addPoints(int count) {
 
     dailyUpdate();
 
-    // Actualización visual local (la barra sube inmediatamente)
+    
     streakPointsToday += count;
     totalStreakPoints += count;
 
@@ -408,7 +422,7 @@ void StreakData::addPoints(int count) {
 
     this->save();
 
-    // Cálculo de estrellas para enviar
+     
     int starsToSend = 1;
     if (count >= 6) starsToSend = 10;
     else if (count >= 5) starsToSend = 9;
@@ -416,12 +430,7 @@ void StreakData::addPoints(int count) {
     else if (count >= 3) starsToSend = 5;
     else if (count >= 2) starsToSend = 4;
     else starsToSend = 1;
-
-    // MODIFICACIÓN CLAVE: No calculamos niveles ni recompensas localmente.
-    // Solo enviamos la señal al servidor. El servidor hará la matemática y nos devolverá
-    // el nuevo nivel y las recompensas, evitando duplicación.
-
-    // Llamada segura a función externa
+ 
     completeLevelInFirebase(starsToSend);
 }
 
@@ -550,7 +559,7 @@ void StreakData::addXP(int amount) {
         this->starTickets += totalTicketsGained;
         this->gems += totalGemsGained;
 
-        // Guardamos
+       
         this->save();
 
         SystemNotification::show(
@@ -640,4 +649,12 @@ void StreakData::unequipBanner() {
 
 StreakData::BannerInfo* StreakData::getEquippedBanner() {
     return getBannerInfo(equippedBanner);
+}
+
+bool StreakData::isStreakGoalClaimed(int index) const {
+    return claimedStreakGoals.count(index) > 0;
+}
+
+void StreakData::setStreakGoalClaimed(int index) {
+    claimedStreakGoals.insert(index);
 }

@@ -1,9 +1,11 @@
 # Streak!
 
-# 1.10.30
+# 1.10.31
 - Fix bugs
 - Update Support
 - Update Streak Animation
+- New Streak Points Progression
+- seasons were included every 30 days (beta)
 
 # 1.10.2 Banners & Custom Profiles
 - New events

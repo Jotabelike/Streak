@@ -434,7 +434,7 @@ protected:
         Mod::get()->setSavedValue<int>(keyStr->getCString(), next);
         label->setString(m_pauseModes[next].c_str());
 
-        // Actualizar visibilidad inputs
+        
         updatePosVisibility(next);
     }
 
@@ -449,7 +449,7 @@ protected:
         Mod::get()->setSavedValue<int>(keyStr->getCString(), next);
         label->setString(m_pauseModes[next].c_str());
 
-        // Actualizar visibilidad inputs
+       
         updatePosVisibility(next);
     }
 
@@ -540,7 +540,7 @@ protected:
         );
      
 
-        addVersionSetting("Mod Version", "1.10.31-beta3");
+        addVersionSetting("Mod Version", "1.10.31");
 
         content->updateLayout();
         m_mainLayer->addChild(m_scrollLayer);

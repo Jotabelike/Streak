@@ -418,18 +418,18 @@ class $modify(MyPauseLayer, PauseLayer) {
     void customSetup() {
         PauseLayer::customSetup();
 
-        // 1. VERIFICAR MODO (0: Original, 1: Hidden)
+        
         int mode = geode::Mod::get()->getSavedValue<int>("pause_hud_mode", 0);
-        if (mode == 1) return; // Si es Hidden, salimos.
+        if (mode == 1) return;  
 
         auto winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
 
-        // 2. CARGAR CONFIGURACIÓN
+        
         double posX = Mod::get()->getSavedValue<double>("pause-pos-x", 0.10);
         double posY = Mod::get()->getSavedValue<double>("pause-pos-y", 0.90);
         double scale = Mod::get()->getSavedValue<double>("pause-scale", 0.80);
 
-        // Limitamos la escala al cargar también, por seguridad
+      
         if (scale < 0.5) scale = 0.5;
         if (scale > 10.0) scale = 10.0;
 
@@ -437,16 +437,16 @@ class $modify(MyPauseLayer, PauseLayer) {
         int requiredPoints = g_streakData.getRequiredPoints();
         int streakDays = g_streakData.currentStreak;
 
-        // 3. CREAR NODO
+        
         auto streakNode = CCNode::create();
         streakNode->setID("streak-hud-node"_spr);
         streakNode->setScale(static_cast<float>(scale));
 
-        // --- ICONO DE RACHA ---
+        
         std::string spriteName = g_streakData.getRachaSprite();
         CCSprite* streakIcon = nullptr;
 
-        // Intentamos crear el sprite, si falla o el nombre está vacío, usamos uno por defecto
+        
         if (!spriteName.empty()) {
             streakIcon = CCSprite::create(spriteName.c_str());
         }
@@ -459,7 +459,7 @@ class $modify(MyPauseLayer, PauseLayer) {
             streakNode->addChild(streakIcon);
         }
 
-        // --- TEXTO DÍAS ---
+      
         auto daysLabel = CCLabelBMFont::create(
             CCString::createWithFormat("Day %d", streakDays)->getCString(), "goldFont.fnt"
         );
@@ -467,7 +467,7 @@ class $modify(MyPauseLayer, PauseLayer) {
         daysLabel->setPosition({ 0, -22 });
         streakNode->addChild(daysLabel);
 
-        // --- PUNTOS ---
+     
         auto pointCounterNode = CCNode::create();
         pointCounterNode->setPosition({ 0, -37 });
         streakNode->addChild(pointCounterNode);
@@ -479,13 +479,12 @@ class $modify(MyPauseLayer, PauseLayer) {
         pointCounterNode->addChild(pointLabel);
 
         auto pointIcon = CCSprite::create("streak_point.png"_spr);
-        // Si no existe el icono de punto, usamos una estrella del juego
         if (!pointIcon) pointIcon = CCSprite::createWithSpriteFrameName("starSmall_001.png");
 
         pointIcon->setScale(0.12f);
         pointCounterNode->addChild(pointIcon);
 
-        // Ajuste de centro
+        
         pointCounterNode->setContentSize({
             pointLabel->getScaledContentSize().width + pointIcon->getScaledContentSize().width + 5,
             pointLabel->getScaledContentSize().height
@@ -494,13 +493,13 @@ class $modify(MyPauseLayer, PauseLayer) {
         pointLabel->setPosition({ -pointIcon->getScaledContentSize().width / 2, 0 });
         pointIcon->setPosition({ pointLabel->getScaledContentSize().width / 2 + 5, 0 });
 
-        // 4. POSICIÓN FINAL
+        
         streakNode->setPosition({
             winSize.width * static_cast<float>(posX),
             winSize.height * static_cast<float>(posY)
             });
 
-        // IMPORTANTE: Z-Order alto para que se vea
+        
         this->addChild(streakNode, 100);
     }
 };

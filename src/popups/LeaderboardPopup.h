@@ -13,7 +13,6 @@
 
 using namespace geode::prelude;
 
-// --- LeaderboardCell ---
 class LeaderboardCell : public CCLayer {
 protected:
     matjson::Value m_playerData;
@@ -230,7 +229,7 @@ public:
     }
 };
 
-// --- LeaderboardPopup ---
+ 
 class LeaderboardPopup : public Popup<> {
 protected:
     struct Fields {
@@ -458,7 +457,7 @@ protected:
             myRank = g_streakData.globalRank;
         }
 
-        // --- Actualización: Mostrar Número AL LADO del Icono ---
+        
         if (this->m_fields.m_myRankIconBg && this->m_fields.m_myRankNumLabel) {
             this->m_fields.m_myRankIconBg->setVisible(true);
             this->m_fields.m_myRankNumLabel->setVisible(true);
@@ -488,7 +487,7 @@ protected:
         this->setTitle("Top Streaks (beta)");
         auto winSize = this->m_mainLayer->getContentSize();
 
-        // Botón de Info
+        //Info btn
         auto infoSpr = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
         infoSpr->setScale(0.7f);
         auto infoBtn = CCMenuItemSpriteExtra::create(
@@ -500,23 +499,23 @@ protected:
         infoMenu->setPosition({ 25.f, winSize.height - 25.f });
         m_mainLayer->addChild(infoMenu);
 
-        // --- Icono de Rango Propio y Número al Lado ---
+         
 
-        // 1. Icono (Escudo) - Movido a la izquierda para dejar espacio al número
+        
         this->m_fields.m_myRankIconBg = CCSprite::createWithSpriteFrameName("rankIcon_1_001.png");
         this->m_fields.m_myRankIconBg->setPosition({ winSize.width - 55.f, winSize.height - 25.f });
         this->m_fields.m_myRankIconBg->setScale(0.8f);
         this->m_fields.m_myRankIconBg->setVisible(false);
         m_mainLayer->addChild(this->m_fields.m_myRankIconBg);
 
-        // 2. Número - Posicionado a la DERECHA del icono
+      
         this->m_fields.m_myRankNumLabel = CCLabelBMFont::create("?", "bigFont.fnt");
-        this->m_fields.m_myRankNumLabel->setAnchorPoint({ 0.f, 0.5f }); // Anclado a la izquierda para que crezca hacia la derecha
+        this->m_fields.m_myRankNumLabel->setAnchorPoint({ 0.f, 0.5f });  
         this->m_fields.m_myRankNumLabel->setPosition({ winSize.width - 40.f, winSize.height - 25.f });
         this->m_fields.m_myRankNumLabel->setScale(0.5f);
         this->m_fields.m_myRankNumLabel->setVisible(false);
         m_mainLayer->addChild(this->m_fields.m_myRankNumLabel);
-        // ----------------------------------------------------
+        
 
         auto listBg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
         listBg->setColor({ 0, 0, 0 });
@@ -565,8 +564,8 @@ protected:
         auto idLabel = CCLabelBMFont::create(fmt::format("ID: {}", idText).c_str(), "chatFont.fnt");
         idLabel->setScale(0.45f);
         idLabel->setColor({ 150, 150, 150 });
-        idLabel->setAnchorPoint({ 0.f, 0.5f }); // Anclado a la izquierda
-        idLabel->setPosition({ 22.f, 18.f }); // Esquina inferior izquierda
+        idLabel->setAnchorPoint({ 0.f, 0.5f });  
+        idLabel->setPosition({ 22.f, 18.f }); 
         idLabel->setID("streak-id-label");
         m_mainLayer->addChild(idLabel);
 

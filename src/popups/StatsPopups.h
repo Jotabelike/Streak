@@ -33,17 +33,20 @@ protected:
         if (tier == 1) {
             addRewardRow(list, "super_star.png"_spr, "120 Super Stars");
             addRewardRow(list, "star_tiket.png"_spr, "20k Tickets");
+            addRewardRow(list, "gem.png"_spr, "50 Gems");
             addRewardRow(list, "banner19.png"_spr, "BANNER");
         }
         else if (tier == 2) {
             addRewardRow(list, "super_star.png"_spr, "300 Super Stars");
-            addRewardRow(list, "star_tiket.png"_spr, "45k Tickets");
+            addRewardRow(list, "star_tiket.png"_spr, "45K Tickets");
+            addRewardRow(list, "gem.png"_spr, "100 Gems");
             addRewardRow(list, "banner26.png"_spr, "BANNER");
             addRewardRow(list, "banner41.png"_spr, "BANNER");
         }
         else if (tier == 3) {
             addRewardRow(list, "super_star.png"_spr, "500 Super Stars");
-            addRewardRow(list, "star_tiket.png"_spr, "85k Tickets");
+            addRewardRow(list, "star_tiket.png"_spr, "85K Tickets");
+            addRewardRow(list, "gem.png"_spr, "200 Gems");
             addRewardRow(list, "banner16.png"_spr, "BANNER");
             addRewardRow(list, "banner32.png"_spr, "BANNER");
             addRewardRow(list, "banner40.png"_spr, "BANNER");
@@ -518,7 +521,9 @@ public:
         title->setPosition(CCPoint{ barX, height - 12.0f });
         this->addChild(title);
 
-        auto progressTxt = CCLabelBMFont::create(fmt::format("{}/{}", std::min(currentStreak, target), target).c_str(), "bigFont.fnt");
+        auto progressTxt = CCLabelBMFont::create(fmt::format("{}/{}",
+            std::min(currentStreak, target), target).c_str(),
+            "bigFont.fnt");
         progressTxt->setScale(0.5f);
         progressTxt->setPosition(CCPoint{ barX + barWidth / 2, barY + barHeight / 2 + 1 });
         progressTxt->setColor({ 255, 255, 255 });

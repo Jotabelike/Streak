@@ -78,9 +78,10 @@ struct StreakData {
     std::string streakID = "";
     std::vector<int> streakCompletedLevels;
     std::map<std::string, int> streakPointsHistory;
+    std::set<int> claimedStreakGoals;
 
-    long long seasonEndTime = 0; // Timestamp del fin de temporada
-    int pendingSeasonRank = 0;   // 1, 2, o 3 si ganó. 0 si no.
+    long long seasonEndTime = 0; 
+    int pendingSeasonRank = 0;  
     
     std::chrono::steady_clock::time_point lastPointTime;
 
@@ -307,6 +308,8 @@ struct StreakData {
     int getXPRequiredForNextLevel();
     float getXPPercentage();
     void addXP(int amount);
+    bool isStreakGoalClaimed(int index) const;
+    void setStreakGoalClaimed(int index);
     struct LevelRewards {
         int stars;
         int tickets;

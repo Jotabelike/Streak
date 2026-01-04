@@ -73,39 +73,36 @@ void updatePlayerDataInFirebase() {
     int userID = GameManager::sharedState()->m_playerUserID;
     matjson::Value playerData = matjson::Value::object();
 
-    // --- DATOS BÁSICOS Y COSMÉTICOS (El cliente puede guardarlos) ---
+ 
     playerData.set("username", std::string(accountManager->m_username));
     playerData.set("accountID", accountID);
     playerData.set("userID", userID);
     playerData.set("equipped_badge_id", g_streakData.equippedBadge);
     playerData.set("equipped_banner_id", g_streakData.equippedBanner);
-    playerData.set("last_streak_animated", g_streakData.lastStreakAnimated); // Estado visual local
+    playerData.set("last_streak_animated", g_streakData.lastStreakAnimated);  
     playerData.set("super_stars", g_streakData.superStars);
     playerData.set("star_tickets", g_streakData.starTickets);
     playerData.set("gems", g_streakData.gems);
     playerData.set("current_level", g_streakData.currentLevel);
-    playerData.set("current_xp", g_streakData.currentXP);
-
-    // --- ESTADOS DE MINIJUEGOS/MISIONES (Se pueden mantener si la lógica es local) ---
+    playerData.set("current_xp", g_streakData.currentXP); 
     playerData.set("gem_roulette_spin_count", g_streakData.gemRouletteSpinCount);
     playerData.set("gem_roulette_hash", g_streakData.gemRouletteHash);
     playerData.set("last_roulette_index", g_streakData.lastRouletteIndex);
     playerData.set("total_spins", g_streakData.totalSpins);
-    playerData.set("last_day", g_streakData.lastDay); // Necesario para sincronizar fecha local
+    playerData.set("last_day", g_streakData.lastDay); 
 
-    // Estado de la ruleta de gemas
+  
     std::vector<bool> gemStateVec = g_streakData.gemRouletteState;
     if (gemStateVec.size() < 7) gemStateVec.resize(7, false);
     playerData.set("gem_roulette_state", gemStateVec);
 
-    // Estado de Tareas
+ 
     matjson::Value tasksJson = matjson::Value::object();
     for (auto const& [id, status] : g_streakData.taskStatuses) {
         tasksJson.set(id, status);
     }
     playerData.set("taskStatuses", tasksJson);
-
-    // Badges desbloqueados (Solo IDs para ahorrar espacio y errores)
+ 
     std::vector<std::string> unlocked_badges_vec;
     if (g_streakData.unlockedBadges.size() == g_streakData.badges.size()) {
         for (size_t i = 0; i < g_streakData.badges.size(); ++i) {
@@ -116,7 +113,7 @@ void updatePlayerDataInFirebase() {
     }
     playerData.set("unlocked_badges", unlocked_badges_vec);
 
-    // Banners desbloqueados
+     
     std::vector<std::string> unlocked_banners_vec;
     if (g_streakData.unlockedBanners.size() == g_streakData.banners.size()) {
         for (size_t i = 0; i < g_streakData.banners.size(); ++i) {
@@ -127,7 +124,7 @@ void updatePlayerDataInFirebase() {
     }
     playerData.set("unlocked_banners", unlocked_banners_vec);
 
-    // Misiones diarias (Checkboxes)
+ 
     matjson::Value missions_obj = matjson::Value::object();
     missions_obj.set("pm1", g_streakData.pointMission1Claimed);
     missions_obj.set("pm2", g_streakData.pointMission2Claimed);
@@ -137,14 +134,14 @@ void updatePlayerDataInFirebase() {
     missions_obj.set("pm6", g_streakData.pointMission6Claimed);
     playerData.set("missions", missions_obj);
 
-    // Historial (Solo lectura para el server, escritura local)
+    
     matjson::Value history_obj = matjson::Value::object();
     for (const auto& pair : g_streakData.streakPointsHistory) {
         history_obj.set(pair.first, pair.second);
     }
     playerData.set("history", history_obj);
 
-    // Color Mítico
+     
     bool hasMythicEquipped = false;
     if (!g_streakData.equippedBadge.empty()) {
         if (auto* badgeInfo = g_streakData.getBadgeInfo(g_streakData.equippedBadge)) {
@@ -152,15 +149,21 @@ void updatePlayerDataInFirebase() {
         }
     }
     playerData.set("has_mythic_color", hasMythicEquipped);
-
-    // Niveles completados
+ 
     matjson::Value completed_levels_obj = matjson::Value::object();
     for (int levelID : g_streakData.completedLevelMissions) {
         completed_levels_obj.set(std::to_string(levelID), true);
     }
     playerData.set("completedLevelMissions", completed_levels_obj);
 
-    // --- ENVÍO AL SERVIDOR ---
+    matjson::Value streakGoalsJson = matjson::Value::object();
+    for (int index : g_streakData.claimedStreakGoals) {
+      
+        streakGoalsJson.set(std::to_string(index), true);
+    }
+    playerData.set("claimed_streak_goals", streakGoalsJson);
+
+  
     std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
 
     s_updateListener.bind([](web::WebTask::Event* e) {
@@ -186,7 +189,7 @@ void completeLevelInFirebase(int stars) {
     matjson::Value payload = matjson::Value::object();
     payload.set("stars", stars);
     
-    // CORRECCIÓN 1: Enviar fecha local del cliente para evitar conflictos de zona horaria (10 -> 1 bug)
+    
     payload.set("clientDate", g_streakData.getCurrentDate());
 
     log::info("Sending completed level to the server...");
@@ -196,20 +199,18 @@ void completeLevelInFirebase(int stars) {
             if (res->ok() && res->json().isOk()) {
                 auto data = res->json().unwrap();
 
-                // Sincronización Básica
+              
                 if (data.contains("current_xp")) g_streakData.currentXP = data["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
                 if (data.contains("current_level")) g_streakData.currentLevel = data["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);
                 if (data.contains("super_stars")) g_streakData.superStars = data["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
                 if (data.contains("star_tickets")) g_streakData.starTickets = data["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
                 if (data.contains("current_streak_days")) g_streakData.currentStreak = data["current_streak_days"].as<int>().unwrapOr(g_streakData.currentStreak);
-                if (data.contains("gems")) g_streakData.gems = data["gems"].as<int>().unwrapOr(g_streakData.gems);
-                // CORRECCIÓN 2: Sincronización visual obligatoria (Barra de progreso y Racha)
-                // Esto permite que la barra se actualice correctamente sin llamar a save() extra.
+                if (data.contains("gems")) g_streakData.gems = data["gems"].as<int>().unwrapOr(g_streakData.gems);           
                 if (data.contains("streakPointsToday")) g_streakData.streakPointsToday = data["streakPointsToday"].as<int>().unwrapOr(g_streakData.streakPointsToday);
                 if (data.contains("total_streak_points")) g_streakData.totalStreakPoints = data["total_streak_points"].as<int>().unwrapOr(g_streakData.totalStreakPoints);
                 if (data.contains("lastDay")) g_streakData.lastDay = data["lastDay"].as<std::string>().unwrapOr(g_streakData.lastDay);
 
-                // Manejo de Recompensas
+           
                 if (data.contains("newRewards")) {
                     auto rewards = data["newRewards"];
                     int starsGiven = rewards["stars"].as<int>().unwrapOr(0);
@@ -224,13 +225,20 @@ void completeLevelInFirebase(int stars) {
                             NotificationIcon::Success
                         )->show();
 
-                        if (starsGiven > 0) RewardNotification::show("super_star.png"_spr, g_streakData.superStars - starsGiven, starsGiven);
-                        if (ticketsGiven > 0) RewardNotification::show("star_tiket.png"_spr, g_streakData.starTickets - ticketsGiven, ticketsGiven);
+                        if (starsGiven > 0) RewardNotification::show("super_star.png"_spr,
+                            g_streakData.superStars - starsGiven,
+                            starsGiven);
+                        if (ticketsGiven > 0) RewardNotification::show("star_tiket.png"_spr, 
+                            g_streakData.starTickets - ticketsGiven,
+                            ticketsGiven);
                     }
                 }
 
                 g_streakData.isDataLoaded = true;
-                log::info("Level completed. XP: {}, Level: {}, PointsToday: {}", g_streakData.currentXP, g_streakData.currentLevel, g_streakData.streakPointsToday);
+                log::info("Level completed. XP: {}, Level: {}, PointsToday: {}",
+                    g_streakData.currentXP,
+                    g_streakData.currentLevel,
+                    g_streakData.streakPointsToday);
             }
             else {
                 log::error("Error completing level: {}", res->code());

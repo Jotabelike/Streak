@@ -27,7 +27,9 @@ protected:
         { 1500,  5,  "Rookie Streak", 0, "banner_28", "" },
         { 5000,  10, "Pro Streak", 0, "", "diamond_streak_badge" },
         { 9000,  20, "Master Streak", 25000, "", "" },
-        { 15000, 30, "Legendary Streak", 0, "banner_29", "" }
+        { 15000, 30, "Legendary Streak", 0, "banner_29", "" },
+        { 20000, 40, "legend Streak", 0, "banner_42", "" },
+        { 30000, 50, "Mythic Streak", 0, "banner_44", "" }
     };
 
     void setOpacityToChildren(CCNode* node, GLubyte opacity) {
@@ -52,18 +54,13 @@ protected:
         }
     }
 
-    bool isGoalClaimed(int index) {
-        return Mod::get()->getSavedValue<bool>(
-            fmt::format("streak_goal_claimed_{}", index),
-            false
-        );
+    bool isGoalClaimed(int index) {   
+        return g_streakData.isStreakGoalClaimed(index);
     }
 
-    void setGoalClaimed(int index) {
-        Mod::get()->setSavedValue<bool>(
-            fmt::format("streak_goal_claimed_{}", index),
-            true
-        );
+    void setGoalClaimed(int index) {    
+        g_streakData.setStreakGoalClaimed(index);
+        g_streakData.save();
     }
 
     CCNode* createRewardNode(const StreakGoal& goal) {
@@ -357,7 +354,7 @@ protected:
     }
 
     bool setup() override {
-        this->setTitle("Streak Progress");
+        this->setTitle("Streak Points Progress");
         auto winSize = m_mainLayer->getContentSize();
 
         auto listSize = CCSize{ 280.f, 130.f };
