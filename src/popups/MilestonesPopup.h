@@ -260,7 +260,7 @@ public:
         int percent = lvlData ? lvlData->m_normalPercent : 0;
 
         std::string lvlName = targetLevel.name;
-        if (lvlData && lvlData->m_levelName.length() > 0) {
+        if (lvlData && std::string(lvlData->m_levelName).length() > 0) {
             lvlName = lvlData->m_levelName;
         }
 
