@@ -21,6 +21,15 @@ struct StreakData {
         MYTHIC
     };
 
+    struct ShopItem {
+        std::string id;
+        bool isBadge;  
+        int price;
+        BadgeCategory rarity;
+        std::string name;
+        std::string sprite;
+    };
+
     struct MailMessage {
         std::string id;
         std::string title;
@@ -79,9 +88,10 @@ struct StreakData {
     std::vector<int> streakCompletedLevels;
     std::map<std::string, int> streakPointsHistory;
     std::set<int> claimedStreakGoals;
-
+    int specialRank = 0;
     long long seasonEndTime = 0; 
     int pendingSeasonRank = 0;  
+    int dailyShopSeed = 0;
     
     std::chrono::steady_clock::time_point lastPointTime;
 
@@ -116,6 +126,16 @@ struct StreakData {
         taskStatuses[taskID] = status;
     }
 
+    std::map<std::string, int> pinnedLevels;
+
+    int getPinnedLevel(const std::string& badgeID) {
+        if (pinnedLevels.count(badgeID)) return pinnedLevels[badgeID];
+        return 0;  
+    }
+
+    void setPinnedLevel(const std::string& badgeID, int levelID) {
+        pinnedLevels[badgeID] = levelID;
+    }
 
     std::vector<BadgeInfo> badges = {
         //days
@@ -148,6 +168,8 @@ struct StreakData {
         {0, "past2_badge.png"_spr, "green Edition", BadgeCategory::LEGENDARY, "past2_badge", true, "XJotaBeLikeX"},
         {0, "past3_badge.png"_spr, "Red Edition", BadgeCategory::LEGENDARY, "past3_badge", true, "XJotaBeLikeX"},
         {0, "moon_badge.png"_spr, "Moon", BadgeCategory::EPIC, "moon_badge", true, "XJotaBeLikeX"},
+        {0, "marshmello_badge.png"_spr, "Marshmello", BadgeCategory::SPECIAL, "marshmello_badge", true, "XJotaBeLikeX"},
+        {0, "alan_walker_badge.png"_spr, "Alan Walker", BadgeCategory::LEGENDARY, "alan_walker_badge", true, "XJotaBeLikeX"},
 
         //misiones
         {0, "shiver_badge.png"_spr, "Shiver!", BadgeCategory::SPECIAL, "shiver_badge", true, "XJotaBeLikeX"},
@@ -199,7 +221,15 @@ struct StreakData {
         {0, "freddy.png"_spr, "Freddy", BadgeCategory::MYTHIC, "freddy_badge", true, "XJotaBeLikeX"},
         {0, "chica.png"_spr, "chica", BadgeCategory::SPECIAL, "chica_badge", true, "XJotaBeLikeX"},
         {0, "foxi.png"_spr, "foxi", BadgeCategory::LEGENDARY, "foxi_badge", true, "XJotaBeLikeX"},
-        {0, "bonnie.png"_spr, "bonnie", BadgeCategory::EPIC, "bonnie_badge", true, "XJotaBeLikeX"}
+        {0, "bonnie.png"_spr, "bonnie", BadgeCategory::EPIC, "bonnie_badge", true, "XJotaBeLikeX"},
+
+        //mastery
+        {0, "cube_mastery.png"_spr, "Cube Mastery", BadgeCategory::LEGENDARY, "cube_mastery_badge", true, "XJotaBeLikeX" },
+        {0, "ship_mastery.png"_spr, "Ship Mastery", BadgeCategory::LEGENDARY, "ship_mastery_badge", true, "XJotaBeLikeX" },
+        {0, "ufo_mastery.png"_spr, "Ufo Mastery", BadgeCategory::LEGENDARY, "ufo_mastery_badge", true, "XJotaBeLikeX" },
+        {0, "ball_mastery.png"_spr, "Ball Mastery", BadgeCategory::LEGENDARY, "ball_mastery_badge", true, "XJotaBeLikeX" },
+        {0, "spider_mastery.png"_spr, "Spider Mastery", BadgeCategory::LEGENDARY, "spider_mastery_badge", true, "XJotaBeLikeX" },
+        {0, "wave_mastery.png"_spr, "Wave Mastery", BadgeCategory::LEGENDARY, "wave_mastery_badge", true, "XJotaBeLikeX" }
     };
 
 
@@ -310,6 +340,9 @@ struct StreakData {
     void addXP(int amount);
     bool isStreakGoalClaimed(int index) const;
     void setStreakGoalClaimed(int index);
+    std::vector<ShopItem> getDailyShopSelection();
+    int getPriceForRarity(BadgeCategory rarity);
+    void purchaseItem(const ShopItem& item);
     struct LevelRewards {
         int stars;
         int tickets;

@@ -1,5 +1,11 @@
 # Streak!
 
+# 1.10.33
+- New Daily Shop
+- New masteries
+- Streak points in level information
+- Rank/Role Status 
+
 # 1.10.32
 - Fix bugs
 - Update Support

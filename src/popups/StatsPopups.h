@@ -8,6 +8,7 @@
 
 using namespace geode::prelude;
 
+ 
 class RewardsListPopup : public Popup<int> {
 protected:
     bool setup(int tier) override {
@@ -112,6 +113,7 @@ public:
     }
 };
 
+ 
 class DonationTierCard : public CCNode {
     int m_tierLevel = 1;
 
@@ -238,6 +240,7 @@ public:
     }
 };
 
+ 
 class DonationPopup : public Popup<> {
 protected:
     void onOpenLink(CCObject*) {
@@ -296,6 +299,7 @@ public:
     }
 };
 
+ 
 class AllRachasPopup : public Popup<> {
 protected:
     bool setup() override {
@@ -309,7 +313,7 @@ protected:
             { "racha4.png"_spr, 30, 5, 70 },
             { "racha5.png"_spr, 40, 6, 85},
             { "racha6.png"_spr, 50, 7, 100 },
-            { "racha7.png"_spr, 60, 8, 115 },
+            { "racha6.png"_spr, 60, 8, 115 },  
             { "racha8.png"_spr, 70, 9, 130 },
             { "racha9.png"_spr, 80, 10, 145 },
             { "racha10.png"_spr, 90, 11, 160 },
@@ -431,193 +435,7 @@ public:
     }
 };
 
-#ifndef GOAL_ITEM_DEFINED
-#define GOAL_ITEM_DEFINED
-struct GoalItem {
-    std::string id;
-    std::string type;
-    int daysRequired;
-    std::string spriteName;
-    bool isUnlocked;
-};
-#endif
-
-class GoalCell : public CCNode {
-public:
-    static GoalCell* create(const GoalItem& item, float width) {
-        auto ret = new GoalCell();
-        if (ret && ret->init(item, width)) {
-            ret->autorelease();
-            return ret;
-        }
-        CC_SAFE_DELETE(ret);
-        return nullptr;
-    }
-
-    bool init(const GoalItem& item, float width) {
-        if (!CCNode::init()) return false;
-
-        float height = 50.0f;
-        this->setContentSize(CCSize{ width, height });
-
-        auto bg = CCLayerColor::create({ 0, 0, 0, 80 });
-        bg->setContentSize(CCSize{ width, height - 4 });
-        bg->setPosition(CCPoint{ 0, 2 });
-        this->addChild(bg);
-
-        float iconCenterX = width - 35.0f;
-
-        CCSprite* icon = CCSprite::create(item.spriteName.c_str());
-        if (!icon) icon = CCSprite::createWithSpriteFrameName("GJ_questionMark_001.png");
-
-        float maxIconSize = 40.0f;
-        float scale = 1.0f;
-
-        if (icon->getContentSize().width > icon->getContentSize().height) {
-            scale = 55.0f / icon->getContentSize().width;
-        }
-        else {
-            scale = maxIconSize / icon->getContentSize().height;
-        }
-        icon->setScale(scale);
-        icon->setPosition(CCPoint{ iconCenterX, height / 2 + 4.0f });
-        this->addChild(icon);
-
-        int currentStreak = g_streakData.currentStreak;
-        int target = item.daysRequired;
-        if (item.isUnlocked) currentStreak = target;
-
-        float percentage = 0.0f;
-        if (target > 0) percentage = static_cast<float>(currentStreak) / static_cast<float>(target);
-        if (percentage > 1.0f) percentage = 1.0f;
-
-        float barWidth = width - 90.0f;
-        float barHeight = 16.0f;
-        float barX = 10.0f;
-        float barY = 12.0f;
-        float borderSize = 2.0f;
-
-        auto border = CCLayerColor::create({ 0, 0, 0, 255 }, barWidth + (borderSize * 2), barHeight + (borderSize * 2));
-        border->setPosition(CCPoint{ barX - borderSize, barY - borderSize });
-        this->addChild(border);
-
-        auto barTrack = CCLayerColor::create({ 40, 40, 40, 255 }, barWidth, barHeight);
-        barTrack->setPosition(CCPoint{ barX, barY });
-        this->addChild(barTrack);
-
-        if (percentage > 0) {
-            auto barFg = CCLayerGradient::create(
-                { 0, 255, 255, 255 },
-                { 0, 100, 200, 255 }
-            );
-            barFg->setContentSize(CCSize{ barWidth * percentage, barHeight });
-            barFg->setPosition(CCPoint{ barX, barY });
-            this->addChild(barFg);
-        }
-
-        auto title = CCLabelBMFont::create(fmt::format("{} Days", target).c_str(), "goldFont.fnt");
-        title->setScale(0.45f);
-        title->setAnchorPoint(CCPoint{ 0.0f, 0.5f });
-        title->setPosition(CCPoint{ barX, height - 12.0f });
-        this->addChild(title);
-
-        auto progressTxt = CCLabelBMFont::create(fmt::format("{}/{}",
-            std::min(currentStreak, target), target).c_str(),
-            "bigFont.fnt");
-        progressTxt->setScale(0.5f);
-        progressTxt->setPosition(CCPoint{ barX + barWidth / 2, barY + barHeight / 2 + 1 });
-        progressTxt->setColor({ 255, 255, 255 });
-
-        auto shadow = CCLabelBMFont::create(progressTxt->getString(), "bigFont.fnt");
-        shadow->setScale(0.5f);
-        shadow->setColor({ 0,0,0 });
-        shadow->setPosition(progressTxt->getPosition() + CCPoint{ -1, -1 });
-        shadow->setZOrder(-1);
-        this->addChild(shadow);
-        this->addChild(progressTxt);
-
-        auto typeLbl = CCLabelBMFont::create(item.type.c_str(), "bigFont.fnt");
-        typeLbl->setScale(0.25f);
-        typeLbl->setAnchorPoint(CCPoint{ 0.5f, 0.5f });
-        typeLbl->setPosition(CCPoint{ iconCenterX, 8.0f });
-        typeLbl->setOpacity(150);
-        this->addChild(typeLbl);
-
-        return true;
-    }
-};
-
-class DayProgressPopup : public Popup<> {
-protected:
-    bool setup() override {
-        this->setTitle("Streak Milestones");
-        auto winSize = m_mainLayer->getContentSize();
-        g_streakData.load();
-
-        std::vector<GoalItem> allGoals;
-
-        for (const auto& badge : g_streakData.badges) {
-            if (!badge.isFromRoulette) {
-                GoalItem item;
-                item.id = badge.badgeID;
-                item.type = "Badge";
-                item.daysRequired = badge.daysRequired;
-                item.spriteName = badge.spriteName;
-                item.isUnlocked = g_streakData.isBadgeUnlocked(badge.badgeID);
-                allGoals.push_back(item);
-            }
-        }
-
-        std::sort(allGoals.begin(), allGoals.end(), [](const GoalItem& a, const GoalItem& b) {
-            return a.daysRequired < b.daysRequired;
-            });
-
-        auto listSize = CCSize{ 340.f, 190.f };
-        auto scroll = ScrollLayer::create(listSize);
-
-        float cellHeight = 55.0f;
-        float totalHeight = std::max(listSize.height, (float)allGoals.size() * cellHeight);
-
-        scroll->m_contentLayer->setContentSize(CCSize{ listSize.width, totalHeight });
-
-        int i = 0;
-        for (const auto& item : allGoals) {
-            auto cell = GoalCell::create(item, listSize.width);
-            float yPos = totalHeight - (i * cellHeight) - cellHeight;
-            cell->setPosition(CCPoint{ 0, yPos });
-            scroll->m_contentLayer->addChild(cell);
-            i++;
-        }
-
-        scroll->m_contentLayer->setPositionY(listSize.height - totalHeight);
-        scroll->setPosition(CCPoint{
-            (winSize.width - listSize.width) / 2,
-            (winSize.height - listSize.height) / 2 - 10.f
-            });
-
-        auto listBg = cocos2d::extension::CCScale9Sprite::create("geode.loader/GE_square03.png");
-        listBg->setContentSize(listSize + CCSize{ 4.f, 4.f });
-        listBg->setColor({ 0,0,0 });
-        listBg->setOpacity(100);
-        listBg->setPosition(winSize / 2 - CCPoint{ 0.f, 10.f });
-        m_mainLayer->addChild(listBg);
-
-        m_mainLayer->addChild(scroll);
-
-        return true;
-    }
-
-public:
-    static DayProgressPopup* create() {
-        auto ret = new DayProgressPopup();
-        if (ret && ret->initAnchored(380.f, 260.f, "geode.loader/GE_square03.png")) {
-            ret->autorelease();
-            return ret;
-        }
-        CC_SAFE_DELETE(ret);
-        return nullptr;
-    }
-};
+ 
 
 class StreakProgressBar : public cocos2d::CCLayerColor {
 protected:

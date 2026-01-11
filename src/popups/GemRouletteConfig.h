@@ -8,7 +8,7 @@ using namespace geode::prelude;
 namespace GemRouletteConfig {
 
     static const std::vector<int> SPIN_COSTS = {
-        25, 50, 100, 200, 350, 500, 750
+        9, 19, 49, 199, 249, 399, 459
     };
 
     static int getCostForStep(int step) {

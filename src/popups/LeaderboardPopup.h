@@ -429,13 +429,15 @@ protected:
         );
     }
 
-    void updateMyRankUI(const std::vector<matjson::Value>& players) {
+void updateMyRankUI(const std::vector<matjson::Value>& players) {
         int myRank = -1;
         int localAccountID = GJAccountManager::sharedState()->m_accountID;
 
+      
         if (localAccountID != 0) {
             for (size_t i = 0; i < players.size(); ++i) {
                 int playerID = 0;
+            
                 if (players[i]["accountID"].isNumber()) {
                     playerID = players[i]["accountID"].as<int>().unwrapOr(0);
                 }
@@ -453,26 +455,31 @@ protected:
             }
         }
 
-        if (myRank == -1 && g_streakData.globalRank > 0) {
-            myRank = g_streakData.globalRank;
-        }
-
         
+     
         if (this->m_fields.m_myRankIconBg && this->m_fields.m_myRankNumLabel) {
             this->m_fields.m_myRankIconBg->setVisible(true);
             this->m_fields.m_myRankNumLabel->setVisible(true);
 
             if (myRank != -1) {
+            
                 this->m_fields.m_myRankNumLabel->setString(std::to_string(myRank).c_str());
+                
+            
                 this->m_fields.m_myRankNumLabel->setColor((myRank <= 3) ? ccColor3B{ 255, 215, 0 } : ccColor3B{ 255, 255, 255 });
+                
+         
                 this->m_fields.m_myRankNumLabel->setScale(myRank > 99 ? 0.4f : 0.5f);
             }
             else {
+            
                 this->m_fields.m_myRankNumLabel->setString("-");
                 this->m_fields.m_myRankNumLabel->setColor({ 150, 150, 150 });
+                this->m_fields.m_myRankNumLabel->setScale(0.5f);
             }
         }
 
+       
         if (auto idLabel = typeinfo_cast<CCLabelBMFont*>(m_mainLayer->getChildByID("streak-id-label"))) {
             if (!g_streakData.streakID.empty()) {
                 idLabel->setString(

@@ -124,7 +124,13 @@ void updatePlayerDataInFirebase() {
     }
     playerData.set("unlocked_banners", unlocked_banners_vec);
 
- 
+    matjson::Value pinnedObj = matjson::Value::object();
+    for (auto const& [key, val] : g_streakData.pinnedLevels) {
+        pinnedObj.set(key, val);
+    }
+
+
+    playerData.set("pinned_levels", pinnedObj);
     matjson::Value missions_obj = matjson::Value::object();
     missions_obj.set("pm1", g_streakData.pointMission1Claimed);
     missions_obj.set("pm2", g_streakData.pointMission2Claimed);
@@ -200,6 +206,7 @@ void completeLevelInFirebase(int stars) {
 
               
                 if (data.contains("current_xp")) g_streakData.currentXP = data["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
+                if (data.contains("daily_shop_seed")) { g_streakData.dailyShopSeed = data["daily_shop_seed"].as<int>().unwrapOr(0); }                
                 if (data.contains("current_level")) g_streakData.currentLevel = data["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);
                 if (data.contains("super_stars")) g_streakData.superStars = data["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
                 if (data.contains("star_tickets")) g_streakData.starTickets = data["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);

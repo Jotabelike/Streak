@@ -332,7 +332,12 @@ protected:
 
     CCMenuItemSpriteExtra* m_pageLeftArrow = nullptr;
     CCMenuItemSpriteExtra* m_pageRightArrow = nullptr;
+
+  
     CCLabelBMFont* m_counterText = nullptr;
+
+   
+    CCLabelBMFont* m_totalStatsLabel = nullptr;
 
     CCMenuItemToggler* m_badgesToggle = nullptr;
     CCMenuItemToggler* m_bannersToggle = nullptr;
@@ -343,11 +348,23 @@ protected:
     ccColor3B m_currentColor;
     ccColor3B m_targetColor;
 
+    
+    void onCopyrightInfo(CCObject*) {
+        std::string title = "Asset Design Disclaimer";
+        std::string desc =
+            "Most <cp>Banners</c> are sourced from public resources (e.g. Google Images) and are not owned by the mod creator.\n"
+            "However, the majority of <cy>Badges</c> are <cg>original designs</c> made by the mod creator.\n"
+            "Special thanks to community members who contributed <cl>exclusive designs</c> for this mod!";
+
+        FLAlertLayer::create(title.c_str(), desc, "OK")->show();
+    }
+
     bool setup() override {
         this->setTitle("Cosmetics");
         auto winSize = m_mainLayer->getContentSize();
         g_streakData.load();
 
+        
         m_mythicColors = {
             ccc3(255, 0, 0), ccc3(255, 165, 0), ccc3(255, 255, 0),
             ccc3(0, 255, 0), ccc3(0, 0, 255), ccc3(75, 0, 130),
@@ -356,46 +373,20 @@ protected:
         m_currentColor = m_mythicColors[0];
         m_targetColor = m_mythicColors[1];
 
-        auto badgeTabOn = ButtonSprite::create(
-            "Badges", 60, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.45f
-        );
-        auto badgeTabOff = ButtonSprite::create(
-            "Badges", 60, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.45f
-        );
+        
+        auto badgeTabOn = ButtonSprite::create("Badges", 60, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.45f);
+        auto badgeTabOff = ButtonSprite::create("Badges", 60, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.45f);
+        auto bannerTabOn = ButtonSprite::create("Banners", 60, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.45f);
+        auto bannerTabOff = ButtonSprite::create("Banners", 60, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.45f);
 
-        auto bannerTabOn = ButtonSprite::create(
-            "Banners", 60, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.45f
-        );
-        auto bannerTabOff = ButtonSprite::create(
-            "Banners", 60, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.45f
-        );
+        badgeTabOn->setScale(0.8f); badgeTabOff->setScale(0.8f);
+        bannerTabOn->setScale(0.8f); bannerTabOff->setScale(0.8f);
 
-        badgeTabOn->setScale(0.8f);
-        badgeTabOff->setScale(0.8f);
-        bannerTabOn->setScale(0.8f);
-        bannerTabOff->setScale(0.8f);
+        m_badgesToggle = CCMenuItemToggler::create(badgeTabOff, badgeTabOn, this, menu_selector(RewardsPopup::onSwitchToBadges));
+        m_bannersToggle = CCMenuItemToggler::create(bannerTabOff, bannerTabOn, this, menu_selector(RewardsPopup::onSwitchToBanners));
 
-        m_badgesToggle = CCMenuItemToggler::create(
-            badgeTabOff,
-            badgeTabOn,
-            this,
-            menu_selector(RewardsPopup::onSwitchToBadges)
-        );
-        m_bannersToggle = CCMenuItemToggler::create(
-            bannerTabOff,
-            bannerTabOn,
-            this,
-            menu_selector(RewardsPopup::onSwitchToBanners)
-        );
-
-        m_badgesToggle->setPosition({
-            winSize.width / 2 - 40.f,
-            winSize.height - 45.f
-            });
-        m_bannersToggle->setPosition({
-            winSize.width / 2 + 40.f,
-            winSize.height - 45.f
-            });
+        m_badgesToggle->setPosition({ winSize.width / 2 - 40.f, winSize.height - 45.f });
+        m_bannersToggle->setPosition({ winSize.width / 2 + 40.f, winSize.height - 45.f });
 
         m_badgesToggle->toggle(true);
         m_bannersToggle->toggle(false);
@@ -406,33 +397,23 @@ protected:
         tabMenu->setPosition(0, 0);
         m_mainLayer->addChild(tabMenu);
 
+       
         auto background = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
         background->setColor({ 0, 0, 0 });
         background->setOpacity(120);
         background->setContentSize({ 320.f, 130.f });
-        background->setPosition({
-            winSize.width / 2,
-            winSize.height / 2 - 25.f
-            });
+        background->setPosition({ winSize.width / 2, winSize.height / 2 - 25.f });
         m_mainLayer->addChild(background);
 
+       
         float categoryY = winSize.height - 70.f;
-
         auto catLeftArrow = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
-        auto catLeftBtn = CCMenuItemSpriteExtra::create(
-            catLeftArrow,
-            this,
-            menu_selector(RewardsPopup::onPreviousCategory)
-        );
+        auto catLeftBtn = CCMenuItemSpriteExtra::create(catLeftArrow, this, menu_selector(RewardsPopup::onPreviousCategory));
         catLeftBtn->setPosition(-110.f, 0);
 
         auto catRightArrow = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
         catRightArrow->setFlipX(true);
-        auto catRightBtn = CCMenuItemSpriteExtra::create(
-            catRightArrow,
-            this,
-            menu_selector(RewardsPopup::onNextCategory)
-        );
+        auto catRightBtn = CCMenuItemSpriteExtra::create(catRightArrow, this, menu_selector(RewardsPopup::onNextCategory));
         catRightBtn->setPosition(110.f, 0);
 
         auto catArrowMenu = CCMenu::create();
@@ -446,28 +427,15 @@ protected:
         m_categoryLabel->setPosition({ winSize.width / 2, categoryY });
         m_mainLayer->addChild(m_categoryLabel);
 
+        
         auto pageLeftArrowSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
-        m_pageLeftArrow = CCMenuItemSpriteExtra::create(
-            pageLeftArrowSprite,
-            this,
-            menu_selector(RewardsPopup::onPreviousBadgePage)
-        );
-        m_pageLeftArrow->setPosition(
-            -background->getContentSize().width / 2 - 15.f,
-            0
-        );
+        m_pageLeftArrow = CCMenuItemSpriteExtra::create(pageLeftArrowSprite, this, menu_selector(RewardsPopup::onPreviousBadgePage));
+        m_pageLeftArrow->setPosition(-background->getContentSize().width / 2 - 15.f, 0);
 
         auto pageRightArrowSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
         pageRightArrowSprite->setFlipX(true);
-        m_pageRightArrow = CCMenuItemSpriteExtra::create(
-            pageRightArrowSprite,
-            this,
-            menu_selector(RewardsPopup::onNextBadgePage)
-        );
-        m_pageRightArrow->setPosition(
-            background->getContentSize().width / 2 + 15.f,
-            0
-        );
+        m_pageRightArrow = CCMenuItemSpriteExtra::create(pageRightArrowSprite, this, menu_selector(RewardsPopup::onNextBadgePage));
+        m_pageRightArrow->setPosition(background->getContentSize().width / 2 + 15.f, 0);
 
         auto pageArrowMenu = CCMenu::create();
         pageArrowMenu->addChild(m_pageLeftArrow);
@@ -475,6 +443,7 @@ protected:
         pageArrowMenu->setPosition(background->getPosition());
         m_mainLayer->addChild(pageArrowMenu);
 
+       
         m_badgeMenu = CCMenu::create();
         m_badgeMenu->setPosition({ 0, 0 });
         m_mainLayer->addChild(m_badgeMenu);
@@ -483,10 +452,30 @@ protected:
         m_decorationNode->setPosition({ 0, 0 });
         m_mainLayer->addChild(m_decorationNode, 5);
 
+       
         m_counterText = CCLabelBMFont::create("", "bigFont.fnt");
         m_counterText->setScale(0.4f);
         m_counterText->setPosition({ winSize.width / 2, 25.f });
         m_mainLayer->addChild(m_counterText);
+
+        
+        auto infoSpr = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
+        infoSpr->setScale(0.7f);
+        auto infoBtn = CCMenuItemSpriteExtra::create(
+            infoSpr,
+            this,
+            menu_selector(RewardsPopup::onCopyrightInfo)
+        );
+        auto infoMenu = CCMenu::createWithItem(infoBtn);
+        infoMenu->setPosition({ 25.f, 25.f });  
+        m_mainLayer->addChild(infoMenu);
+
+      
+        m_totalStatsLabel = CCLabelBMFont::create("Total 0/0", "goldFont.fnt");
+        m_totalStatsLabel->setScale(0.4f);
+        m_totalStatsLabel->setAnchorPoint({ 1.0f, 0.5f }); 
+        m_totalStatsLabel->setPosition({ winSize.width - 15.f, 25.f }); 
+        m_mainLayer->addChild(m_totalStatsLabel);
 
         this->scheduleUpdate();
         updateCategoryDisplay();
@@ -522,6 +511,7 @@ protected:
     }
 
     void update(float dt) override {
+      
         if (static_cast<StreakData::BadgeCategory>(m_currentCategory) != StreakData::BadgeCategory::MYTHIC || !m_categoryLabel) {
             m_categoryLabel->setColor(
                 g_streakData.getCategoryColor(static_cast<StreakData::BadgeCategory>(m_currentCategory))
@@ -570,7 +560,12 @@ protected:
         };
         std::vector<DisplayItem> itemsToShow;
 
+       
+        int globalTotal = 0;
+        int globalUnlocked = 0;
+
         if (m_currentMode == MODE_BADGES) {
+        
             for (auto& badge : g_streakData.badges) {
                 if (badge.category == currentCat) {
                     itemsToShow.push_back({
@@ -582,8 +577,18 @@ protected:
                         });
                 }
             }
+           
+            globalTotal = g_streakData.badges.size();
+            for (auto& b : g_streakData.badges) {
+                if (g_streakData.isBadgeUnlocked(b.badgeID)) globalUnlocked++;
+            }
+         
+            if (m_totalStatsLabel) {
+                m_totalStatsLabel->setString(fmt::format("Badges: {}/{}", globalUnlocked, globalTotal).c_str());
+            }
         }
         else {
+          
             for (auto& banner : g_streakData.banners) {
                 if (banner.rarity == currentCat) {
                     itemsToShow.push_back({
@@ -595,8 +600,18 @@ protected:
                         });
                 }
             }
+          
+            globalTotal = g_streakData.banners.size();
+            for (auto& b : g_streakData.banners) {
+                if (g_streakData.isBannerUnlocked(b.bannerID)) globalUnlocked++;
+            }
+          
+            if (m_totalStatsLabel) {
+                m_totalStatsLabel->setString(fmt::format("Banners: {}/{}", globalUnlocked, globalTotal).c_str());
+            }
         }
 
+       
         int itemsPerPage = 6;
         int itemsPerRow = 3;
 
@@ -684,12 +699,13 @@ protected:
         m_pageLeftArrow->setVisible(m_currentPage > 0);
         m_pageRightArrow->setVisible(m_currentPage < m_totalPages - 1);
 
-        int unlockedCount = 0;
+        
+        int categoryUnlockedCount = 0;
         for (auto& it : itemsToShow) {
-            if (it.unlocked) unlockedCount++;
+            if (it.unlocked) categoryUnlockedCount++;
         }
         m_counterText->setString(
-            fmt::format("Unlocked: {}/{}", unlockedCount, itemsToShow.size()).c_str()
+            fmt::format("Category: {}/{}", categoryUnlockedCount, itemsToShow.size()).c_str()
         );
     }
 

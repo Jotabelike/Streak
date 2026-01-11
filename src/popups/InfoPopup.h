@@ -21,6 +21,8 @@
 #include "TaskPopup.h"
 #include "StProgressPopup.h"
 #include "LevelLockPopup.h"
+#include "DailyShopPopup.h"
+#include "MilestonesPopup.h"
 
 class InfoPopup : public Popup<> {
 protected:
@@ -108,6 +110,40 @@ protected:
         m_msgCheckListener.setFilter(req.get(
             "https://streak-servidor.onrender.com/messages"
         ));
+    }
+
+    void onRankClick(CCObject* sender) {
+        int rank = sender->getTag();
+        std::string title = "Rank Info";
+        std::string desc = "Unknown Rank";
+
+        switch (rank) {
+        case 1:
+            title = "Moderator";
+            desc = "This user is a <cg>Moderator</c> of the Streak Mod.";
+            break;
+        case 2:
+            title = "Content Creator";
+            desc = "This user is a recognized <cp>Content Creator</c>!";
+            break;
+        case 3:
+            title = "V.I.P";
+            desc = "This user is a <cy>V.I.P Member</c> with exclusive status.";
+            break;
+        case 4:
+            title = "Stellar";
+            desc = "Legendary <cp>Stellar</c> User.";
+            break;
+        default:
+            desc = "Special user rank.";
+            break;
+        }
+
+        FLAlertLayer::create(
+            title.c_str(),
+            desc.c_str(),
+            "OK"
+        )->show();
     }
 
     void onMessagesChecked(web::WebTask::Event* e) {
@@ -377,15 +413,38 @@ protected:
         xpBtn->setPosition({ 22, sideBtnY - 59 });
         cornerMenu->addChild(xpBtn);
 
-        auto infoIcon = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
-        infoIcon->setScale(0.6f);
-        auto infoBtn = CCMenuItemSpriteExtra::create(
-            infoIcon,
-            this,
-            menu_selector(InfoPopup::onInfo)
-        );
-        infoBtn->setPosition({ winSize.width - 80, winSize.height - 20 });
-        cornerMenu->addChild(infoBtn);
+        if (g_streakData.specialRank > 0) {
+            std::string badgeSpriteName = "";
+
+            switch (g_streakData.specialRank) {
+            case 1: badgeSpriteName = "moderator_badge.png"_spr; break;
+            case 2: badgeSpriteName = "creator_badge.png"_spr; break;
+            case 3: badgeSpriteName = "vip_badge.png"_spr; break;
+            case 4: badgeSpriteName = "stellar_badge.png"_spr; break;
+            default: badgeSpriteName = "reward5.png"_spr; break;
+            }
+
+            auto rankSprite = CCSprite::create(badgeSpriteName.c_str());
+            if (!rankSprite) {
+                rankSprite = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
+            }
+            rankSprite->setScale(0.2f);
+
+            auto rankBtn = CCMenuItemSpriteExtra::create(
+                rankSprite,
+                this,
+                menu_selector(InfoPopup::onRankClick) 
+            );
+
+            rankBtn->setTag(g_streakData.specialRank);
+
+            
+            rankBtn->setPosition({ winSize.width - 80, winSize.height - 20 });
+
+            cornerMenu->addChild(rankBtn);
+        }
+      
+       
 
         auto accountIcon = CCSprite::create("account_btn.png"_spr);
         accountIcon->setScale(0.56f);
@@ -463,6 +522,20 @@ protected:
             redeemIcon,
             this,
             menu_selector(InfoPopup::onRedeemCode)
+        ));
+
+        auto shopIcon = CCSprite::create("daily_shop.png"_spr);
+        if (!shopIcon) {
+            shopIcon = ButtonSprite::create("Shop"); 
+        }
+        else {
+            shopIcon->setScale(0.7f);
+        }
+
+        bottomMenu->addChild(CCMenuItemSpriteExtra::create(
+            shopIcon,
+            this,
+            menu_selector(InfoPopup::onOpenDailyShop)
         ));
 
         auto kofiIcon = CCSprite::create("ko-fi_btn.png"_spr);
@@ -689,13 +762,11 @@ protected:
         XPPopup::create()->show();
     }
 
-    void onInfo(CCObject*) {
-        FLAlertLayer::create(
-            "About Streak!",
-            "Complete rated levels to earn points!\nAut/Easy/Norm: 1pt\nHard: 3pt\nHarder: 4pt\nInsane: 5pt\nDemon: 6pt",
-            "OK"
-        )->show();
+    void onOpenDailyShop(CCObject*) {
+        DailyShopPopup::create()->show();
     }
+
+   
 
     void onOpenRoulette(CCObject*) {
         if (g_streakData.currentStreak < 1) {
@@ -861,7 +932,7 @@ protected:
 public:
     static InfoPopup* create() {
         auto ret = new InfoPopup();
-        if (ret && ret->initAnchored(260.f, 220.f, "geode.loader/GE_square03.png")) {
+        if (ret && ret->initAnchored(280.f, 220.f, "geode.loader/GE_square03.png")) {
             ret->autorelease();
             return ret;
         }

@@ -81,7 +81,9 @@ inline std::vector<LevelMission> g_levelMissions = {
     {112690334, "Frostbite",           "Frostbite_badge", LevelRewardType::SuperStars,   15,      "super_star.png"_spr,        "+15 Star Tickets" },
 	{126765939, "GD Randomizer",      "random_badge", LevelRewardType::StarTickets, 4000, "star_tiket.png"_spr, "+4000 Star Tickets" },
     {38637027, "Wild","tlt_badge", LevelRewardType::StarTickets, 8000, "star_tiket.png"_spr, "+8000 Star Tickets" },
-    {109508844, "Stargaze","ncs_badge", LevelRewardType::SuperStars, 40, "super_star.png"_spr, "+40 Super Stars" }
+    {109508844, "Stargaze","ncs_badge", LevelRewardType::SuperStars, 40, "super_star.png"_spr, "+40 Super Stars" },
+    {43053150, "Marshmello","marshmello_badge", LevelRewardType::StarTickets, 900, "star_tiket.png"_spr, "+900 Star Tickets" }
+   
   
 
 
