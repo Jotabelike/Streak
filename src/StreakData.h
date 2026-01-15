@@ -229,7 +229,12 @@ struct StreakData {
         {0, "ufo_mastery.png"_spr, "Ufo Mastery", BadgeCategory::LEGENDARY, "ufo_mastery_badge", true, "XJotaBeLikeX" },
         {0, "ball_mastery.png"_spr, "Ball Mastery", BadgeCategory::LEGENDARY, "ball_mastery_badge", true, "XJotaBeLikeX" },
         {0, "spider_mastery.png"_spr, "Spider Mastery", BadgeCategory::LEGENDARY, "spider_mastery_badge", true, "XJotaBeLikeX" },
-        {0, "wave_mastery.png"_spr, "Wave Mastery", BadgeCategory::LEGENDARY, "wave_mastery_badge", true, "XJotaBeLikeX" }
+        {0, "wave_mastery.png"_spr, "Wave Mastery", BadgeCategory::LEGENDARY, "wave_mastery_badge", true, "XJotaBeLikeX" },
+        {0, "dual_mastery.png"_spr, "Dual Mastery", BadgeCategory::LEGENDARY, "dual_mastery_badge", true, "XJotaBeLikeX" },
+        {0, "xl_mastery.png"_spr, "XL Mastery", BadgeCategory::LEGENDARY, "xl_mastery_badge", true, "XJotaBeLikeX" },
+        {0, "swingcopter_mastery.png"_spr, "Swingcopter mastery Mastery", BadgeCategory::LEGENDARY, "swingcopter_mastery_badge", true, "XJotaBeLikeX" },
+        {0, "memory_mastery.png"_spr, "Memory mastery Mastery", BadgeCategory::LEGENDARY, "memory_mastery_badge", true, "XJotaBeLikeX" },
+        {0, "robot_mastery.png"_spr, "Robot mastery Mastery", BadgeCategory::LEGENDARY, "robot_mastery_badge", true, "XJotaBeLikeX" }
     };
 
 
@@ -282,7 +287,9 @@ struct StreakData {
             {"banner_46", "banner46.png"_spr, "FNAF 2", BadgeCategory::EPIC, "XJotaBeLikeX"},
             {"banner_47", "banner47.png"_spr, "FNAF 2 Room", BadgeCategory::SPECIAL, "XJotaBeLikeX"},
             {"banner_48", "banner48.png"_spr, "what's up", BadgeCategory::COMMON, "XJotaBeLikeX"},
-            {"banner_49", "banner49.png"_spr, "mountains", BadgeCategory::SPECIAL, "XJotaBeLikeX"}
+            {"banner_49", "banner49.png"_spr, "mountains", BadgeCategory::SPECIAL, "XJotaBeLikeX"},
+            {"banner_50", "banner50.png"_spr, "Oshi No Ko", BadgeCategory::EPIC, "XJotaBeLikeX"}
+
             
     };
 

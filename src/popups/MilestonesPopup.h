@@ -89,6 +89,61 @@ std::vector<MasteryLevelDef> getLevelsForMastery(const std::string& masteryBadge
         };
     }
 
+    else if (masteryBadgeID == "dual_mastery_badge") {
+        return {
+            {130281428, 7,  "Wal Lal Lal Lu"},
+            {44062068, 12, "Future Funk"},
+            {59626284, 13,  "Future Funk II"},
+            {124595512, 10,  "Cut the Check"},
+            {124034465, 7, "Streetwise"},
+            {123962517, 7, "AntiPixel"}
+        };
+    }
+
+    else if (masteryBadgeID == "xl_mastery_badge") {
+        return {
+            {128168373, 10,  "Blend Travel"},
+            {127118533, 7, "Cosmic Travel"},
+            {126512409, 10,  "Holding On"},
+            {125075242, 10,  "Space Invaders"},
+            {124931561, 12, "ctrl alt del"},
+            {120035482, 7, "Music In My Mind"}
+        };
+    }
+
+    else if (masteryBadgeID == "swingcopter_mastery_badge") {
+        return {
+            {130175757, 10,  "Roentgenium"},
+            {127118533, 7, "Minun"},
+            {116284755, 7,  "Out of Place"},
+            {123617195, 10,  "ALLOY"},
+            {116581248, 7, "Corrupt cityscapes"},
+            {112799855, 10, "Northstar"}
+        };
+    }
+
+    else if (masteryBadgeID == "memory_mastery_badge") {
+        return {
+            {130046620, 12,  "Chronologic"},
+            {122968809, 11, "TWIN TABULATING"},
+            {118365197, 7,  "Winle Domination"},
+            {121087325, 11,  "Here we are"},
+            {116275252, 7, "Desperation"},
+            {112023345, 10, "Ironworks"}
+        };
+    }
+
+    else if (masteryBadgeID == "robot_mastery_badge") {
+        return {
+            {129995496, 6,  "Violet Blue"},
+            {122968809, 11, "SAFESPACES"},
+            {122758067, 7,  "Bajrang Gun"},
+            {116159577, 6,  "The Astronaut"},
+            {115245249, 6, "robobot"},
+            {115198181, 10, "Love we Found"}
+        };
+        }
+
     return {};
 }
 
@@ -716,7 +771,12 @@ protected:
             {"Ball Mastery", "ball_mastery_badge"},
             {"UFO Mastery", "ufo_mastery_badge"},
             {"Wave Mastery", "wave_mastery_badge"},
-            {"Spider Mastery", "spider_mastery_badge"}
+            {"Spider Mastery", "spider_mastery_badge"},
+            {"Swing Copter Mastery", "swingcopter_mastery_badge"},
+            {"Robot Mastery", "robot_mastery_badge"},
+            {"Dual Mastery", "dual_mastery_badge"},
+            {"XL Mastery", "xl_mastery_badge"},
+            {"Memory Mastery", "memory_mastery_badge"}
         };
 
         for (const auto& pair : masteryDefs) {

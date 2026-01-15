@@ -49,7 +49,7 @@ class $modify(StreakLevelInfo, LevelInfoLayer) {
             fmt::format("{}", points).c_str(),
             "bigFont.fnt"
         );
-        label->setScale(0.40f);
+        label->setScale(0.45f);
         label->setAnchorPoint({ 0.0f, 0.5f });
         label->setPosition({ 0.f, 0.f });
         container->addChild(label);

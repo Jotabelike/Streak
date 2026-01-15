@@ -20,31 +20,31 @@
 
 class $modify(MyPlayLayer, PlayLayer) {
     void levelComplete() {
-     
+       
+        if (this->m_player1->m_isDead) return;        
+        if (!this->m_hasCompletedLevel) return;
         int percentBefore = this->m_level->m_normalPercent;
+        PlayLayer::levelComplete();
 
-        
-        PlayLayer::levelComplete();     
         int percentAfter = this->m_level->m_normalPercent;
-  
+
         if (this->m_isPracticeMode) return;
-        if (percentBefore >= 100) return;       
+        if (percentBefore >= 100) return;
+
         if (percentAfter < 100) {
             log::warn("Anti-Cheat: Level completed, but the final percentage is only {}%", percentAfter);
             return;
         }
 
-        
-
         int stars = this->m_level->m_stars;
-       
+
         if (stars > 0) {
             int points = 0;
-            if (stars <= 3) points = 1;       // auto -easy - normal
-            else if (stars <= 5) points = 3;  // hard
-            else if (stars <= 7) points = 4;  // harder
-            else if (stars <= 9) points = 5;  // insane
-            else points = 6;                  // demon
+            if (stars <= 3) points = 1;
+            else if (stars <= 5) points = 3;
+            else if (stars <= 7) points = 4;
+            else if (stars <= 9) points = 5;
+            else points = 6;
 
             if (points > 0) {
                 int before = g_streakData.streakPointsToday;
@@ -52,7 +52,6 @@ class $modify(MyPlayLayer, PlayLayer) {
 
                 log::info("Legally completed level ({} stars -> {} points)", stars, points);
                 g_streakData.addPoints(points);
-
 
                 if (geode::Mod::get()->getSavedValue<bool>("enable_streak_bar", true)) {
                     if (auto scene = CCDirector::sharedDirector()->getRunningScene()) {

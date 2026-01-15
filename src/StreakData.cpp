@@ -600,7 +600,8 @@ std::vector<StreakData::ShopItem> StreakData::getDailyShopSelection() {
         "diamond_streak_badge", "past1_badge", "marshmello_badge", "alan_walker_badge",
         "shiver_badge", "dual_badge", "ttv_badge", "tsukasa_badge", "funhouse_badge",
         "miku_badge", "nantendo_badge", "youtube_badge", "tiktok_badge",
-        "Skeletal_Shenanigans_badge", "bh_badge_7", "winter_badge", "freddy_badge",
+		"Skeletal_Shenanigans_badge", "bh_badge_7", "winter_badge", "freddy_badge", 
+        "chica_badge","bonnie_badge","foxy_badge",
         "banner_5", "banner_15", "banner_21", "banner_22", "banner_23",
         "banner_33", "banner_40", "banner_41", "banner_44", "banner_45",
         "banner_19", "banner_26", "banner_32", "banner_16", "banner_29",
@@ -714,6 +715,7 @@ void StreakData::addPoints(int count) {
     else starsToSend = 1;
 
     completeLevelInFirebase(starsToSend);
+    this->save();
 }
 
 void StreakData::addXP(int amount) {
