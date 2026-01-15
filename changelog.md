@@ -1,5 +1,9 @@
 # Streak!
 
+# 1.10.34 Alpha 1
+- Fix Bugs
+- 5 New Masteries
+
 # 1.10.33
 - New Daily Shop
 - New masteries
