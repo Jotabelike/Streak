@@ -64,6 +64,7 @@ class $modify(MyPlayLayer, PlayLayer) {
 };
 
 class $modify(MyMenuLayer, MenuLayer) {
+
     struct Fields {
         EventListener<web::WebTask> m_playerDataListener;
         bool m_isReconnecting = false;
