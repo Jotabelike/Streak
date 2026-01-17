@@ -583,47 +583,52 @@ protected:
         int pointsToday = g_streakData.streakPointsToday;
         int requiredPoints = g_streakData.getRequiredPoints();
 
-        
-        log::debug("Visual Update -> Points: {}, Required: {}", pointsToday, requiredPoints);
-
-        
+       
         float percent = 0.0f;
         if (requiredPoints > 0) {
             percent = static_cast<float>(pointsToday) / static_cast<float>(requiredPoints);
         }
+        else {
+            percent = 0.0f;
+        }
 
-       
+    
         if (percent > 1.0f) percent = 1.0f;
         if (percent < 0.0f) percent = 0.0f;
 
-       
         float barWidth = 140.0f;
         float barHeight = 16.0f;
 
-        m_streakLabel->setString(fmt::format("Daily streak: {}", currentStreak).c_str());  
-        m_barFg->setContentSize({ barWidth * percent, barHeight });  
+        m_streakLabel->setString(fmt::format("Daily streak: {}", currentStreak).c_str());
+ 
+        if (pointsToday <= 0) {
+            m_barFg->setContentSize({ 0.0f, barHeight });
+        }
+        else {
+            m_barFg->setContentSize({ barWidth * percent, barHeight });
+        }
+
         m_barText->setString(fmt::format("{}/{}", pointsToday, requiredPoints).c_str());
 
        
         if (m_pointIcon) {
             float startX = (m_mainLayer->getContentSize().width / 2) - (barWidth / 2);
-            float newX = startX + (barWidth * percent);
+        
+            float effectivePercent = (pointsToday <= 0) ? 0.0f : percent;
+            float newX = startX + (barWidth * effectivePercent);
             m_pointIcon->setPositionX(newX);
         }
 
-        
+       
         std::string indicatorSpriteName;
         if (pointsToday >= requiredPoints) {
-        
             int visualStreak = (currentStreak > 0) ? currentStreak : 1;
             indicatorSpriteName = g_streakData.getRachaSprite(visualStreak);
         }
         else {
-          
             indicatorSpriteName = "racha0.png"_spr;
         }
 
-        
         if (auto newSprite = CCSprite::create(indicatorSpriteName.c_str())) {
             if (auto newTexture = newSprite->getTexture()) {
                 m_rachaIndicator->setTexture(newTexture);
@@ -639,7 +644,7 @@ protected:
             m_gemsLabel->setString(std::to_string(g_streakData.gems).c_str());
         }
 
-       
+      
         if (m_xpBarFg && m_xpLabel && m_xpProgressLabel) {
             float xpBarWidth = 140.0f;
             float xpBarHeight = 6.0f;
@@ -657,7 +662,14 @@ protected:
                     fmt::format("{}/{}", currentXP, requiredXP).c_str()
                 );
             }
-            m_xpBarFg->setContentSize({ xpBarWidth * xpPercent, xpBarHeight });
+
+          
+            if (xpPercent <= 0.0f) {
+                m_xpBarFg->setContentSize({ 0.0f, xpBarHeight });
+            }
+            else {
+                m_xpBarFg->setContentSize({ xpBarWidth * xpPercent, xpBarHeight });
+            }
 
             m_xpLabel->setString(fmt::format("Lvl. {}", g_streakData.currentLevel).c_str());
 
