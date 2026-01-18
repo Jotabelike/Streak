@@ -611,7 +611,7 @@ std::vector<StreakData::ShopItem> StreakData::getDailyShopSelection() {
         "moderator_badge", "creator_badge", "vip_badge", "stellar_badge",
         "cube_mastery_badge", "ship_mastery_badge", "ufo_mastery_badge",
         "ball_mastery_badge", "spider_mastery_badge", "wave_mastery_badge"
-        "robot_mastery_badge", "memory_mastery_badge", "swingcopter_mastery_badge"
+        "robot_mastery_badge", "memory_mastery_badge", "swingcopter_mastery_badge",
         "xl_mastery_badge", "dual_mastery_badge"
     };
 
