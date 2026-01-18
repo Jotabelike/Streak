@@ -1,5 +1,8 @@
 # Streak!
 
+# 1.10.34 Alpha 2
+- Fix Streak Progress bar
+
 # 1.10.34 Alpha 1
 - Fix Bugs
 - 5 New Masteries
