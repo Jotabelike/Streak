@@ -6,6 +6,7 @@
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
 #include <Geode/binding/TextArea.hpp>
+#include <Geode/utils/async.hpp>
 #include "../SystemNotification.h"
 #include "../StatusSpinner.h"
 
@@ -27,24 +28,20 @@ public:
     bool init(const matjson::Value& msgData, float width) {
         if (!CCNode::init()) return false;
 
-     
         std::string username = msgData["username"].as<std::string>().unwrapOr("Unknown");
         std::string content = msgData["content"].as<std::string>().unwrapOr("...");
         int role = msgData["role"].as<int>().unwrapOr(0);
 
-      
         size_t pos = 0;
         while ((pos = content.find("\\n", pos)) != std::string::npos) {
             content.replace(pos, 2, "\n");
             pos += 1;
         }
 
-        
-        ccColor3B nameColor = { 255, 255, 0 }; 
+        ccColor3B nameColor = { 255, 255, 0 };
         if (role == 2) nameColor = { 255, 80, 80 };
         else if (role == 1) nameColor = { 255, 160, 50 };
 
-       
         float contentWidth = width - 24.f;
         auto textArea = TextArea::create(
             content,
@@ -59,13 +56,11 @@ public:
         textArea->setOpacity(255);
         textArea->setAnchorPoint({ 0.f, 1.f });
 
-        
         auto nameLabel = CCLabelBMFont::create(username.c_str(), "goldFont.fnt");
         nameLabel->setScale(0.55f);
         nameLabel->setColor(nameColor);
         nameLabel->setAnchorPoint({ 0.0f, 0.5f });
 
-      
         float paddingY = 10.f;
         float gapNameText = 4.f;
         float nameHeight = 15.f;
@@ -76,7 +71,6 @@ public:
         this->setContentSize({ width, totalHeight });
         this->setAnchorPoint({ 0.5f, 0.5f });
 
-       
         auto bg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
         bg->setContentSize({ width, totalHeight });
         bg->setPosition({ width / 2, totalHeight / 2 });
@@ -84,15 +78,12 @@ public:
         bg->setOpacity(90);
         this->addChild(bg, 0);
 
-         
         float shiftUp = 5.0f;
 
-        
         float currentY = totalHeight - paddingY - (nameHeight / 2);
         nameLabel->setPosition({ 12.f, currentY + shiftUp });
         this->addChild(nameLabel, 5);
 
-      
         float textTopY = totalHeight - paddingY - nameHeight - gapNameText;
         textArea->setPosition({ 12.f, textTopY + shiftUp });
         this->addChild(textArea, 5);
@@ -102,7 +93,7 @@ public:
 };
 
 
-class SendMessagePopup : public Popup<> {
+class SendMessagePopup : public Popup {
 protected:
     enum class Mode {
         View,
@@ -118,29 +109,28 @@ protected:
     TextInput* m_textInput = nullptr;
     StatusSpinner* m_spinner = nullptr;
     bool m_isSending = false;
-    EventListener<web::WebTask> m_sendListener;
-    EventListener<web::WebTask> m_loadListener;
-    EventListener<web::WebTask> m_mailCheckListener;
+    async::TaskHolder<web::WebResponse> m_sendListener;
+    async::TaskHolder<web::WebResponse> m_loadListener;
+    async::TaskHolder<web::WebResponse> m_mailCheckListener;
     ScrollLayer* m_scrollLayer = nullptr;
     CCSprite* m_notificationIcon = nullptr;
     long long m_newestMessageTime = 0;
     int m_activeColorTag = 0;
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(360.f, 240.f, "geode.loader/GE_square03.png")) return false;
         this->setTitle("Advertisements");
         auto winSize = m_mainLayer->getContentSize();
 
-    
         m_viewLayer = CCNode::create();
         m_viewLayer->setContentSize(winSize);
         m_mainLayer->addChild(m_viewLayer);
 
-        auto scrollSize = CCSize(320.f, 150.f);  
+        auto scrollSize = CCSize(320.f, 150.f);
         m_scrollLayer = ScrollLayer::create(scrollSize);
         m_scrollLayer->setPosition((winSize - scrollSize) / 2 + CCPoint{ 0, 10.f });
         m_viewLayer->addChild(m_scrollLayer);
 
-       
         auto bg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
         bg->setContentSize(scrollSize + CCSize(10.f, 10.f));
         bg->setColor({ 0, 0, 0 });
@@ -152,7 +142,6 @@ protected:
         m_spinner->setPosition(winSize / 2);
         m_mainLayer->addChild(m_spinner, 100);
 
-        
         auto mailSprite = CCSprite::createWithSpriteFrameName("accountBtn_messages_001.png");
         if (!mailSprite) {
             mailSprite = ButtonSprite::create("Inbox");
@@ -188,7 +177,6 @@ protected:
         mailMenu->setPosition({ 31.f, 31.f });
         m_mainLayer->addChild(mailMenu, 100);
 
-        
         m_writeLayer = CCNode::create();
         m_writeLayer->setVisible(false);
         m_mainLayer->addChild(m_writeLayer);
@@ -205,7 +193,7 @@ protected:
         m_textInput->setMaxCharCount(150);
         m_textInput->setFilter(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,!?'\"-()@#&<>\\/");
         m_writeLayer->addChild(m_textInput);
- 
+
         auto toolsMenu = CCMenu::create();
         toolsMenu->setPosition({
             winSize.width / 2,
@@ -294,7 +282,6 @@ protected:
         sendMenu->setPosition({ winSize.width / 2, 40.f });
         m_writeLayer->addChild(sendMenu);
 
-         
         if (g_streakData.userRole >= 1) {
             auto editSpr = CCSprite::createWithSpriteFrameName("GJ_chatBtn_001.png");
             editSpr->setScale(0.8f);
@@ -320,9 +307,6 @@ protected:
             m_mainLayer->addChild(modMenu, 10);
         }
 
-        m_sendListener.bind(this, &SendMessagePopup::onWebResponse);
-        m_loadListener.bind(this, &SendMessagePopup::onLoadResponse);
-
         this->loadMessages();
         this->checkForMail();
 
@@ -339,19 +323,17 @@ protected:
 
     void checkForMail() {
         auto am = GJAccountManager::sharedState();
-        m_mailCheckListener.bind([this](web::WebTask::Event* e) {
-            if (web::WebResponse* res = e->getValue()) {
-                if (res->ok() && res->json().isOk()) {
-                    auto data = res->json().unwrap();
+        auto req = web::WebRequest();
+        m_mailCheckListener.spawn(
+            req.get(fmt::format("https://streak-servidor.onrender.com/players/{}/mail", am->m_accountID)),
+            [this](web::WebResponse res) {
+                if (res.ok() && res.json().isOk()) {
+                    auto data = res.json().unwrap();
                     if (data.isArray() && !data.as<std::vector<matjson::Value>>().unwrap().empty() && m_notificationIcon) {
                         m_notificationIcon->setVisible(true);
                     }
                 }
             }
-            });
-        auto req = web::WebRequest();
-        m_mailCheckListener.setFilter(
-            req.get(fmt::format("https://streak-servidor.onrender.com/players/{}/mail", am->m_accountID))
         );
     }
 
@@ -425,25 +407,23 @@ protected:
         m_scrollLayer->setVisible(false);
         m_spinner->setLoading("Loading...");
         auto req = web::WebRequest();
-        m_loadListener.setFilter(req.get("https://streak-servidor.onrender.com/messages"));
+        m_loadListener.spawn(req.get("https://streak-servidor.onrender.com/messages"), [this](web::WebResponse res) {
+            this->onLoadResponse(std::move(res));
+            });
     }
 
-    void onLoadResponse(web::WebTask::Event* e) {
-        if (!e->getValue() && !e->isCancelled()) return;
+    void onLoadResponse(web::WebResponse res) {
+        if (res.ok() && res.json().isOk()) {
+            m_spinner->hide();
+            m_scrollLayer->setVisible(true);
 
-        if (web::WebResponse* res = e->getValue()) {
-            if (res->ok() && res->json().isOk()) {
-                m_spinner->hide();
-                m_scrollLayer->setVisible(true);
-
-                auto data = res->json().unwrap();
-                if (data.isArray()) {
-                    this->populateMessages(data.as<std::vector<matjson::Value>>().unwrap());
-                }
+            auto data = res.json().unwrap();
+            if (data.isArray()) {
+                this->populateMessages(data.as<std::vector<matjson::Value>>().unwrap());
             }
-            else {
-                m_spinner->setError("Failed to load");
-            }
+        }
+        else {
+            m_spinner->setError("Failed to load");
         }
     }
 
@@ -452,14 +432,12 @@ protected:
         auto sortedMessages = messages;
         std::reverse(sortedMessages.begin(), sortedMessages.end());
 
-      
         float scrollWidth = m_scrollLayer->getContentSize().width;
-        float cellWidth = 300.f; 
-        float gapBetweenCells = 6.f;  
-        float topPadding = 10.f;    
-        float bottomPadding = 10.f;  
+        float cellWidth = 300.f;
+        float gapBetweenCells = 6.f;
+        float topPadding = 10.f;
+        float bottomPadding = 10.f;
 
-        
         std::vector<MessageCell*> cells;
         float totalContentHeight = topPadding;
 
@@ -469,28 +447,24 @@ protected:
 
             auto cell = MessageCell::create(msgData, cellWidth);
             cells.push_back(cell);
- 
+
             totalContentHeight += cell->getContentSize().height + gapBetweenCells;
         }
-        
+
         if (!cells.empty()) totalContentHeight = totalContentHeight - gapBetweenCells + bottomPadding;
 
-       
         float finalHeight = std::max(m_scrollLayer->getContentSize().height, totalContentHeight);
         m_scrollLayer->m_contentLayer->setContentSize({ scrollWidth, finalHeight });
 
-         
         float currentYCursor = finalHeight - topPadding;
 
         for (auto* cell : cells) {
             float cellH = cell->getContentSize().height;
 
-            
             cell->setPosition({ scrollWidth / 2.f, currentYCursor - (cellH / 2.f) });
 
             m_scrollLayer->m_contentLayer->addChild(cell);
 
-           
             currentYCursor -= (cellH + gapBetweenCells);
         }
 
@@ -524,36 +498,33 @@ protected:
         payload.set("content", msg);
 
         auto req = web::WebRequest();
-        m_sendListener.setFilter(
-            req.bodyJSON(payload).post("https://streak-servidor.onrender.com/messages")
+        m_sendListener.spawn(
+            req.bodyJSON(payload).post("https://streak-servidor.onrender.com/messages"),
+            [this](web::WebResponse res) { this->onWebResponse(std::move(res)); }
         );
     }
 
-    void onWebResponse(web::WebTask::Event* e) {
-        if (!e->getValue() && !e->isCancelled()) return;
-
+    void onWebResponse(web::WebResponse res) {
         m_isSending = false;
         if (m_sendBtn) m_sendBtn->setEnabled(true);
 
-        if (web::WebResponse* res = e->getValue()) {
-            if (res->ok()) {
-                if (g_streakData.userRole == 1) {
-                    g_streakData.dailyMsgCount++;
-                    g_streakData.save();
-                }
-                m_textInput->setString("");
-                this->onToggleMode(nullptr);
+        if (res.ok()) {
+            if (g_streakData.userRole == 1) {
+                g_streakData.dailyMsgCount++;
+                g_streakData.save();
             }
-            else {
-                FLAlertLayer::create("Error", fmt::format("Failed: {}", res->code()), "OK")->show();
-            }
+            m_textInput->setString("");
+            this->onToggleMode(nullptr);
+        }
+        else {
+            FLAlertLayer::create("Error", fmt::format("Failed: {}", res.code()), "OK")->show();
         }
     }
 
 public:
     static SendMessagePopup* create() {
         auto ret = new SendMessagePopup();
-        if (ret && ret->initAnchored(360.f, 240.f,"geode.loader/GE_square03.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

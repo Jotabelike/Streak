@@ -3,6 +3,7 @@
 #include "../StreakData.h"
 #include "../FirebaseManager.h"
 #include <Geode/ui/Popup.hpp>
+#include <Geode/utils/async.hpp>
 #include "HistoryPopup.h"
 #include "StatsPopups.h"
 #include "CollectionPopups.h"
@@ -23,8 +24,9 @@
 #include "LevelLockPopup.h"
 #include "DailyShopPopup.h"
 #include "MilestonesPopup.h"
+#include "TrendLevelsPopup.h"  
 
-class InfoPopup : public Popup<> {
+class InfoPopup : public Popup {
 protected:
     CCLabelBMFont* m_streakLabel = nullptr;
     CCLayerGradient* m_barFg = nullptr;
@@ -37,7 +39,13 @@ protected:
     CCLabelBMFont* m_xpProgressLabel = nullptr;
     CCLabelBMFont* m_gemsLabel = nullptr;
 
-    EventListener<web::WebTask> m_msgCheckListener;
+   
+    std::vector<CCMenu*> m_bottomPages;
+    int m_currentPage = 0;
+    CCMenuItemSpriteExtra* m_leftArrowBtn = nullptr;
+    CCMenuItemSpriteExtra* m_rightArrowBtn = nullptr;
+
+    async::TaskHolder<web::WebResponse> m_msgCheckListener;
 
     static int s_lastPendingLevelCount;
     static int s_lastPendingDailyCount;
@@ -107,9 +115,9 @@ protected:
 
     void checkNewMessages() {
         auto req = web::WebRequest();
-        m_msgCheckListener.setFilter(req.get(
-            "https://streak-servidor.onrender.com/messages"
-        ));
+        m_msgCheckListener.spawn(req.get("https://streak-servidor.onrender.com/messages"), [this](web::WebResponse res) {
+            this->onMessagesChecked(std::move(res));
+            });
     }
 
     void onRankClick(CCObject* sender) {
@@ -146,38 +154,38 @@ protected:
         )->show();
     }
 
-    void onMessagesChecked(web::WebTask::Event* e) {
-        if (web::WebResponse* res = e->getValue()) {
-            if (res->ok() && res->json().isOk()) {
-                auto data = res->json().unwrap();
-                if (data.isArray()) {
-                    auto messages = data.as<std::vector<matjson::Value>>().unwrap();
-                    double savedTime = Mod::get()->getSavedValue<double>("streak_last_chat_time", 0.0);
-                    long long lastSeenTime = (long long)savedTime;
-                    int currentNewCount = 0;
+    void onMessagesChecked(web::WebResponse res) {
+        if (res.ok() && res.json().isOk()) {
+            auto data = res.json().unwrap();
+            if (data.isArray()) {
+                auto messages = data.as<std::vector<matjson::Value>>().unwrap();
+                double savedTime = Mod::get()->getSavedValue<double>("streak_last_chat_time", 0.0);
+                long long lastSeenTime = (long long)savedTime;
+                int currentNewCount = 0;
 
-                    for (const auto& msg : messages) {
-                        long long timestamp = msg["timestamp"].as<long long>().unwrapOr(0);
-                        if (timestamp > lastSeenTime) {
-                            currentNewCount++;
-                        }
+                for (const auto& msg : messages) {
+                    long long timestamp = msg["timestamp"].as<long long>().unwrapOr(0);
+                    if (timestamp > lastSeenTime) {
+                        currentNewCount++;
                     }
-
-                    if (currentNewCount > 0 && currentNewCount > s_lastNewMsgCount) {
-                        SystemNotification::show(
-                            "Nuevos Anuncios",
-                            fmt::format("There are {} new messages", currentNewCount),
-                            "msm.png"_spr,
-                            0.6f
-                        );
-                    }
-                    s_lastNewMsgCount = currentNewCount;
                 }
+
+                if (currentNewCount > 0 && currentNewCount > s_lastNewMsgCount) {
+                    SystemNotification::show(
+                        "Nuevos Anuncios",
+                        fmt::format("There are {} new messages", currentNewCount),
+                        "msm.png"_spr,
+                        0.6f
+                    );
+                }
+                s_lastNewMsgCount = currentNewCount;
             }
         }
     }
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(280.f, 220.f, "geode.loader/GE_square03.png")) return false;
+
         auto am = GJAccountManager::sharedState();
         auto winSize = m_mainLayer->getContentSize();
 
@@ -194,8 +202,6 @@ protected:
             m_mainLayer->addChild(errorLabel);
             return true;
         }
-
-        m_msgCheckListener.bind(this, &InfoPopup::onMessagesChecked);
 
         if (g_streakData.needsRegistration) {
             this->setTitle("Welcome!");
@@ -433,18 +439,14 @@ protected:
             auto rankBtn = CCMenuItemSpriteExtra::create(
                 rankSprite,
                 this,
-                menu_selector(InfoPopup::onRankClick) 
+                menu_selector(InfoPopup::onRankClick)
             );
 
             rankBtn->setTag(g_streakData.specialRank);
 
-            
             rankBtn->setPosition({ winSize.width - 80, winSize.height - 20 });
-
             cornerMenu->addChild(rankBtn);
         }
-      
-       
 
         auto accountIcon = CCSprite::create("account_btn.png"_spr);
         accountIcon->setScale(0.56f);
@@ -466,89 +468,101 @@ protected:
         settingsBtn->setPosition({ winSize.width - 20, winSize.height - 20 });
         cornerMenu->addChild(settingsBtn);
 
-        auto bottomMenu = CCMenu::create();
-        m_mainLayer->addChild(bottomMenu, 10);
+      
+        std::vector<CCMenuItemSpriteExtra*> allBottomBtns;
 
+      
         auto eventIcon = CCSprite::create("event_boton.png"_spr);
-        if (!eventIcon || eventIcon->getContentSize().width == 0) {
-            eventIcon = CCSprite::createWithSpriteFrameName("GJ_top100Btn_001.png");
-        }
+        if (!eventIcon || eventIcon->getContentSize().width == 0) eventIcon = CCSprite::createWithSpriteFrameName("GJ_top100Btn_001.png");
         eventIcon->setScale(0.7f);
-        bottomMenu->addChild(CCMenuItemSpriteExtra::create(
-            eventIcon,
-            this,
-            menu_selector(InfoPopup::onOpenEvent)
-        ));
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(eventIcon, this, menu_selector(InfoPopup::onOpenEvent)));
 
+     
         auto stIcon = CCSprite::create("st_progress.png"_spr);
         if (!stIcon) stIcon = ButtonSprite::create("St");
         else stIcon->setScale(0.7f);
-        bottomMenu->addChild(CCMenuItemSpriteExtra::create(
-            stIcon,
-            this,
-            menu_selector(InfoPopup::onOpenStProgress)
-        ));
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(stIcon, this, menu_selector(InfoPopup::onOpenStProgress)));
 
+      
         auto levelProgIcon = CCSprite::create("level_progess_btn.png"_spr);
         if (!levelProgIcon) levelProgIcon = ButtonSprite::create("Lvls");
         else levelProgIcon->setScale(0.7f);
-        bottomMenu->addChild(CCMenuItemSpriteExtra::create(
-            levelProgIcon,
-            this,
-            menu_selector(InfoPopup::onOpenLevelProgress)
-        ));
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(levelProgIcon, this, menu_selector(InfoPopup::onOpenLevelProgress)));
 
+   
         auto topIcon = CCSprite::create("top_btn.png"_spr);
         if (!topIcon) topIcon = ButtonSprite::create("Top");
         else topIcon->setScale(0.7f);
-        bottomMenu->addChild(CCMenuItemSpriteExtra::create(
-            topIcon,
-            this,
-            menu_selector(InfoPopup::onOpenLeaderboard)
-        ));
-
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(topIcon, this, menu_selector(InfoPopup::onOpenLeaderboard)));
+ 
         auto msgIcon = CCSprite::create("msm.png"_spr);
         if (!msgIcon) msgIcon = CCSprite::createWithSpriteFrameName("GJ_chatBtn_001.png");
         msgIcon->setScale(0.7f);
-        bottomMenu->addChild(CCMenuItemSpriteExtra::create(
-            msgIcon,
-            this,
-            menu_selector(InfoPopup::onOpenMessages)
-        ));
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(msgIcon, this, menu_selector(InfoPopup::onOpenMessages)));
 
+     
         auto redeemIcon = CCSprite::create("redemcode_btn.png"_spr);
+        if (!redeemIcon) redeemIcon = ButtonSprite::create("Code");
         redeemIcon->setScale(0.7f);
-        bottomMenu->addChild(CCMenuItemSpriteExtra::create(
-            redeemIcon,
-            this,
-            menu_selector(InfoPopup::onRedeemCode)
-        ));
-
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(redeemIcon, this, menu_selector(InfoPopup::onRedeemCode)));
+ 
         auto shopIcon = CCSprite::create("daily_shop.png"_spr);
-        if (!shopIcon) {
-            shopIcon = ButtonSprite::create("Shop"); 
-        }
-        else {
-            shopIcon->setScale(0.7f);
-        }
+        if (!shopIcon) shopIcon = ButtonSprite::create("Shop");
+        else shopIcon->setScale(0.7f);
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(shopIcon, this, menu_selector(InfoPopup::onOpenDailyShop)));
 
-        bottomMenu->addChild(CCMenuItemSpriteExtra::create(
-            shopIcon,
-            this,
-            menu_selector(InfoPopup::onOpenDailyShop)
-        ));
-
+     
         auto kofiIcon = CCSprite::create("ko-fi_btn.png"_spr);
         if (!kofiIcon) kofiIcon = ButtonSprite::create("Donate");
         else kofiIcon->setScale(0.7f);
-        bottomMenu->addChild(CCMenuItemSpriteExtra::create(
-            kofiIcon,
-            this,
-            menu_selector(InfoPopup::onOpenDonations)
-        ));
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(kofiIcon, this, menu_selector(InfoPopup::onOpenDonations)));
 
-        bottomMenu->alignItemsHorizontallyWithPadding(5.0f);
-        bottomMenu->setPosition({ winSize.width / 2, 25.f });
+    
+        auto trendIcon = CCSprite::create("tendencies_btn.png"_spr);
+        if (!trendIcon) trendIcon = ButtonSprite::create("Trend");
+        else trendIcon->setScale(0.7f);
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(trendIcon, this, menu_selector(InfoPopup::onOpenTrending)));
+ 
+        int btnsPerPage = 5;
+        int totalPages = std::ceil((float)allBottomBtns.size() / btnsPerPage);
+
+        for (int i = 0; i < totalPages; ++i) {
+            auto pageMenu = CCMenu::create();
+            pageMenu->setPosition({ winSize.width / 2, 25.f });
+
+            for (int j = 0; j < btnsPerPage; ++j) {
+                int index = (i * btnsPerPage) + j;
+                if (index < allBottomBtns.size()) {
+                    pageMenu->addChild(allBottomBtns[index]);
+                }
+            }
+            pageMenu->alignItemsHorizontallyWithPadding(5.0f);
+
+            pageMenu->setVisible(i == 0);  
+            m_mainLayer->addChild(pageMenu, 10);
+            m_bottomPages.push_back(pageMenu);
+        }
+
+       
+        auto arrowMenu = CCMenu::create();
+        arrowMenu->setPosition({ 0, 0 });
+        m_mainLayer->addChild(arrowMenu, 15);
+
+      
+        auto leftSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        leftSpr->setScale(0.5f);
+        m_leftArrowBtn = CCMenuItemSpriteExtra::create(leftSpr, this, menu_selector(InfoPopup::onPrevPage));
+        m_leftArrowBtn->setPosition({ 40.f, 25.f });
+        arrowMenu->addChild(m_leftArrowBtn);
+         
+        auto rightSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        rightSpr->setFlipX(true);
+        rightSpr->setScale(0.5f);
+        m_rightArrowBtn = CCMenuItemSpriteExtra::create(rightSpr, this, menu_selector(InfoPopup::onNextPage));
+        m_rightArrowBtn->setPosition({ winSize.width - 40.f, 25.f });
+        arrowMenu->addChild(m_rightArrowBtn);
+
+        updateArrowVisibility();
 
         this->updateDisplay();
 
@@ -574,6 +588,39 @@ protected:
         return true;
     }
 
+    
+    void onNextPage(CCObject*) {
+        if (m_currentPage < m_bottomPages.size() - 1) {
+            m_bottomPages[m_currentPage]->setVisible(false);
+            m_currentPage++;
+            m_bottomPages[m_currentPage]->setVisible(true);
+            updateArrowVisibility();
+        }
+    }
+
+    void onPrevPage(CCObject*) {
+        if (m_currentPage > 0) {
+            m_bottomPages[m_currentPage]->setVisible(false);
+            m_currentPage--;
+            m_bottomPages[m_currentPage]->setVisible(true);
+            updateArrowVisibility();
+        }
+    }
+
+    void updateArrowVisibility() {
+        if (m_leftArrowBtn) {
+            m_leftArrowBtn->setVisible(m_currentPage > 0);
+        }
+        if (m_rightArrowBtn) {
+            m_rightArrowBtn->setVisible(m_currentPage < m_bottomPages.size() - 1);
+        }
+    }
+
+    
+    void onOpenTrending(CCObject*) {
+        TrendLevelsPopup::create()->show();
+    }
+
     void updateDisplay() {
         if (!m_mainLayer || !m_streakLabel || !m_barFg || !m_barText || !m_rachaIndicator) {
             return;
@@ -583,7 +630,7 @@ protected:
         int pointsToday = g_streakData.streakPointsToday;
         int requiredPoints = g_streakData.getRequiredPoints();
 
-       
+
         float percent = 0.0f;
         if (requiredPoints > 0) {
             percent = static_cast<float>(pointsToday) / static_cast<float>(requiredPoints);
@@ -592,7 +639,7 @@ protected:
             percent = 0.0f;
         }
 
-    
+
         if (percent > 1.0f) percent = 1.0f;
         if (percent < 0.0f) percent = 0.0f;
 
@@ -600,7 +647,7 @@ protected:
         float barHeight = 16.0f;
 
         m_streakLabel->setString(fmt::format("Daily streak: {}", currentStreak).c_str());
- 
+
         if (pointsToday <= 0) {
             m_barFg->setContentSize({ 0.0f, barHeight });
         }
@@ -610,16 +657,16 @@ protected:
 
         m_barText->setString(fmt::format("{}/{}", pointsToday, requiredPoints).c_str());
 
-       
+
         if (m_pointIcon) {
             float startX = (m_mainLayer->getContentSize().width / 2) - (barWidth / 2);
-        
+
             float effectivePercent = (pointsToday <= 0) ? 0.0f : percent;
             float newX = startX + (barWidth * effectivePercent);
             m_pointIcon->setPositionX(newX);
         }
 
-       
+
         std::string indicatorSpriteName;
         if (pointsToday >= requiredPoints) {
             int visualStreak = (currentStreak > 0) ? currentStreak : 1;
@@ -644,7 +691,7 @@ protected:
             m_gemsLabel->setString(std::to_string(g_streakData.gems).c_str());
         }
 
-      
+
         if (m_xpBarFg && m_xpLabel && m_xpProgressLabel) {
             float xpBarWidth = 140.0f;
             float xpBarHeight = 6.0f;
@@ -663,7 +710,7 @@ protected:
                 );
             }
 
-          
+
             if (xpPercent <= 0.0f) {
                 m_xpBarFg->setContentSize({ 0.0f, xpBarHeight });
             }
@@ -744,13 +791,13 @@ protected:
     }
 
     void onOpenLeaderboard(CCObject*) {
-      
+
         if (g_streakData.currentLevel < 7) {
             LevelLockPopup::create()->show();
             return;
         }
 
-      
+
         LeaderboardPopup::create()->show();
     }
 
@@ -777,8 +824,6 @@ protected:
     void onOpenDailyShop(CCObject*) {
         DailyShopPopup::create()->show();
     }
-
-   
 
     void onOpenRoulette(CCObject*) {
         if (g_streakData.currentStreak < 1) {
@@ -938,13 +983,13 @@ protected:
     }
 
     void onClose(CCObject* sender) override {
-        Popup<>::onClose(sender);
+        Popup::onClose(sender);
     }
 
 public:
     static InfoPopup* create() {
         auto ret = new InfoPopup();
-        if (ret && ret->initAnchored(280.f, 220.f, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

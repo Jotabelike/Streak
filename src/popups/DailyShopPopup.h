@@ -1,5 +1,6 @@
 #pragma once
 #include <Geode/ui/Popup.hpp>
+#include <Geode/utils/general.hpp>
 #include "../StreakData.h"
 #include "../FirebaseManager.h"
 #include <ctime>
@@ -8,18 +9,18 @@
 
 using namespace geode::prelude;
 
-class DailyShopPopup : public Popup<> {
+class DailyShopPopup : public Popup {
 protected:
     CCLabelBMFont* m_gemLabel = nullptr;
     CCLabelBMFont* m_timerLabel = nullptr;
-    CCNode* m_itemsContainer = nullptr;  
+    CCNode* m_itemsContainer = nullptr;
     std::vector<StreakData::ShopItem> m_dailyItems;
 
     void updateTimer(float dt) {
         if (!m_timerLabel) return;
         time_t now = time(nullptr);
-        struct tm* t = localtime(&now);
-        int currentSeconds = (t->tm_hour * 3600) + (t->tm_min * 60) + t->tm_sec;
+        std::tm t = geode::localtime(now);
+        int currentSeconds = (t.tm_hour * 3600) + (t.tm_min * 60) + t.tm_sec;
         int remaining = 86400 - currentSeconds;
         if (remaining < 0) remaining = 0;
         int h = remaining / 3600;
@@ -28,14 +29,11 @@ protected:
         m_timerLabel->setString(fmt::format("{:02d}:{:02d}:{:02d}", h, m, s).c_str());
     }
 
-   
     void refreshItems() {
         if (!m_itemsContainer) return;
 
-      
         m_itemsContainer->removeAllChildren();
 
-      
         float spacing = 110.0f;
         size_t count = m_dailyItems.size();
         float startX = -((float)(count - 1) * spacing) / 2.0f;
@@ -47,21 +45,20 @@ protected:
         }
 
         if (m_dailyItems.empty()) {
-            auto size = m_mainLayer->getContentSize();
             auto emptyLabel = CCLabelBMFont::create("No items today", "bigFont.fnt");
             emptyLabel->setScale(0.5f);
-            emptyLabel->setPosition({ 0, 0 });  
+            emptyLabel->setPosition({ 0, 0 });
             m_itemsContainer->addChild(emptyLabel);
         }
     }
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(360.f, 220.f, "geode.loader/GE_square03.png")) return false;
         auto size = m_mainLayer->getContentSize();
         this->setTitle("Daily Shop");
- 
+
         m_dailyItems = g_streakData.getDailyShopSelection();
 
-       
         auto gemSprite = CCSprite::create("gem.png"_spr);
         gemSprite->setScale(0.2f);
         gemSprite->setPosition({ size.width - 25.f, size.height - 25.f });
@@ -73,7 +70,6 @@ protected:
         m_gemLabel->setPosition({ size.width - 40.f, size.height - 25.f });
         m_mainLayer->addChild(m_gemLabel);
 
-      
         auto clockIcon = CCSprite::createWithSpriteFrameName("GJ_timeIcon_001.png");
         clockIcon->setScale(0.4f);
         clockIcon->setPosition({ 20.f, 14.f });
@@ -89,12 +85,10 @@ protected:
         this->updateTimer(0);
         this->schedule(schedule_selector(DailyShopPopup::updateTimer), 1.0f);
 
-       
         m_itemsContainer = CCNode::create();
         m_itemsContainer->setPosition({ size.width / 2, size.height / 2 - 15.f });
         m_mainLayer->addChild(m_itemsContainer);
 
-       
         this->refreshItems();
 
         return true;
@@ -103,14 +97,12 @@ protected:
     CCNode* createItemCell(const StreakData::ShopItem& item, int index) {
         auto container = CCNode::create();
 
-  
         auto bg = CCScale9Sprite::create("GJ_square02.png");
         bg->setContentSize({ 100.f, 150.f });
         bg->setOpacity(120);
         bg->setColor({ 0, 0, 0 });
         container->addChild(bg);
 
-      
         std::string rarityName = g_streakData.getCategoryName(item.rarity);
         std::transform(rarityName.begin(), rarityName.end(), rarityName.begin(), ::toupper);
 
@@ -120,7 +112,6 @@ protected:
         rarityLabel->setColor(g_streakData.getCategoryColor(item.rarity));
         container->addChild(rarityLabel);
 
-        
         auto sprite = CCSprite::create(item.sprite.c_str());
         if (!sprite) sprite = CCSprite::createWithSpriteFrameName("GJ_questionMark_001.png");
 
@@ -133,14 +124,12 @@ protected:
         sprite->setPosition({ 0, 15.f });
         container->addChild(sprite);
 
-       
         auto nameLabel = CCLabelBMFont::create(item.name.c_str(), "chatFont.fnt");
         nameLabel->setScale(0.35f);
         nameLabel->setPosition({ 0, -25.f });
         nameLabel->limitLabelWidth(90.f, 0.35f, 0.1f);
         container->addChild(nameLabel);
 
-       
         bool isOwned = false;
         if (item.isBadge) isOwned = g_streakData.isBadgeUnlocked(item.id);
         else isOwned = g_streakData.isBannerUnlocked(item.id);
@@ -209,12 +198,9 @@ protected:
     }
 
     void processPurchase(const StreakData::ShopItem& item) {
-       
         if (g_streakData.gems >= item.price) {
-          
             g_streakData.purchaseItem(item);
 
-            
             FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
 
             if (item.isBadge) {
@@ -226,24 +212,21 @@ protected:
                 BannerNotification::show(item.id, item.sprite, item.name, rarityName, rareColor);
             }
 
-           
             if (m_gemLabel) {
                 m_gemLabel->setString(std::to_string(g_streakData.gems).c_str());
             }
 
-          
             this->refreshItems();
         }
     }
-
 public:
     static DailyShopPopup* create() {
         auto ret = new DailyShopPopup();
-        if (ret && ret->initAnchored(360.f, 220.f, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }
         CC_SAFE_DELETE(ret);
         return nullptr;
     }
-};
+};  

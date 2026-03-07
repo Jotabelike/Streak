@@ -5,12 +5,13 @@
 #include <Geode/ui/ScrollLayer.hpp>
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/web.hpp>
+#include <Geode/utils/async.hpp>
 
-class MailDetailPopup : public Popup<StreakData::MailMessage*, std::function<void()>> {
+class MailDetailPopup : public Popup {
 protected:
     StreakData::MailMessage* m_mail = nullptr;
     std::function<void()> m_onClaimCallback;
-    EventListener<web::WebTask> m_actionListener;
+    async::TaskHolder<web::WebResponse> m_actionListener;
     CCMenuItemSpriteExtra* m_claimBtn = nullptr;
 
     void onEnter() override {
@@ -31,13 +32,14 @@ protected:
     void ccTouchEnded(CCTouch* touch, CCEvent* event) override {}
     void ccTouchCancelled(CCTouch* touch, CCEvent* event) override {}
 
-    bool setup(StreakData::MailMessage* mail, std::function<void()> callback) override {
+    bool init(StreakData::MailMessage* mail, std::function<void()> callback) {
+        if (!Popup::init(340.f, 240.f)) return false;
+
         m_mail = mail;
         m_onClaimCallback = callback;
         this->setTitle(m_mail->title.c_str());
         auto winSize = m_mainLayer->getContentSize();
 
-      
         auto textBg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
         textBg->setContentSize({ 280.f, 90.f });
         textBg->setColor({ 0, 0, 0 }); textBg->setOpacity(60);
@@ -57,7 +59,6 @@ protected:
         bodyLabel->setPosition(textBg->getPosition());
         m_mainLayer->addChild(bodyLabel);
 
-    
         if (m_mail->hasRewards()) {
             CCNode* rewardContainer = CCNode::create();
             rewardContainer->setPosition({ winSize.width / 2, winSize.height / 2 - 45.f });
@@ -126,7 +127,7 @@ protected:
             spr,
             this,
             menu_selector(MailDetailPopup::onClaim));
-            if (claimed) m_claimBtn->setEnabled(false);
+        if (claimed) m_claimBtn->setEnabled(false);
     }
 
     void onClaim(CCObject*) {
@@ -137,35 +138,31 @@ protected:
 
         std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/mail/{}/claim", am->m_accountID, m_mail->id);
 
-        m_actionListener.bind([this](web::WebTask::Event* e) {
-            if (web::WebResponse* res = e->getValue()) {
-                if (res->ok()) {
-                    FLAlertLayer::create("Success", "Rewards Claimed!", "OK")->show();
-                    if (!m_mail->isClaimedLocal) {
-                        g_streakData.superStars += m_mail->rewardStars;
-                        g_streakData.starTickets += m_mail->rewardTickets;
-                        g_streakData.save();
-                        m_mail->isClaimedLocal = true;
-                    }
-                    this->updateClaimButtonState();
-                    if (auto menu = m_mainLayer->getChildByIDRecursive("claim-menu")) menu->addChild(m_claimBtn);
-                    if (m_onClaimCallback) m_onClaimCallback();
+        auto req = web::WebRequest();
+        m_actionListener.spawn(req.bodyJSON(payload).post(url), [this](web::WebResponse res) {
+            if (res.ok()) {
+                FLAlertLayer::create("Success", "Rewards Claimed!", "OK")->show();
+                if (!m_mail->isClaimedLocal) {
+                    g_streakData.superStars += m_mail->rewardStars;
+                    g_streakData.starTickets += m_mail->rewardTickets;
+                    g_streakData.save();
+                    m_mail->isClaimedLocal = true;
                 }
-                else {
-                    FLAlertLayer::create("Error", "Failed.", "OK")->show();
-                    m_claimBtn->setEnabled(true);
-                }
+                this->updateClaimButtonState();
+                if (auto menu = m_mainLayer->getChildByIDRecursive("claim-menu")) menu->addChild(m_claimBtn);
+                if (m_onClaimCallback) m_onClaimCallback();
+            }
+            else {
+                FLAlertLayer::create("Error", "Failed.", "OK")->show();
+                m_claimBtn->setEnabled(true);
             }
             });
-
-        auto req = web::WebRequest();
-        m_actionListener.setFilter(req.bodyJSON(payload).post(url));
     }
 
 public:
     static MailDetailPopup* create(StreakData::MailMessage* mail, std::function<void()> callback) {
         auto ret = new MailDetailPopup();
-        if (ret && ret->initAnchored(340.f, 240.f, mail, callback)) {
+        if (ret && ret->init(mail, callback)) {
             ret->autorelease(); return ret;
         }
         CC_SAFE_DELETE(ret); return nullptr;
@@ -173,43 +170,43 @@ public:
 };
 
 
-class WriteMailPopup : public Popup<> {
+class WriteMailPopup : public Popup {
 protected:
     TextInput* m_targetInput;
     TextInput* m_titleInput;
     TextInput* m_bodyInput;
     TextInput* m_starsInput;
-    TextInput* m_ticketsInput; 
+    TextInput* m_ticketsInput;
     TextInput* m_badgeInput;
     CCNode* m_page1 = nullptr;
     CCNode* m_page2 = nullptr;
     int m_currentPage = 0;
     CCMenuItemSpriteExtra* m_leftArrow = nullptr;
-    CCMenuItemSpriteExtra* m_rightArrow = nullptr; 
+    CCMenuItemSpriteExtra* m_rightArrow = nullptr;
     CCMenuItemSpriteExtra* m_sendBtn = nullptr;
-    EventListener<web::WebTask> m_sendListener;
+    async::TaskHolder<web::WebResponse> m_sendListener;
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(360.f, 260.f)) return false;
         this->setTitle("Compose Mail");
         auto winSize = m_mainLayer->getContentSize();
         m_page1 = CCNode::create();
         m_page1->setContentSize(winSize);
         m_mainLayer->addChild(m_page1);
-        m_page2 = CCNode::create(); 
-        m_page2->setContentSize(winSize); 
+        m_page2 = CCNode::create();
+        m_page2->setContentSize(winSize);
         m_page2->setVisible(false);
         m_mainLayer->addChild(m_page2);
 
-       
         m_targetInput = TextInput::create(
             140.f,
             "Target ID / 'global'",
             "chatFont.fnt"
         );
 
-        m_targetInput->setPosition({ 
+        m_targetInput->setPosition({
             winSize.width / 2,
-            winSize.height - 60.f 
+            winSize.height - 60.f
             }
         );
         m_targetInput->setFilter("abcdefghijklmnopqrstuvwxyz0123456789");
@@ -222,15 +219,15 @@ protected:
 
         targetLabel->setScale(0.6f);
         targetLabel->setPosition({
-            winSize.width / 2, 
-            winSize.height - 40.f 
+            winSize.width / 2,
+            winSize.height - 40.f
             }
         );
 
         m_page1->addChild(targetLabel);
         m_titleInput = TextInput::create(
             220.f,
-            "Subject", 
+            "Subject",
             "chatFont.fnt"
         );
 
@@ -252,37 +249,36 @@ protected:
             winSize.width / 2,
             winSize.height - 80.f
             }
-        ); 
+        );
 
         m_page1->addChild(subjectLabel);
         auto bodyLabel = CCLabelBMFont::create(
-            "Message:", 
+            "Message:",
             "goldFont.fnt"
         );
 
         bodyLabel->setScale(0.6f);
         bodyLabel->setPosition({
             winSize.width / 2,
-            winSize.height - 130.f 
+            winSize.height - 130.f
             }
         );
         m_page1->addChild(bodyLabel);
 
         m_bodyInput = TextInput::create(
-            280.f, 
+            280.f,
             "Type message here...",
             "chatFont.fnt"
         );
 
-        m_bodyInput->setPosition({ 
-            winSize.width / 2, 
+        m_bodyInput->setPosition({
+            winSize.width / 2,
             winSize.height / 2 - 40.f }
             );
 
         m_bodyInput->setMaxCharCount(200);
         m_page1->addChild(m_bodyInput);
 
-     
         auto rewardsTitle = CCLabelBMFont::create(
             "Attach Rewards",
             "goldFont.fnt"
@@ -290,7 +286,7 @@ protected:
 
         rewardsTitle->setPosition({
             winSize.width / 2,
-            winSize.height - 45.f 
+            winSize.height - 45.f
             }
         );
 
@@ -302,7 +298,7 @@ protected:
         );
 
         starSpr->setScale(0.2f);
-        starSpr->setPosition({ 
+        starSpr->setPosition({
             winSize.width / 2 - 80.f,
             rowY + 30.f
             });
@@ -315,7 +311,7 @@ protected:
             "chatFont.fnt"
         );
 
-        m_starsInput->setPosition({ 
+        m_starsInput->setPosition({
             winSize.width / 2 - 80.f,
             rowY }
             );
@@ -324,10 +320,10 @@ protected:
         m_page2->addChild(m_starsInput);
 
         auto tickSpr = CCSprite::create("star_tiket.png"_spr);
-        tickSpr->setScale(0.25f); 
+        tickSpr->setScale(0.25f);
         tickSpr->setPosition({
             winSize.width / 2 + 80.f,
-            rowY + 30.f 
+            rowY + 30.f
             });
 
         m_page2->addChild(tickSpr);
@@ -350,7 +346,7 @@ protected:
         badgeLabel->setScale(0.6f);
         badgeLabel->setPosition({
             winSize.width / 2,
-            rowY - 45.f 
+            rowY - 45.f
             });
 
         m_page2->addChild(badgeLabel);
@@ -369,9 +365,9 @@ protected:
         m_page2->addChild(m_badgeInput);
 
         auto selectBtn = CCMenuItemSpriteExtra::create(ButtonSprite::create(
-            "Select", 
+            "Select",
             0,
-            0, 
+            0,
             "goldFont.fnt",
             "GJ_button_05.png",
             0, 0.6f),
@@ -380,10 +376,10 @@ protected:
             )
         );
 
-        auto selectMenu = CCMenu::createWithItem(selectBtn); 
-        selectMenu->setPosition({ 
+        auto selectMenu = CCMenu::createWithItem(selectBtn);
+        selectMenu->setPosition({
             winSize.width / 2 + 95.f,
-            rowY - 70.f 
+            rowY - 70.f
             }
         );
 
@@ -391,13 +387,13 @@ protected:
 
         m_sendBtn = CCMenuItemSpriteExtra::create(ButtonSprite::create(
             "Send Mail",
-            0, 
-            0, 
+            0,
+            0,
             "goldFont.fnt",
             "GJ_button_01.png",
             0,
             0.8f
-          ),
+        ),
             this,
             menu_selector(WriteMailPopup::onSend
             )
@@ -406,20 +402,20 @@ protected:
         auto sendMenu = CCMenu::createWithItem(m_sendBtn);
         sendMenu->setPosition({
             winSize.width / 2,
-            40.f 
-            }); 
+            40.f
+            });
 
         m_page2->addChild(sendMenu);
 
-        auto leftSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png"); 
-        m_leftArrow = CCMenuItemSpriteExtra::create(leftSpr, this, menu_selector(WriteMailPopup::onPrevPage)); 
+        auto leftSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
+        m_leftArrow = CCMenuItemSpriteExtra::create(leftSpr, this, menu_selector(WriteMailPopup::onPrevPage));
         m_leftArrow->setPosition({
             -winSize.width / 2 + 25.f,
             0
             });
 
         auto rightSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
-        rightSpr->setFlipX(true); 
+        rightSpr->setFlipX(true);
         m_rightArrow = CCMenuItemSpriteExtra::create(rightSpr, this, menu_selector(WriteMailPopup::onNextPage));
         m_rightArrow->setPosition({
             winSize.width / 2 - 25.f,
@@ -429,16 +425,12 @@ protected:
         navMenu->addChild(m_leftArrow);
         navMenu->addChild(m_rightArrow);
         navMenu->setPosition(
-            winSize.width / 2, 
+            winSize.width / 2,
             winSize.height / 2
         );
         m_mainLayer->addChild(navMenu);
 
         this->updatePageVisibility();
-        m_sendListener.bind(
-            this,
-            &WriteMailPopup::onResponse
-        );
 
         return true;
     }
@@ -451,12 +443,14 @@ protected:
     }
 
     void onNextPage(CCObject*) {
-        if (m_currentPage == 0) { m_currentPage = 1; updatePageVisibility();
+        if (m_currentPage == 0) {
+            m_currentPage = 1; updatePageVisibility();
         }
     }
 
-    void onPrevPage(CCObject*) { 
-        if (m_currentPage == 1) { m_currentPage = 0; updatePageVisibility();
+    void onPrevPage(CCObject*) {
+        if (m_currentPage == 1) {
+            m_currentPage = 0; updatePageVisibility();
         }
     }
 
@@ -475,7 +469,7 @@ protected:
 
         if (target.empty() || title.empty() || body.empty()) {
             FLAlertLayer::create("Error",
-                "Fill Page 1.", 
+                "Fill Page 1.",
                 "OK")->show();
             return;
         }
@@ -483,10 +477,10 @@ protected:
         m_sendBtn->setEnabled(false);
         m_sendBtn->setNormalImage(ButtonSprite::create(
             "Sending...",
-            0, 
-            0, 
+            0,
+            0,
             "goldFont.fnt",
-            "GJ_button_01.png", 
+            "GJ_button_01.png",
             0,
             0.8f)
         );
@@ -507,20 +501,20 @@ protected:
         matjson::Value payload = matjson::Value::object();
 
         payload.set(
-            "adminID", 
+            "adminID",
             GJAccountManager::sharedState()->m_accountID
         );
 
         payload.set(
-            "targetID", 
+            "targetID",
             target
-        ); 
-        
+        );
+
         payload.set(
             "title",
             title
         );
-        
+
         payload.set(
             "body",
             body
@@ -532,42 +526,41 @@ protected:
         );
 
         auto req = web::WebRequest();
-        m_sendListener.setFilter(req.bodyJSON(payload).post("https://streak-servidor.onrender.com/send-mail"));
+        m_sendListener.spawn(req.bodyJSON(payload).post("https://streak-servidor.onrender.com/send-mail"), [this](web::WebResponse res) {
+            this->onResponse(std::move(res));
+            });
     }
 
-    void onResponse(web::WebTask::Event* e) {
-        if (!e->getValue() && !e->isCancelled()) return;
-        if (web::WebResponse* res = e->getValue()) {
-            if (res->ok()) { 
-                FLAlertLayer::create(
-                    "Success",
-                    "Mail Sent!",
-                    "OK")->show(); 
-                this->onClose(nullptr);
-            }
-            else {
-                m_sendBtn->setEnabled(true);
-                m_sendBtn->setNormalImage(ButtonSprite::create(
-                    "Send Mail",
-                    0, 
-                    0, 
-                    "goldFont.fnt", 
-                    "GJ_button_01.png",
-                    0,
-                    0.8f)
-                );
+    void onResponse(web::WebResponse res) {
+        if (res.ok()) {
+            FLAlertLayer::create(
+                "Success",
+                "Mail Sent!",
+                "OK")->show();
+            this->onClose(nullptr);
+        }
+        else {
+            m_sendBtn->setEnabled(true);
+            m_sendBtn->setNormalImage(ButtonSprite::create(
+                "Send Mail",
+                0,
+                0,
+                "goldFont.fnt",
+                "GJ_button_01.png",
+                0,
+                0.8f)
+            );
 
-                std::string err = "Failed.";
-                if (res->json().isOk()) err = res->json().unwrap()["error"].as<std::string>().unwrapOr(err);
-                FLAlertLayer::create("Error", err.c_str(), "OK")->show();
-            }
+            std::string err = "Failed.";
+            if (res.json().isOk()) err = res.json().unwrap()["error"].as<std::string>().unwrapOr(err);
+            FLAlertLayer::create("Error", err.c_str(), "OK")->show();
         }
     }
 
 public:
     static WriteMailPopup* create() {
         auto ret = new WriteMailPopup();
-        if (ret && ret->initAnchored(360.f, 260.f)) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }
@@ -577,21 +570,22 @@ public:
 };
 
 
-class MailboxPopup : public Popup<> {
+class MailboxPopup : public Popup {
 public:
     std::function<void()> m_onCloseCallback;
     void onClose(CCObject* sender) override {
         if (m_onCloseCallback) m_onCloseCallback();
-        Popup::onClose(sender); 
+        Popup::onClose(sender);
     }
 
 protected:
     ScrollLayer* m_list;
-    EventListener<web::WebTask> m_loadListener;
+    async::TaskHolder<web::WebResponse> m_loadListener;
     CCLabelBMFont* m_loadingLabel = nullptr;
     std::vector<StreakData::MailMessage> m_messages;
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(340.f, 220.f, "geode.loader/GE_square01.png")) return false;
         this->setTitle("Inbox");
         auto winSize = m_mainLayer->getContentSize();
         auto listSize = CCSize(300.f, 160.f);
@@ -602,10 +596,10 @@ protected:
         bg->setColor({ 0, 0, 0 });
         bg->setOpacity(80);
         bg->setPosition(winSize / 2);
-        m_mainLayer->addChild(bg); 
+        m_mainLayer->addChild(bg);
         m_mainLayer->addChild(m_list);
-        m_loadingLabel = CCLabelBMFont::create("Loading...", "bigFont.fnt"); 
-        m_loadingLabel->setPosition(winSize / 2); 
+        m_loadingLabel = CCLabelBMFont::create("Loading...", "bigFont.fnt");
+        m_loadingLabel->setPosition(winSize / 2);
         m_loadingLabel->setScale(0.6f);
         m_mainLayer->addChild(m_loadingLabel, 100);
 
@@ -617,7 +611,7 @@ protected:
             menu_selector(MailboxPopup::onRefresh)
         );
 
-        auto refreshMenu = CCMenu::createWithItem(refreshBtn); 
+        auto refreshMenu = CCMenu::createWithItem(refreshBtn);
         refreshMenu->setPosition({ 25.f, 25.f });
         m_mainLayer->addChild(refreshMenu, 10);
 
@@ -634,61 +628,58 @@ protected:
                 winSize.width - 25.f,
                 winSize.height - 25.f
                 }
-             );
+            );
             m_mainLayer->addChild(menu, 10);
         }
         this->loadMail();
         return true;
     }
 
-    void onRefresh(CCObject*) { m_list->m_contentLayer->removeAllChildren();
-    if (m_loadingLabel) m_loadingLabel->setVisible(true);
-    this->loadMail(); 
+    void onRefresh(CCObject*) {
+        m_list->m_contentLayer->removeAllChildren();
+        if (m_loadingLabel) m_loadingLabel->setVisible(true);
+        this->loadMail();
     }
 
     void loadMail() {
         auto am = GJAccountManager::sharedState();
         std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/mail", am->m_accountID);
-        m_loadListener.bind([this](web::WebTask::Event* e) {
-            if (web::WebResponse* res = e->getValue()) {
-                if (m_loadingLabel) m_loadingLabel->setVisible(false);
-                if (res->ok() && res->json().isOk()) {
-                    m_messages.clear();
-                    auto data = res->json().unwrap();
-
-
-                    if (data.isArray()) {
-                        auto jsonArray = data.as<std::vector<matjson::Value>>().unwrap();
-                        for (const auto& m : jsonArray) {
-                            StreakData::MailMessage msg;
-                            msg.id = m["id"].as<std::string>().unwrapOr("");
-                            msg.title = m["title"].as<std::string>().unwrapOr("No Title");
-                            msg.body = m["body"].as<std::string>().unwrapOr("");
-                            msg.type = m["type"].as<std::string>().unwrapOr("personal");
-                            msg.timestamp = m["timestamp"].as<long long>().unwrapOr(0);
-                            if (m.contains("rewards")) {
-                                auto r = m["rewards"];
-                                msg.rewardStars = r["super_stars"].as<int>().unwrapOr(0);
-                                msg.rewardTickets = r["star_tickets"].as<int>().unwrapOr(0);
-                                msg.rewardBadge = r["badge"].as<std::string>().unwrapOr("");
-                            }
-                            if (m.contains("claimed")) msg.isClaimedLocal = m["claimed"].as<bool>().unwrapOr(false);
-                            m_messages.push_back(msg);
-                        }
-                    }
-                    this->refreshList();
-                }
-                else {
-                    auto errLbl = CCLabelBMFont::create("Error loading", "goldFont.fnt"); 
-                    errLbl->setScale(0.6f);
-                    errLbl->setPosition(m_list->getContentSize() / 2);
-                    m_list->m_contentLayer->addChild(errLbl);
-                }
-            }
-            });
 
         auto req = web::WebRequest();
-        m_loadListener.setFilter(req.get(url));
+        m_loadListener.spawn(req.get(url), [this](web::WebResponse res) {
+            if (m_loadingLabel) m_loadingLabel->setVisible(false);
+            if (res.ok() && res.json().isOk()) {
+                m_messages.clear();
+                auto data = res.json().unwrap();
+
+                if (data.isArray()) {
+                    auto jsonArray = data.as<std::vector<matjson::Value>>().unwrap();
+                    for (const auto& m : jsonArray) {
+                        StreakData::MailMessage msg;
+                        msg.id = m["id"].as<std::string>().unwrapOr("");
+                        msg.title = m["title"].as<std::string>().unwrapOr("No Title");
+                        msg.body = m["body"].as<std::string>().unwrapOr("");
+                        msg.type = m["type"].as<std::string>().unwrapOr("personal");
+                        msg.timestamp = m["timestamp"].as<long long>().unwrapOr(0);
+                        if (m.contains("rewards")) {
+                            auto r = m["rewards"];
+                            msg.rewardStars = r["super_stars"].as<int>().unwrapOr(0);
+                            msg.rewardTickets = r["star_tickets"].as<int>().unwrapOr(0);
+                            msg.rewardBadge = r["badge"].as<std::string>().unwrapOr("");
+                        }
+                        if (m.contains("claimed")) msg.isClaimedLocal = m["claimed"].as<bool>().unwrapOr(false);
+                        m_messages.push_back(msg);
+                    }
+                }
+                this->refreshList();
+            }
+            else {
+                auto errLbl = CCLabelBMFont::create("Error loading", "goldFont.fnt");
+                errLbl->setScale(0.6f);
+                errLbl->setPosition(m_list->getContentSize() / 2);
+                m_list->m_contentLayer->addChild(errLbl);
+            }
+            });
     }
 
     void refreshList() {
@@ -701,10 +692,10 @@ protected:
             lbl->setScale(0.7f);
             lbl->setPosition(
                 m_list->getContentSize() / 2
-            ); 
+            );
 
             m_list->m_contentLayer->addChild(lbl);
-            return; 
+            return;
         }
 
         float itemHeight = 45.f;
@@ -720,21 +711,21 @@ protected:
 
             if (msg.isClaimedLocal) {
                 btnSpr->setColor({ 150, 150, 150 }
-                ); 
+                );
 
-            btnSpr->setOpacity(150);
+                btnSpr->setOpacity(150);
             }
-            auto titleLbl = CCLabelBMFont::create(msg.title.c_str(), "goldFont.fnt"); 
+            auto titleLbl = CCLabelBMFont::create(msg.title.c_str(), "goldFont.fnt");
             titleLbl->setAnchorPoint({ 0, 0.5f });
             titleLbl->setPosition({ 10.f, 25.f });
             titleLbl->setScale(0.55f);
-            titleLbl->limitLabelWidth(160.f, 0.55f, 0.1f); 
+            titleLbl->limitLabelWidth(160.f, 0.55f, 0.1f);
             if (msg.isClaimedLocal) titleLbl->setColor({ 200,200,200 });
             btnSpr->addChild(titleLbl);
             std::string typeTxt = (msg.type == "global") ? "Global" : "Personal";
 
             auto subLbl = CCLabelBMFont::create(typeTxt.c_str(), "chatFont.fnt");
-            subLbl->setAnchorPoint({ 0, 0.5f }); subLbl->setPosition({ 10.f, 12.f }); 
+            subLbl->setAnchorPoint({ 0, 0.5f }); subLbl->setPosition({ 10.f, 12.f });
             subLbl->setScale(0.4f); subLbl->setColor({ 180, 180, 180 });
             btnSpr->addChild(subLbl);
             auto btn = CCMenuItemSpriteExtra::create(btnSpr, this, menu_selector(MailboxPopup::onOpenMail));
@@ -750,7 +741,7 @@ protected:
         int index = sender->getTag();
         if (index >= 0 && index < m_messages.size()) {
             MailDetailPopup::create(&m_messages[index],
-                [this]() { 
+                [this]() {
                     this->refreshList();
                 }
             )->show();
@@ -763,7 +754,7 @@ protected:
 public:
     static MailboxPopup* create() {
         auto ret = new MailboxPopup();
-        if (ret && ret->initAnchored(340.f, 220.f, "geode.loader/GE_square01.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

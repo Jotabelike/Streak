@@ -4,6 +4,7 @@
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp> 
 #include <Geode/utils/web.hpp>
+#include <Geode/utils/async.hpp>
 #include <Geode/binding/GJAccountManager.hpp>
 #include <Geode/binding/ProfilePage.hpp>
 #include <Geode/binding/FLAlertLayer.hpp> 
@@ -48,7 +49,6 @@ protected:
         bg->setPosition({ 0, 1 });
         this->addChild(bg, -2);
 
-        // Banner
         std::string bannerID = playerData["equipped_banner_id"].as<std::string>().unwrapOr("");
         if (isLocalPlayer) {
             bannerID = g_streakData.equippedBanner;
@@ -73,7 +73,6 @@ protected:
             }
         }
 
-        // Rank
         if (rank >= 1 && rank <= 3) {
             std::string spriteName = fmt::format("top{}.png"_spr, rank);
             auto rankSprite = CCSprite::create(spriteName.c_str());
@@ -113,7 +112,6 @@ protected:
             this->addChild(rankLabel, 1);
         }
 
-        // Badge
         std::string badgeID = playerData["equipped_badge_id"].as<std::string>().unwrapOr("");
         bool isMythic = false;
 
@@ -131,7 +129,6 @@ protected:
             }
         }
 
-        // Username
         std::string username = playerData["username"].as<std::string>().unwrapOr("-");
         m_nameLabel = CCLabelBMFont::create(username.c_str(), "goldFont.fnt");
         m_nameLabel->limitLabelWidth(105.f, 0.6f, 0.1f);
@@ -153,7 +150,6 @@ protected:
             this->schedule(schedule_selector(LeaderboardCell::updateRainbow));
         }
 
-        // Level
         int playerLevel = playerData["current_level"].as<int>().unwrapOr(1);
         auto levelNode = CCNode::create();
         levelNode->setAnchorPoint({ 0.f, 0.5f });
@@ -179,7 +175,6 @@ protected:
         levelLabel->setPosition({ cursorX, 0.f });
         levelNode->addChild(levelLabel);
 
-        // Streak Days
         int streakDays = playerData["current_streak_days"].as<int>().unwrapOr(0);
         auto streakIcon = CCSprite::create(g_streakData.getRachaSprite(streakDays).c_str());
         if (!streakIcon) streakIcon = CCSprite::create("racha0.png"_spr);
@@ -194,7 +189,6 @@ protected:
         streakLabel->setPosition({ streakIcon->getPositionX() + 12.f, cellHeight / 2 });
         this->addChild(streakLabel, 1);
 
-        // Streak Points
         int streakPoints = playerData["total_streak_points"].as<int>().unwrapOr(0);
         auto pointIcon = CCSprite::create("streak_point.png"_spr);
         pointIcon->setScale(0.12f);
@@ -229,12 +223,11 @@ public:
     }
 };
 
- 
-class LeaderboardPopup : public Popup<> {
+class LeaderboardPopup : public Popup {
 protected:
     struct Fields {
-        EventListener<web::WebTask> m_leaderboardListener;
-        EventListener<web::WebTask> m_claimListener;
+        async::TaskHolder<web::WebResponse> m_leaderboardListener;
+        async::TaskHolder<web::WebResponse> m_claimListener;
         StatusSpinner* m_spinner = nullptr;
         ScrollLayer* m_scrollLayer = nullptr;
 
@@ -303,78 +296,65 @@ protected:
         matjson::Value body = matjson::Value::object();
         body.set("accountID", am->m_accountID);
 
-        this->m_fields.m_claimListener.bind([this](web::WebTask::Event* e) {
-            if (web::WebResponse* res = e->getValue()) {
-                this->m_fields.m_spinner->setVisible(false);
-                if (res->ok() && res->json().isOk()) {
-                    auto data = res->json().unwrap();
-                    if (data["success"].as<bool>().unwrapOr(false)) {
-
-                        auto reward = data["reward"];
-                        int gems = reward["gems"].as<int>().unwrapOr(0);
-                        int stars = reward["super_stars"].as<int>().unwrapOr(0);
-                        int tickets = reward["star_tickets"].as<int>().unwrapOr(0);
-                        int rank = data["rank"].as<int>().unwrapOr(0);
-
-                        g_streakData.gems += gems;
-                        g_streakData.superStars += stars;
-                        g_streakData.starTickets += tickets;
-                        g_streakData.pendingSeasonRank = 0;
-                        g_streakData.save();
-
-                        Notification::create(fmt::format("Season Reward Rank #{}", rank), NotificationIcon::Success)->show();
-
-                        if (gems > 0) RewardNotification::show("gem.png"_spr, g_streakData.gems - gems, gems);
-                        if (stars > 0) RewardNotification::show("super_star.png"_spr, g_streakData.superStars - stars, stars);
-                        if (tickets > 0) RewardNotification::show("star_tiket.png"_spr, g_streakData.starTickets - tickets, tickets);
-
-                        FMODAudioEngine::sharedEngine()->playEffect("chest07.mp3");
-                    }
-                }
-                else {
-                    this->m_fields.m_claimBtn->setVisible(true);
-                    Notification::create("Error claiming reward (Expired?)", NotificationIcon::Error)->show();
-                }
-            }
-            });
-
         auto req = web::WebRequest();
-        this->m_fields.m_claimListener.setFilter(req.bodyJSON(body).post(url));
-    }
+        this->m_fields.m_claimListener.spawn(req.bodyJSON(body).post(url), [this](web::WebResponse res) {
+            this->m_fields.m_spinner->setVisible(false);
+            if (res.ok() && res.json().isOk()) {
+                auto data = res.json().unwrap();
+                if (data["success"].as<bool>().unwrapOr(false)) {
 
-    void handleLeaderboardResponse(web::WebTask::Event* e) {
-        if (web::WebResponse* res = e->getValue()) {
-            if (res->ok() && res->json().isOk()) {
-                if (this->m_fields.m_spinner) {
-                    this->m_fields.m_spinner->hide();
-                }
+                    auto reward = data["reward"];
+                    int gems = reward["gems"].as<int>().unwrapOr(0);
+                    int stars = reward["super_stars"].as<int>().unwrapOr(0);
+                    int tickets = reward["star_tickets"].as<int>().unwrapOr(0);
+                    int rank = data["rank"].as<int>().unwrapOr(0);
 
-                auto data = res->json().unwrap();
+                    g_streakData.gems += gems;
+                    g_streakData.superStars += stars;
+                    g_streakData.starTickets += tickets;
+                    g_streakData.pendingSeasonRank = 0;
+                    g_streakData.save();
 
-                // Timer Logic
-                if (data.contains("seasonEnd")) {
-                    double endVal = data["seasonEnd"].as<double>().unwrapOr(0.0);
-                    this->m_fields.m_seasonEndTimestamp = (long long)endVal;
-                    this->schedule(schedule_selector(LeaderboardPopup::refreshTimer), 1.0f);
-                    this->refreshTimer(0);
-                }
+                    Notification::create(fmt::format("Season Reward Rank #{}", rank), NotificationIcon::Success)->show();
 
-                // List Logic
-                if (data.contains("list") && data["list"].isArray()) {
-                    auto playersVec = data["list"].as<std::vector<matjson::Value>>().unwrap();
-                    this->populateScroll(playersVec);
-                    this->updateMyRankUI(playersVec);
+                    if (gems > 0) RewardNotification::show("gem.png"_spr, g_streakData.gems - gems, gems);
+                    if (stars > 0) RewardNotification::show("super_star.png"_spr, g_streakData.superStars - stars, stars);
+                    if (tickets > 0) RewardNotification::show("star_tiket.png"_spr, g_streakData.starTickets - tickets, tickets);
+
+                    FMODAudioEngine::sharedEngine()->playEffect("chest07.mp3");
                 }
             }
             else {
-                if (this->m_fields.m_spinner) {
-                    this->m_fields.m_spinner->setError("Failed to load.");
-                }
+                this->m_fields.m_claimBtn->setVisible(true);
+                Notification::create("Error claiming reward (Expired?)", NotificationIcon::Error)->show();
+            }
+            });
+    }
+
+    void handleLeaderboardResponse(web::WebResponse res) {
+        if (res.ok() && res.json().isOk()) {
+            if (this->m_fields.m_spinner) {
+                this->m_fields.m_spinner->hide();
+            }
+
+            auto data = res.json().unwrap();
+
+            if (data.contains("seasonEnd")) {
+                double endVal = data["seasonEnd"].as<double>().unwrapOr(0.0);
+                this->m_fields.m_seasonEndTimestamp = (long long)endVal;
+                this->schedule(schedule_selector(LeaderboardPopup::refreshTimer), 1.0f);
+                this->refreshTimer(0);
+            }
+
+            if (data.contains("list") && data["list"].isArray()) {
+                auto playersVec = data["list"].as<std::vector<matjson::Value>>().unwrap();
+                this->populateScroll(playersVec);
+                this->updateMyRankUI(playersVec);
             }
         }
-        else if (e->isCancelled()) {
+        else {
             if (this->m_fields.m_spinner) {
-                this->m_fields.m_spinner->setError("Cancelled.");
+                this->m_fields.m_spinner->setError("Failed to load.");
             }
         }
     }
@@ -429,15 +409,14 @@ protected:
         );
     }
 
-void updateMyRankUI(const std::vector<matjson::Value>& players) {
+    void updateMyRankUI(const std::vector<matjson::Value>& players) {
         int myRank = -1;
         int localAccountID = GJAccountManager::sharedState()->m_accountID;
 
-      
         if (localAccountID != 0) {
             for (size_t i = 0; i < players.size(); ++i) {
                 int playerID = 0;
-            
+
                 if (players[i]["accountID"].isNumber()) {
                     playerID = players[i]["accountID"].as<int>().unwrapOr(0);
                 }
@@ -455,31 +434,22 @@ void updateMyRankUI(const std::vector<matjson::Value>& players) {
             }
         }
 
-        
-     
         if (this->m_fields.m_myRankIconBg && this->m_fields.m_myRankNumLabel) {
             this->m_fields.m_myRankIconBg->setVisible(true);
             this->m_fields.m_myRankNumLabel->setVisible(true);
 
             if (myRank != -1) {
-            
                 this->m_fields.m_myRankNumLabel->setString(std::to_string(myRank).c_str());
-                
-            
                 this->m_fields.m_myRankNumLabel->setColor((myRank <= 3) ? ccColor3B{ 255, 215, 0 } : ccColor3B{ 255, 255, 255 });
-                
-         
                 this->m_fields.m_myRankNumLabel->setScale(myRank > 99 ? 0.4f : 0.5f);
             }
             else {
-            
                 this->m_fields.m_myRankNumLabel->setString("-");
                 this->m_fields.m_myRankNumLabel->setColor({ 150, 150, 150 });
                 this->m_fields.m_myRankNumLabel->setScale(0.5f);
             }
         }
 
-       
         if (auto idLabel = typeinfo_cast<CCLabelBMFont*>(m_mainLayer->getChildByID("streak-id-label"))) {
             if (!g_streakData.streakID.empty()) {
                 idLabel->setString(
@@ -489,12 +459,12 @@ void updateMyRankUI(const std::vector<matjson::Value>& players) {
         }
     }
 
-    bool setup() override {
-        m_mainLayer->setContentSize({ 340.f, 280.f });
+    bool init() {
+        if (!Popup::init(340.f, 280.f, "geode.loader/GE_square03.png")) return false;
+
         this->setTitle("Top Streaks (beta)");
         auto winSize = this->m_mainLayer->getContentSize();
 
-        //Info btn
         auto infoSpr = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
         infoSpr->setScale(0.7f);
         auto infoBtn = CCMenuItemSpriteExtra::create(
@@ -506,23 +476,18 @@ void updateMyRankUI(const std::vector<matjson::Value>& players) {
         infoMenu->setPosition({ 25.f, winSize.height - 25.f });
         m_mainLayer->addChild(infoMenu);
 
-         
-
-        
         this->m_fields.m_myRankIconBg = CCSprite::createWithSpriteFrameName("rankIcon_1_001.png");
         this->m_fields.m_myRankIconBg->setPosition({ winSize.width - 55.f, winSize.height - 25.f });
         this->m_fields.m_myRankIconBg->setScale(0.8f);
         this->m_fields.m_myRankIconBg->setVisible(false);
         m_mainLayer->addChild(this->m_fields.m_myRankIconBg);
 
-      
         this->m_fields.m_myRankNumLabel = CCLabelBMFont::create("?", "bigFont.fnt");
-        this->m_fields.m_myRankNumLabel->setAnchorPoint({ 0.f, 0.5f });  
+        this->m_fields.m_myRankNumLabel->setAnchorPoint({ 0.f, 0.5f });
         this->m_fields.m_myRankNumLabel->setPosition({ winSize.width - 40.f, winSize.height - 25.f });
         this->m_fields.m_myRankNumLabel->setScale(0.5f);
         this->m_fields.m_myRankNumLabel->setVisible(false);
         m_mainLayer->addChild(this->m_fields.m_myRankNumLabel);
-        
 
         auto listBg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
         listBg->setColor({ 0, 0, 0 });
@@ -571,8 +536,8 @@ void updateMyRankUI(const std::vector<matjson::Value>& players) {
         auto idLabel = CCLabelBMFont::create(fmt::format("ID: {}", idText).c_str(), "chatFont.fnt");
         idLabel->setScale(0.45f);
         idLabel->setColor({ 150, 150, 150 });
-        idLabel->setAnchorPoint({ 0.f, 0.5f });  
-        idLabel->setPosition({ 22.f, 18.f }); 
+        idLabel->setAnchorPoint({ 0.f, 0.5f });
+        idLabel->setPosition({ 22.f, 18.f });
         idLabel->setID("streak-id-label");
         m_mainLayer->addChild(idLabel);
 
@@ -581,12 +546,12 @@ void updateMyRankUI(const std::vector<matjson::Value>& players) {
         this->m_mainLayer->addChild(this->m_fields.m_spinner, 100);
         this->m_fields.m_spinner->setLoading("Loading...");
 
-        this->m_fields.m_leaderboardListener.bind([this](web::WebTask::Event* e) {
-            this->handleLeaderboardResponse(e);
-            });
         auto req = web::WebRequest();
-        this->m_fields.m_leaderboardListener.setFilter(
-            req.get("https://streak-servidor.onrender.com/leaderboard")
+        this->m_fields.m_leaderboardListener.spawn(
+            req.get("https://streak-servidor.onrender.com/leaderboard"),
+            [this](web::WebResponse res) {
+                this->handleLeaderboardResponse(std::move(res));
+            }
         );
 
         return true;
@@ -595,7 +560,7 @@ void updateMyRankUI(const std::vector<matjson::Value>& players) {
 public:
     static LeaderboardPopup* create() {
         auto ret = new LeaderboardPopup();
-        if (ret && ret->initAnchored(340.f, 280.f, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

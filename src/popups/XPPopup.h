@@ -4,11 +4,12 @@
 
 using namespace geode::prelude;
 
-class XPPopup : public Popup<> {
+class XPPopup : public Popup {
 protected:
     ScrollLayer* m_list = nullptr;
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(380.f, 260.f, "geode.loader/GE_square01.png")) return false;
         this->setTitle("Level Rewards");
 
         auto winSize = CCDirector::sharedDirector()->getWinSize();
@@ -240,7 +241,7 @@ protected:
 public:
     static XPPopup* create() {
         auto ret = new XPPopup();
-        if (ret && ret->initAnchored(360.f, 260.f, "geode.loader/GE_square01.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

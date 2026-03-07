@@ -142,7 +142,7 @@ std::vector<MasteryLevelDef> getLevelsForMastery(const std::string& masteryBadge
             {115245249, 6, "robobot"},
             {115198181, 10, "Love we Found"}
         };
-        }
+    }
 
     return {};
 }
@@ -587,7 +587,6 @@ public:
             );
             claimBtn->setScale(0.8f);
 
-            
             auto scaleUp = CCScaleTo::create(0.5f, 0.85f);
             auto scaleDown = CCScaleTo::create(0.5f, 0.8f);
             auto seq = CCSequence::create(scaleUp, scaleDown, nullptr);
@@ -721,7 +720,7 @@ public:
     }
 };
 
-class DayProgressPopup : public Popup<> {
+class DayProgressPopup : public Popup {
     MasteryInfoPanel* m_infoPanel = nullptr;
     std::map<std::string, std::string> m_masteryNames;
 
@@ -741,7 +740,9 @@ protected:
         }
     }
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(440.f, 290.f, "geode.loader/GE_square03.png")) return false;
+
         this->setTitle("Collection");
         auto winSize = m_mainLayer->getContentSize();
         g_streakData.load();
@@ -854,7 +855,6 @@ protected:
             }
         }
 
-      
         std::sort(
             streakList.begin(),
             streakList.end(),
@@ -902,7 +902,7 @@ protected:
 public:
     static DayProgressPopup* create() {
         auto ret = new DayProgressPopup();
-        if (ret && ret->initAnchored(440.f, 290.f, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

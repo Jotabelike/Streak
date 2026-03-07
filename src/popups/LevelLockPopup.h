@@ -4,27 +4,28 @@
 
 using namespace geode::prelude;
 
-class LevelLockPopup : public Popup<> {
+class LevelLockPopup : public Popup {
 protected:
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(280.f, 240.f, "geode.loader/GE_square01.png")) return false;
+
         auto popupSize = m_mainLayer->getContentSize();
 
-        auto titleIcon = CCSprite::create("competitive.png"_spr);     
+        auto titleIcon = CCSprite::create("competitive.png"_spr);
         float titlePosY = popupSize.height - 48.f;
 
-        if (titleIcon) {   
-            titleIcon->setScale(1.5f);   
+        if (titleIcon) {
+            titleIcon->setScale(1.5f);
             titleIcon->setPosition({ popupSize.width / 2, titlePosY });
             m_mainLayer->addChild(titleIcon);
         }
         else {
-          
             auto fallback = CCLabelBMFont::create("Locked", "goldFont.fnt");
             fallback->setPosition({ popupSize.width / 2, titlePosY });
             fallback->setScale(0.7f);
             m_mainLayer->addChild(fallback);
         }
-        
+
         auto lockSprite = CCSprite::createWithSpriteFrameName("GJ_lockGray_001.png");
         if (lockSprite) {
             lockSprite->setScale(1.2f);
@@ -32,7 +33,6 @@ protected:
             m_mainLayer->addChild(lockSprite);
         }
 
-      
         auto infoLabel = CCLabelBMFont::create(
             "You need to reach Level 7\nto unlock the Global Leaderboard!",
             "bigFont.fnt",
@@ -44,7 +44,6 @@ protected:
         infoLabel->setPosition({ popupSize.width / 2, popupSize.height / 2 - 25.f });
         m_mainLayer->addChild(infoLabel);
 
-       
         int currentLvl = g_streakData.currentLevel;
         auto statusLabel = CCLabelBMFont::create(
             fmt::format("Current Level: {} / 7", currentLvl).c_str(),
@@ -54,7 +53,6 @@ protected:
         statusLabel->setPosition({ popupSize.width / 2, popupSize.height / 2 - 55.f });
         m_mainLayer->addChild(statusLabel);
 
-      
         auto btnSpr = ButtonSprite::create("OK");
         auto okBtn = CCMenuItemSpriteExtra::create(
             btnSpr,
@@ -71,7 +69,7 @@ protected:
 public:
     static LevelLockPopup* create() {
         auto ret = new LevelLockPopup();
-        if (ret && ret->initAnchored(280.f, 240.f, "geode.loader/GE_square01.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

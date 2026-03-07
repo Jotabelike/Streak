@@ -279,7 +279,7 @@ public:
     }
 };
 
-class GenericPrizePopup : public Popup<GenericPrizeResult, std::function<void()>> {
+class GenericPrizePopup : public Popup {
 protected:
     std::function<void()> m_onCloseCallback = nullptr;
 
@@ -290,7 +290,8 @@ protected:
         Popup::onClose(sender);
     }
 
-    bool setup(GenericPrizeResult prize, std::function<void()> onCloseCallback) override {
+    bool init(GenericPrizeResult prize, std::function<void()> onCloseCallback) {
+        if (!Popup::init(280.f, 240.f)) return false;
         m_onCloseCallback = onCloseCallback;
         auto winSize = m_mainLayer->getContentSize();
 
@@ -408,7 +409,7 @@ protected:
 public:
     static GenericPrizePopup* create(GenericPrizeResult prize, std::function<void()> onCloseCallback) {
         auto ret = new GenericPrizePopup();
-        if (ret && ret->initAnchored(280.f, 240.f, prize, onCloseCallback)) {
+        if (ret && ret->init(prize, onCloseCallback)) {
             ret->autorelease();
             return ret;
         }
@@ -818,7 +819,7 @@ public:
     }
 };
 
-class MultiPrizePopup : public Popup<std::vector<GenericPrizeResult>, std::function<void()>> {
+class MultiPrizePopup : public Popup {
 protected:
     std::function<void()> m_onCloseCallback;
 
@@ -829,7 +830,8 @@ protected:
         Popup::onClose(sender);
     }
 
-    bool setup(std::vector<GenericPrizeResult> prizes, std::function<void()> onCloseCallback) override {
+    bool init(std::vector<GenericPrizeResult> prizes, std::function<void()> onCloseCallback) {
+        if (!Popup::init(380.f, 230.f, "geode.loader/GE_square01.png")) return false;
         this->setTitle("Congratulations!");
         m_onCloseCallback = onCloseCallback;
 
@@ -932,7 +934,7 @@ protected:
 public:
     static MultiPrizePopup* create(std::vector<GenericPrizeResult> prizes, std::function<void()> onCloseCallback = nullptr) {
         auto ret = new MultiPrizePopup();
-        if (ret && ret->initAnchored(380.f, 230.f, prizes, onCloseCallback, "geode.loader/GE_square01.png")) {
+        if (ret && ret->init(prizes, onCloseCallback)) {
             ret->autorelease();
             return ret;
         }

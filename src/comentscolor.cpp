@@ -5,6 +5,7 @@
 #include "StreakData.h"
 #include <Geode/binding/GJAccountManager.hpp>
 #include <Geode/utils/web.hpp>
+#include <Geode/utils/async.hpp>
 #include <Geode/loader/Event.hpp>
 #include <matjson.hpp>
 
@@ -13,7 +14,7 @@ using namespace geode::prelude;
 class $modify(MyColoredCommentCell, CommentCell) {
     struct Fields {
         float m_time = 0.f;
-        EventListener<web::WebTask> m_mythicCheckListener;
+        async::TaskHolder<web::WebResponse> m_mythicCheckListener;
     };
 
     void updateRainbowEffect(float dt) {
@@ -52,7 +53,6 @@ class $modify(MyColoredCommentCell, CommentCell) {
         }
     }
 
-   
     bool isBadgeMythic(const std::string & badgeID) {
         if (badgeID.empty() || badgeID == "none") return false;
         if (auto badgeInfo = g_streakData.getBadgeInfo(badgeID)) {
@@ -64,13 +64,11 @@ class $modify(MyColoredCommentCell, CommentCell) {
     void loadFromComment(GJComment * comment) {
         CommentCell::loadFromComment(comment);
 
-       
         this->unschedule(schedule_selector(MyColoredCommentCell::updateRainbowEffect));
 
         int accountID = comment->m_accountID;
         if (accountID <= 0) return;
 
-     
         if (accountID == GJAccountManager::sharedState()->m_accountID) {
             if (auto* equippedBadge = g_streakData.getEquippedBadge()) {
                 if (equippedBadge->category == StreakData::BadgeCategory::MYTHIC) {
@@ -80,10 +78,8 @@ class $modify(MyColoredCommentCell, CommentCell) {
             return;
         }
 
-        
         std::string cachedBadge = g_streakData.getCachedBadge(accountID);
 
-        
         if (!cachedBadge.empty()) {
             if (isBadgeMythic(cachedBadge)) {
                 this->schedule(schedule_selector(MyColoredCommentCell::updateRainbowEffect));
@@ -91,39 +87,30 @@ class $modify(MyColoredCommentCell, CommentCell) {
             return;
         }
 
-      
         std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
 
-        m_fields->m_mythicCheckListener.bind([this, accountID](web::WebTask::Event* e) {
-            if (web::WebResponse* res = e->getValue()) {
-                if (res->ok() && res->json().isOk()) {
-                    auto playerData = res->json().unwrap();
+        auto req = web::WebRequest();
+        m_fields->m_mythicCheckListener.spawn(req.get(url), [this, accountID](web::WebResponse res) {
+            if (res.ok() && res.json().isOk()) {
+                auto playerData = res.json().unwrap();
 
-                  
-                    std::string badgeId = playerData["equipped_badge_id"].as<std::string>().unwrapOr("");
+                std::string badgeId = playerData["equipped_badge_id"].as<std::string>().unwrapOr("");
 
-                  
-                    if (badgeId.empty()) {
-                        g_streakData.cacheUserBadge(accountID, "none");
-                    }
-                    else {
-                        g_streakData.cacheUserBadge(accountID, badgeId);
-                    }
-
-                
-                    if (this->isBadgeMythic(badgeId)) {
-                        this->schedule(schedule_selector(MyColoredCommentCell::updateRainbowEffect));
-                    }
-                }
-                else if (res->code() == 404) {
-                 
+                if (badgeId.empty()) {
                     g_streakData.cacheUserBadge(accountID, "none");
                 }
+                else {
+                    g_streakData.cacheUserBadge(accountID, badgeId);
+                }
+
+                if (this->isBadgeMythic(badgeId)) {
+                    this->schedule(schedule_selector(MyColoredCommentCell::updateRainbowEffect));
+                }
+            }
+            else if (res.code() == 404) {
+                g_streakData.cacheUserBadge(accountID, "none");
             }
             });
-
-        auto req = web::WebRequest();
-        m_fields->m_mythicCheckListener.setFilter(req.get(url));
     }
 
     static void onModify(auto& self) {

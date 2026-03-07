@@ -8,7 +8,7 @@
 
 using namespace geode::prelude;
 
-class MissionsPopup : public Popup<> {
+class MissionsPopup : public Popup {
 protected:
     int m_currentPage = 0;
     CCLayer* m_pageContainer = nullptr;
@@ -16,7 +16,6 @@ protected:
     CCMenuItemSpriteExtra* m_rightArrow = nullptr;
     bool m_isAnimating = false;
 
-   
     std::function<void()> m_closeCallback;
 
     CCNode* createPointMissionNode(int missionID) {
@@ -152,7 +151,9 @@ protected:
         return container;
     }
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(320.f, 240.f, "geode.loader/GE_square03.png")) return false;
+
         this->setTitle("Missions");
         auto winSize = m_mainLayer->getContentSize();
         g_streakData.load();
@@ -314,12 +315,10 @@ protected:
         case 5: rewardStars = 10; rewardXP = 150; g_streakData.pointMission6Claimed = true; break;
         }
 
-  
         g_streakData.superStars += rewardStars;
         g_streakData.addXP(rewardXP);
         g_streakData.save();
 
-       
         if (rewardStars > 0) {
             RewardNotification::show("super_star.png"_spr, preStars, rewardStars);
         }
@@ -327,14 +326,11 @@ protected:
             RewardNotification::show("xp.png"_spr, preXP, rewardXP);
         }
 
-     
         auto countLabel = static_cast<CCLabelBMFont*>(this->m_mainLayer->getChildByIDRecursive("super-star-label"));
         if (countLabel) {
             countLabel->setString(std::to_string(g_streakData.superStars).c_str());
-          
         }
 
-     
         auto availableMissions = getAvailableMissionIDs();
         int missionsPerPage = 3;
         int startIndex = m_currentPage * missionsPerPage;
@@ -345,19 +341,18 @@ protected:
         m_isAnimating = false;
     }
 
-   
     void onClose(CCObject* sender) override {
         if (m_closeCallback) {
             m_closeCallback();
         }
-        Popup<>::onClose(sender);
+        Popup::onClose(sender);
     }
 
 public:
     static MissionsPopup* create(std::function<void()> callback = nullptr) {
         auto ret = new MissionsPopup();
         ret->m_closeCallback = callback;
-        if (ret && ret->initAnchored(320.f, 240.f, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

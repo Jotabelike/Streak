@@ -92,6 +92,16 @@ struct StreakData {
     long long seasonEndTime = 0; 
     int pendingSeasonRank = 0;  
     int dailyShopSeed = 0;
+
+    std::string equippedNameAnimation = "None";
+    std::string equippedNameColor = "Default";
+    std::string equippedNameFont = "Default";
+    std::string equippedNameEffect = "None";
+
+    std::set<std::string> unlockedNameItems;
+    bool isNameItemUnlocked(const std::string& item);
+    void unlockNameItem(const std::string& item);
+    int getNameItemPrice(const std::string& item);
     
     std::chrono::steady_clock::time_point lastPointTime;
 

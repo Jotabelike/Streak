@@ -7,10 +7,131 @@
 #include "HistoryPopup.h" 
 #include <Geode/ui/TextInput.hpp>
 
-
 using namespace geode::prelude;
 
-class SettingsPopup : public Popup<> {
+ 
+class CreditsPopup : public Popup {
+protected:
+    bool init() {
+        if (!Popup::init(260.f, 200.f, "geode.loader/GE_square03.png")) return false;
+
+        this->setTitle("Credits");
+        auto winSize = m_mainLayer->getContentSize();
+        CCPoint center = winSize / 2;
+
+        
+        auto nameLabel = CCLabelBMFont::create("XJotaBeLikeX", "goldFont.fnt");
+        nameLabel->setPosition({ center.x, center.y + 45.f });
+        nameLabel->setScale(0.8f);
+        m_mainLayer->addChild(nameLabel);
+
+         
+        auto roleLabel = CCLabelBMFont::create("Creator & Developer", "chatFont.fnt");
+        roleLabel->setPosition({ center.x, center.y + 25.f });
+        roleLabel->setScale(0.5f);
+        roleLabel->setColor({ 200, 200, 200 });
+        m_mainLayer->addChild(roleLabel);
+
+         
+        auto cubeSpr = CCSprite::create("jotabelike_cube.png"_spr);
+        if (!cubeSpr) cubeSpr = CCSprite::create("jotabelike_cube.png");
+
+        if (cubeSpr) {
+            cubeSpr->setPosition({ center.x, center.y - 5.f });  
+            if (cubeSpr->getContentSize().height > 50.f) {
+                cubeSpr->setScale(50.f / cubeSpr->getContentSize().height);
+            }
+            m_mainLayer->addChild(cubeSpr);
+        }
+
+       
+        auto separator = CCSprite::createWithSpriteFrameName("edit_vLine_001.png");
+        if (separator) {
+            separator->setPosition({ center.x, center.y - 22.f });
+            separator->setRotation(90.f); 
+            separator->setScaleY(0.7f);    
+            separator->setOpacity(150);   
+            m_mainLayer->addChild(separator);
+        }
+
+      
+        auto socialsMenu = CCMenu::create();
+        socialsMenu->setContentSize({ 200.f, 40.f });
+        socialsMenu->setPosition({ center.x, center.y - 65.f });
+
+         
+      
+        auto xSpr = CCSprite::createWithSpriteFrameName("gj_twIcon_001.png"); 
+        if (xSpr) {
+            xSpr->setScale(0.8f);
+            auto xBtn = CCMenuItemSpriteExtra::create(xSpr, this, menu_selector(CreditsPopup::onTwitter));
+            socialsMenu->addChild(xBtn);
+        }
+
+        
+        auto ytSpr = CCSprite::createWithSpriteFrameName("gj_ytIcon_001.png");
+        if (ytSpr) {
+            ytSpr->setScale(0.8f);
+            auto ytBtn = CCMenuItemSpriteExtra::create(ytSpr, this, menu_selector(CreditsPopup::onYouTube));
+            socialsMenu->addChild(ytBtn);
+        }
+
+         
+        auto instaSpr = CCSprite::createWithSpriteFrameName("gj_instaIcon_001.png");
+        if (!instaSpr) instaSpr = CCSprite::create("gj_instaIcon_001.png"_spr);
+        if (instaSpr) {
+            instaSpr->setScale(0.8f);
+            auto instaBtn = CCMenuItemSpriteExtra::create(instaSpr, this, menu_selector(CreditsPopup::onInstagram));
+            socialsMenu->addChild(instaBtn);
+        }
+
+       
+        auto tiktokSpr = CCSprite::createWithSpriteFrameName("gj_tiktokIcon_001.png");
+        if (!tiktokSpr) tiktokSpr = CCSprite::create("gj_tiktokIcon_001.png"_spr);
+        if (tiktokSpr) {
+            tiktokSpr->setScale(0.8f);
+            auto tiktokBtn = CCMenuItemSpriteExtra::create(tiktokSpr, this, menu_selector(CreditsPopup::onTikTok));
+            socialsMenu->addChild(tiktokBtn);
+        }
+
+       
+        socialsMenu->setLayout(RowLayout::create()->setGap(15.f));
+        m_mainLayer->addChild(socialsMenu);
+
+        return true;
+    }
+
+    
+    void onTwitter(CCObject*) {
+        geode::utils::web::openLinkInBrowser("https://x.com/Jotabelike");
+    }
+
+    void onYouTube(CCObject*) {
+        geode::utils::web::openLinkInBrowser("https://www.youtube.com/@jotabelike");
+    }
+
+    void onInstagram(CCObject*) {
+        geode::utils::web::openLinkInBrowser("https://www.instagram.com/josue_david0024");
+    }
+
+    void onTikTok(CCObject*) {
+        geode::utils::web::openLinkInBrowser("https://www.tiktok.com/@xjotabelikex");
+    }
+
+public:
+    static CreditsPopup* create() {
+        auto ret = new CreditsPopup();
+        if (ret && ret->init()) {
+            ret->autorelease();
+            return ret;
+        }
+        CC_SAFE_DELETE(ret);
+        return nullptr;
+    }
+};
+
+ 
+class SettingsPopup : public Popup {
 protected:
     ScrollLayer* m_scrollLayer = nullptr;
     float m_listWidth = 230.0f;
@@ -18,12 +139,11 @@ protected:
     TextInput* m_inputX = nullptr;
     TextInput* m_inputY = nullptr;
     TextInput* m_inputScale = nullptr;
- 
 
     std::vector<std::string> m_listOptions = { "10", "50" };
     std::vector<std::string> m_pauseModes = { "On", "Off" };
 
-    CCNode* createBaseCell(float height = 40.f) { 
+    CCNode* createBaseCell(float height = 40.f) {
         auto cell = CCNode::create();
         cell->setContentSize({ m_listWidth, height });
 
@@ -268,7 +388,7 @@ protected:
         auto menu = CCMenu::create();
         menu->setPosition(0, 0);
         cell->addChild(menu);
- 
+
         float topRowY = 65.0f;
 
         auto nameLabel = CCLabelBMFont::create(name.c_str(), "goldFont.fnt");
@@ -308,7 +428,6 @@ protected:
         btnR->setUserData(valLabel);
         menu->addChild(btnR);
 
-       
         m_posContainer = CCNode::create();
         m_posContainer->setContentSize({ m_listWidth, 40.f });
         m_posContainer->setPosition({ 0, 0 });
@@ -317,11 +436,10 @@ protected:
 
         float bottomRowY = 25.0f;
 
-         
-        float startX = 15.0f;   
-        float gap = 55.0f;    
-        float inputOff = 22.0f;  
-       
+        float startX = 15.0f;
+        float gap = 55.0f;
+        float inputOff = 22.0f;
+
         float xPos = startX;
         auto labelX = CCLabelBMFont::create("X:", "chatFont.fnt");
         labelX->setPosition({ xPos, bottomRowY });
@@ -340,8 +458,7 @@ protected:
             });
         m_posContainer->addChild(m_inputX);
 
-        
-        float yPos = startX + gap;  
+        float yPos = startX + gap;
         auto labelY = CCLabelBMFont::create("Y:", "chatFont.fnt");
         labelY->setPosition({ yPos, bottomRowY });
         labelY->setScale(0.5f);
@@ -359,8 +476,7 @@ protected:
             });
         m_posContainer->addChild(m_inputY);
 
-         
-        float sPos = startX + (gap * 2); 
+        float sPos = startX + (gap * 2);
         auto labelS = CCLabelBMFont::create("S:", "chatFont.fnt");
         labelS->setPosition({ sPos, bottomRowY });
         labelS->setScale(0.5f);
@@ -383,8 +499,7 @@ protected:
             });
         m_posContainer->addChild(m_inputScale);
 
-       
-        float resetPos = startX + (gap * 3) + 5.0f;  
+        float resetPos = startX + (gap * 3) + 5.0f;
         auto resetSpr = CCSprite::createWithSpriteFrameName("GJ_updateBtn_001.png");
         resetSpr->setScale(0.4f);
         auto resetBtn = CCMenuItemSpriteExtra::create(resetSpr, this, menu_selector(SettingsPopup::onResetPausePos));
@@ -401,7 +516,7 @@ protected:
     void onResetPausePos(CCObject*) {
         double defX = 0.10;
         double defY = 0.90;
-        double defScale = 0.80;  
+        double defScale = 0.80;
 
         Mod::get()->setSavedValue<double>("pause-pos-x", defX);
         Mod::get()->setSavedValue<double>("pause-pos-y", defY);
@@ -409,19 +524,16 @@ protected:
 
         if (m_inputX) m_inputX->setString("0.10");
         if (m_inputY) m_inputY->setString("0.90");
-        if (m_inputScale) m_inputScale->setString("0.80"); 
+        if (m_inputScale) m_inputScale->setString("0.80");
 
         Notification::create("Layout Reset", NotificationIcon::Success)->show();
     }
 
     void updatePosVisibility(int mode) {
-       
         if (m_posContainer) {
             m_posContainer->setVisible(true);
         }
     }
-
- 
 
     void onPauseArrowLeft(CCObject* sender) {
         auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
@@ -434,7 +546,6 @@ protected:
         Mod::get()->setSavedValue<int>(keyStr->getCString(), next);
         label->setString(m_pauseModes[next].c_str());
 
-        
         updatePosVisibility(next);
     }
 
@@ -449,11 +560,12 @@ protected:
         Mod::get()->setSavedValue<int>(keyStr->getCString(), next);
         label->setString(m_pauseModes[next].c_str());
 
-       
         updatePosVisibility(next);
     }
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(270.f, 230.f, "geode.loader/GE_square03.png")) return false;
+
         this->setTitle("Settings");
         auto winSize = m_mainLayer->getContentSize();
 
@@ -491,8 +603,6 @@ protected:
             "Copy your unique Streak ID"
         );
 
-
-
         addImageButtonSetting(
             "History",
             "historial_btn.png"_spr,
@@ -507,14 +617,12 @@ protected:
             "Join our Discord Server!"
         );
 
-     
         addArrowSetting(
             "Expand Top List",
             "leaderboard_capacity_idx",
             "Show 10 or 50 players"
         );
 
-       
         addPauseModeSetting(
             "Streak counter",
             "pause_hud_mode",
@@ -538,13 +646,37 @@ protected:
             "enable_streak_anim",
             "Disables the Streak animation"
         );
-     
 
-        addVersionSetting("Mod Version", "1.10.34-alpha.2");
+        addVersionSetting("Mod Version", "1.10.36-beta.1");
 
         content->updateLayout();
         m_mainLayer->addChild(m_scrollLayer);
         m_scrollLayer->scrollToTop();
+
+        
+        auto creditsSpr = CCSprite::createWithSpriteFrameName("communityCreditsBtn_001.png");
+   
+
+        if (creditsSpr) {
+            creditsSpr->setScale(0.8f);
+            auto creditsBtn = CCMenuItemSpriteExtra::create(
+                creditsSpr,
+                this,
+                menu_selector(SettingsPopup::onCredits)
+            );
+
+            auto cornerMenu = CCMenu::create();
+            cornerMenu->addChild(creditsBtn);
+
+            float paddingX = 18.f;
+            float paddingY = 8.f;  
+            cornerMenu->setPosition({
+                winSize.width - (creditsSpr->getScaledContentSize().width / 2) - paddingX,
+                (creditsSpr->getScaledContentSize().height / 2) + paddingY
+                });
+
+            m_mainLayer->addChild(cornerMenu);
+        }
 
         return true;
     }
@@ -621,10 +753,14 @@ protected:
         )->show();
     }
 
+    void onCredits(CCObject*) {
+        CreditsPopup::create()->show();
+    }
+
 public:
     static SettingsPopup* create() {
         auto ret = new SettingsPopup();
-        if (ret && ret->initAnchored(270.f, 230.f, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

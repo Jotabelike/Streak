@@ -8,10 +8,61 @@
 
 using namespace geode::prelude;
 
+
+class BundleCard : public CCNode {
+public:
+    static BundleCard* create(std::string iconSprite, std::string amount, std::string price) {
+        auto ret = new BundleCard();
+        if (ret && ret->init(iconSprite, amount, price)) {
+            ret->autorelease();
+            return ret;
+        }
+        CC_SAFE_DELETE(ret);
+        return nullptr;
+    }
+
+    bool init(std::string iconSprite, std::string amount, std::string price) {
+        if (!CCNode::init()) return false;
+
+      
+        CCSize cardSize = { 100.f, 180.f };
+        this->setContentSize(cardSize);
+
+        auto cardBg = cocos2d::extension::CCScale9Sprite::create("geode.loader/GE_square03.png");
+        cardBg->setContentSize(cardSize);
+        cardBg->setPosition(cardSize / 2);
+        this->addChild(cardBg);
+
+        auto icon = CCSprite::create(iconSprite.c_str());
+        if (!icon) icon = CCSprite::createWithSpriteFrameName("GJ_diamondsIcon_001.png");
  
-class RewardsListPopup : public Popup<int> {
+        float maxIconSize = 55.f;
+        if (icon->getContentSize().width > maxIconSize) {
+            icon->setScale(maxIconSize / icon->getContentSize().width);
+        }
+      
+        icon->setPosition({ cardSize.width / 2, cardSize.height / 2 + 25.f });
+        this->addChild(icon);
+
+        auto amountLabel = CCLabelBMFont::create(amount.c_str(), "bigFont.fnt");
+        amountLabel->setScale(0.40f);  
+        amountLabel->setPosition({ cardSize.width / 2, cardSize.height / 2 - 25.f });
+        this->addChild(amountLabel);
+
+        auto priceLabel = CCLabelBMFont::create(price.c_str(), "goldFont.fnt");
+        priceLabel->setScale(0.5f);  
+      
+        priceLabel->setPosition({ cardSize.width / 2, 45.f });
+        this->addChild(priceLabel);
+
+        return true;
+    }
+};
+ 
+class RewardsListPopup : public Popup {
 protected:
-    bool setup(int tier) override {
+    bool init(int tier) {
+        if (!Popup::init(260.f, 220.f, "geode.loader/GE_square01.png")) return false;
         std::string titleText = "Rewards";
         if (tier == 1) titleText = "Basic Rewards";
         else if (tier == 2) titleText = "VIP Rewards";
@@ -104,7 +155,7 @@ protected:
 public:
     static RewardsListPopup* create(int tier) {
         auto ret = new RewardsListPopup();
-        if (ret && ret->initAnchored(260.f, 220.f, tier, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init(tier)) {
             ret->autorelease();
             return ret;
         }
@@ -179,7 +230,8 @@ public:
         if (!movingBg) movingBg = CCSprite::create("GJ_button_02.png");
 
         float targetSize = 100.f;
-        float scale = targetSize / std::min(movingBg->getContentSize().width, movingBg->getContentSize().height);
+        float scale = targetSize / std::min(movingBg->getContentSize().width,
+        movingBg->getContentSize().height);
         movingBg->setScale(scale);
         movingBg->setAnchorPoint({ 0.5f, 0.5f });
         movingBg->setPosition({ 40.f, 40.f });
@@ -241,56 +293,134 @@ public:
 };
 
  
-class DonationPopup : public Popup<> {
+class DonationPopup : public Popup {
 protected:
+    CCNode* mTiersLayer;
+    CCNode* mGemsLayer;
+    CCNode* mStarsLayer;
+
+    CCMenuItemToggler* mTiersBtn;
+    CCMenuItemToggler* mGemsBtn;
+    CCMenuItemToggler* mStarsBtn;
+
     void onOpenLink(CCObject*) {
         cocos2d::CCApplication::sharedApplication()->openURL("https://ko-fi.com/streakservers");
     }
 
-    bool setup() override {
+    void onTabToggled(CCObject* sender) {
+        int tag = sender->getTag();
+
+      
+        mTiersBtn->toggle(false);
+        mGemsBtn->toggle(false);
+        mStarsBtn->toggle(false);
+
+       
+        auto clicked = static_cast<CCMenuItemToggler*>(sender);
+        clicked->toggle(true);
+
+       
+        mTiersLayer->setVisible(tag == 0);
+        mGemsLayer->setVisible(tag == 1);
+        mStarsLayer->setVisible(tag == 2);
+    }
+
+    bool init() {
+       
+        if (!Popup::init(440.f, 280.f, "geode.loader/GE_square03.png")) return false;
         auto winSize = m_mainLayer->getContentSize();
-        this->setTitle("Support Tiers");
+        this->setTitle("Support");
 
-        auto layoutContainer = CCNode::create();
-        layoutContainer->setContentSize({ 330.f, 200.f });
-        layoutContainer->setAnchorPoint({ 0.5f, 0.5f });
-        layoutContainer->setPosition(winSize / 2);
+       
+        mTiersLayer = CCNode::create();
+        mGemsLayer = CCNode::create();
+        mStarsLayer = CCNode::create();
 
-        layoutContainer->setLayout(
-            RowLayout::create()
-            ->setGap(10.f)
-            ->setAxisAlignment(AxisAlignment::Center)
-        );
+        mTiersLayer->setContentSize({ 420.f, 180.f });
+        mGemsLayer->setContentSize({ 420.f, 180.f });
+        mStarsLayer->setContentSize({ 420.f, 180.f });
 
-        layoutContainer->addChild(DonationTierCard::create("basic.png"_spr, "$10", "basic_bg.png"_spr, 1));
-        layoutContainer->addChild(DonationTierCard::create("vip.png"_spr, "$15", "vip_bg.png"_spr, 2));
-        layoutContainer->addChild(DonationTierCard::create("stellar.png"_spr, "$25", "stellar_bg.png"_spr, 3));
+        mTiersLayer->setPosition({ winSize.width / 2, winSize.height / 2 - 10.f });
+        mGemsLayer->setPosition({ winSize.width / 2, winSize.height / 2 - 10.f });
+        mStarsLayer->setPosition({ winSize.width / 2, winSize.height / 2 - 10.f });
 
-        layoutContainer->updateLayout();
-        m_mainLayer->addChild(layoutContainer);
+        mTiersLayer->setAnchorPoint({ 0.5f, 0.5f });
+        mGemsLayer->setAnchorPoint({ 0.5f, 0.5f });
+        mStarsLayer->setAnchorPoint({ 0.5f, 0.5f });
+ 
+        mTiersLayer->setLayout(RowLayout::create()->setGap(5.f)->setAxisAlignment(AxisAlignment::Center));
+        mTiersLayer->addChild(DonationTierCard::create("basic.png"_spr, "$10", "basic_bg.png"_spr, 1));
+        mTiersLayer->addChild(DonationTierCard::create("vip.png"_spr, "$15", "vip_bg.png"_spr, 2));
+        mTiersLayer->addChild(DonationTierCard::create("stellar.png"_spr, "$25", "stellar_bg.png"_spr, 3));
+        mTiersLayer->updateLayout();
 
+      
+        mGemsLayer->setLayout(RowLayout::create()->setGap(5.f)->setAxisAlignment(AxisAlignment::Center));
+        mGemsLayer->addChild(BundleCard::create("gem_pack.png"_spr, "100 Gems", "$3.99"));
+        mGemsLayer->addChild(BundleCard::create("gem_pack.png"_spr, "500 Gems", "$5.99"));
+        mGemsLayer->addChild(BundleCard::create("gem_pack.png"_spr, "800 Gems", "$8.99"));
+        mGemsLayer->updateLayout();
+        mGemsLayer->setVisible(false); 
+
+    
+        mStarsLayer->setLayout(RowLayout::create()->setGap(5.f)->setAxisAlignment(AxisAlignment::Center));
+        mStarsLayer->addChild(BundleCard::create("star_pack.png"_spr, "200 Stars", "$1.99"));
+        mStarsLayer->addChild(BundleCard::create("star_pack.png"_spr, "500 Stars", "$2.99"));
+        mStarsLayer->addChild(BundleCard::create("star_pack.png"_spr, "900 Stars", "$4.99"));
+        mStarsLayer->updateLayout();
+        mStarsLayer->setVisible(false);  
+
+        m_mainLayer->addChild(mTiersLayer);
+        m_mainLayer->addChild(mGemsLayer);
+        m_mainLayer->addChild(mStarsLayer);
+
+       
+        auto tabMenu = CCMenu::create();
+        tabMenu->setLayout(RowLayout::create()->setGap(5.f));
+
+        auto createTabBtn = [this](std::string text, int tag) {
+            auto on = ButtonSprite::create(text.c_str(), 60, true, "bigFont.fnt", "GJ_button_02.png", 25, 0.5f);
+            auto off = ButtonSprite::create(text.c_str(), 60, true, "bigFont.fnt", "GJ_button_04.png", 25, 0.5f);
+            auto toggle = CCMenuItemToggler::create(off, on, this, menu_selector(DonationPopup::onTabToggled));
+            toggle->setTag(tag);
+            return toggle;
+            };
+
+        mTiersBtn = createTabBtn("Tiers", 0);
+        mGemsBtn = createTabBtn("Gems", 1);
+        mStarsBtn = createTabBtn("Stars", 2);
+
+        mTiersBtn->toggle(true);  
+
+        tabMenu->addChild(mTiersBtn);
+        tabMenu->addChild(mGemsBtn);
+        tabMenu->addChild(mStarsBtn);
+        tabMenu->updateLayout();
+        tabMenu->setPosition({ winSize.width / 2, winSize.height - 45.f });
+        m_mainLayer->addChild(tabMenu);
+
+      
         auto menu = CCMenu::create();
         auto btnSprite = ButtonSprite::create("Donate Here", 0, 0, "goldFont.fnt", "GJ_button_01.png", 0, 0.8f);
         auto btn = CCMenuItemSpriteExtra::create(btnSprite, this, menu_selector(DonationPopup::onOpenLink));
-        btn->setPosition({ 0, -120.f });
+
+       
+        btn->setPosition({ 0, -117.f });
         menu->setPosition(winSize.width / 2, winSize.height / 2);
         menu->addChild(btn);
 
-        auto infoLabel = CCLabelBMFont::create("Click info for rewards", "chatFont.fnt");
-        infoLabel->setScale(0.5f);
-        infoLabel->setOpacity(150);
-        infoLabel->setPosition({ winSize.width / 2, 20.f });
-        m_mainLayer->addChild(infoLabel);
-
+      
         m_mainLayer->addChild(menu);
 
         return true;
     }
 
+
+
 public:
     static DonationPopup* create() {
         auto ret = new DonationPopup();
-        if (ret && ret->initAnchored(390.f, 290.f, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }
@@ -300,9 +430,10 @@ public:
 };
 
  
-class AllRachasPopup : public Popup<> {
+class AllRachasPopup : public Popup {
 protected:
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(360.f, 240.f, "geode.loader/GE_square01.png")) return false;
         this->setTitle("All Streaks");
         auto winSize = m_mainLayer->getContentSize();
 
@@ -426,7 +557,7 @@ protected:
 public:
     static AllRachasPopup* create() {
         auto ret = new AllRachasPopup();
-        if (ret && ret->initAnchored(270.f, 230.f, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

@@ -2,6 +2,7 @@
 #include <Geode/ui/Popup.hpp>
 #include <Geode/utils/cocos.hpp>
 #include <Geode/utils/web.hpp>
+#include <Geode/utils/async.hpp>
 #include "../StreakData.h"
 #include "../StatusSpinner.h"
 
@@ -14,7 +15,6 @@ struct ProfileData {
     int totalSP = 0;
     std::string badgeID;
 
-  
     int level = 1;
     int currentXP = 0;
     int superStars = 0;
@@ -24,15 +24,14 @@ struct ProfileData {
     int globalRank = 0;
     bool isMythic = false;
 
- 
     bool isPartialData = false;
 };
 
-class ProfileCardPopup : public Popup<ProfileData> {
+class ProfileCardPopup : public Popup {
 protected:
     ProfileData m_data;
-    EventListener<web::WebTask> m_fullDataListener;
-    StatusSpinner* m_loadingSpinner = nullptr;  
+    async::TaskHolder<web::WebResponse> m_fullDataListener;
+    StatusSpinner* m_loadingSpinner = nullptr;
 
     void onCopyID(CCObject*) {
         if (m_data.streakID.empty() || m_data.streakID == "Pending...") return;
@@ -54,10 +53,9 @@ protected:
         m_mainLayer->addChild(label, 2);
     }
 
-   
     void buildProfileUI() {
         auto winSize = m_mainLayer->getContentSize();
- 
+
         if (m_data.globalRank > 0) {
             float rankY = winSize.height - 22.f;
 
@@ -75,7 +73,6 @@ protected:
             m_mainLayer->addChild(rankLabel, 10);
         }
 
-      
         float bannerCenterX = (winSize.width / 2) + 10.f;
         float bannerCenterY = winSize.height / 2 + 25.f;
 
@@ -88,7 +85,6 @@ protected:
                 if (bannerSprite->getContentSize().height * scale > 130.f) scale = 130.f / bannerSprite->getContentSize().height;
                 bannerSprite->setScale(scale);
 
-          
                 bannerSprite->setOpacity(0);
                 bannerSprite->runAction(CCFadeIn::create(0.3f));
 
@@ -96,7 +92,6 @@ protected:
             }
         }
 
-     
         if (auto badgeInfo = g_streakData.getBadgeInfo(m_data.badgeID)) {
             auto badge = CCSprite::create(badgeInfo->spriteName.c_str());
             if (badge) {
@@ -106,7 +101,6 @@ protected:
             }
         }
 
-      
         float fireX = bannerCenterX + 105.f;
         auto fireIcon = CCSprite::create(g_streakData.getRachaSprite(m_data.currentStreak).c_str());
         if (!fireIcon) fireIcon = CCSprite::createWithSpriteFrameName("fireIcon_001.png");
@@ -119,7 +113,6 @@ protected:
         streakLabel->setPosition({ fireX, bannerCenterY - 20.f });
         m_mainLayer->addChild(streakLabel, 6);
 
-      
         float textStartX = bannerCenterX - 95.f;
         std::string userName = m_data.username.empty() ? "Player" : m_data.username;
         auto nameLabel = CCLabelBMFont::create(userName.c_str(), "bigFont.fnt");
@@ -128,7 +121,6 @@ protected:
         nameLabel->setPosition({ textStartX, bannerCenterY + 8.f });
         m_mainLayer->addChild(nameLabel, 5);
 
-     
         bool isMythic = false;
         if (auto bInfo = g_streakData.getBadgeInfo(m_data.badgeID)) {
             if (bInfo->category == StreakData::BadgeCategory::MYTHIC) isMythic = true;
@@ -156,7 +148,7 @@ protected:
         float textOffsetX = (xpIcon->getContentSize().width * xpIcon->getScale()) + 3.f;
         levelLabel->setPosition({ textStartX + textOffsetX, bannerCenterY - 12.f });
         m_mainLayer->addChild(levelLabel, 5);
- 
+
         float col1_X = 35.0f;
         float col2_X = winSize.width / 2 + 35.f;
         float row1_Y = 60.0f;
@@ -170,7 +162,6 @@ protected:
         this->addStatItem(col2_X, row1_Y, "super_star.png"_spr, fmt::format("{}", m_data.superStars), statsScale);
         this->addStatItem(col2_X, row2_Y, "star_tiket.png"_spr, fmt::format("{}", m_data.starTickets), statsScale);
 
-        
         std::string idStr = fmt::format("ID: {}", m_data.streakID);
         auto idLabel = CCLabelBMFont::create(idStr.c_str(), "chatFont.fnt");
         idLabel->setScale(0.5f);
@@ -188,57 +179,49 @@ protected:
 
     void fetchFullProfile() {
         std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", m_data.accountID);
+        auto req = web::WebRequest();
 
-        m_fullDataListener.bind([this](web::WebTask::Event* e) {
-            if (web::WebResponse* res = e->getValue()) {
-                if (res->ok() && res->json().isOk()) {
-                    auto json = res->json().unwrap();
+        m_fullDataListener.spawn(req.get(url), [this](web::WebResponse res) {
+            if (res.ok() && res.json().isOk()) {
+                auto json = res.json().unwrap();
 
-                  
-                    m_data.level = json["current_level"].as<int>().unwrapOr(1);
-                    m_data.currentXP = json["current_xp"].as<int>().unwrapOr(0);
-                    m_data.superStars = json["super_stars"].as<int>().unwrapOr(0);
-                    m_data.starTickets = json["star_tickets"].as<int>().unwrapOr(0);
-                    m_data.bannerID = json["equipped_banner_id"].as<std::string>().unwrapOr("");
-                    m_data.streakID = json["streakID"].as<std::string>().unwrapOr("???");
+                m_data.level = json["current_level"].as<int>().unwrapOr(1);
+                m_data.currentXP = json["current_xp"].as<int>().unwrapOr(0);
+                m_data.superStars = json["super_stars"].as<int>().unwrapOr(0);
+                m_data.starTickets = json["star_tickets"].as<int>().unwrapOr(0);
+                m_data.bannerID = json["equipped_banner_id"].as<std::string>().unwrapOr("");
+                m_data.streakID = json["streakID"].as<std::string>().unwrapOr("???");
 
-                    if (json.contains("rank")) m_data.globalRank = json["rank"].as<int>().unwrapOr(0);
-                    else if (json.contains("global_rank")) m_data.globalRank = json["global_rank"].as<int>().unwrapOr(0);
+                if (json.contains("rank")) m_data.globalRank = json["rank"].as<int>().unwrapOr(0);
+                else if (json.contains("global_rank")) m_data.globalRank = json["global_rank"].as<int>().unwrapOr(0);
 
-                  
-                    if (m_loadingSpinner) {
-                        m_loadingSpinner->removeFromParent();
-                        m_loadingSpinner = nullptr;
-                    }
- 
-                    this->buildProfileUI();
+                if (m_loadingSpinner) {
+                    m_loadingSpinner->removeFromParent();
+                    m_loadingSpinner = nullptr;
                 }
-                else {
-                    if (m_loadingSpinner) m_loadingSpinner->setError("Error");
-                }
+
+                this->buildProfileUI();
+            }
+            else {
+                if (m_loadingSpinner) m_loadingSpinner->setError("Error");
             }
             });
-
-        auto req = web::WebRequest();
-        m_fullDataListener.setFilter(req.get(url));
     }
 
-    bool setup(ProfileData data) override {
+    bool init(ProfileData data) {
+        if (!Popup::init(280.f, 180.f, "geode.loader/GE_square01.png")) return false;
         m_data = data;
         this->setTitle("Player Profile");
 
         if (m_data.isPartialData) {
-           
             m_loadingSpinner = StatusSpinner::create();
             m_loadingSpinner->setLoading("Loading Profile...");
             m_loadingSpinner->setPosition(m_mainLayer->getContentSize() / 2);
             m_mainLayer->addChild(m_loadingSpinner, 100);
 
-          
             this->fetchFullProfile();
         }
         else {
-           
             this->buildProfileUI();
         }
 
@@ -248,7 +231,7 @@ protected:
 public:
     static ProfileCardPopup* create(ProfileData data) {
         auto ret = new ProfileCardPopup();
-        if (ret && ret->initAnchored(280.f, 180.f, data, "geode.loader/GE_square01.png")) {
+        if (ret && ret->init(data)) {
             ret->autorelease();
             return ret;
         }

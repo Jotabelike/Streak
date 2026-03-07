@@ -4,6 +4,7 @@
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp> 
 #include <Geode/utils/web.hpp>
+#include <Geode/utils/async.hpp>  
 #include "../BadgeNotification.h"
 #include "../RewardNotification.h"
 #include "SharedVisuals.h" 
@@ -12,16 +13,15 @@
 
 using namespace geode::prelude;
 
-class RewardListPopup : public Popup<const std::map<std::string,
-    matjson::Value>&,
-    const std::map<std::string,
-    int>&> {
+class RewardListPopup : public Popup {
 
 protected:
-    bool setup(const std::map<std::string,
-        matjson::Value>& rewards,
-        const std::map<std::string,
-        int>& weights) override {
+    bool init(const std::map<std::string, matjson::Value>& rewards,
+        const std::map<std::string, int>& weights) {
+
+      
+        if (!Popup::init(400.f, 280.f, "geode.loader/GE_square03.png")) return false;
+
         this->setTitle("Possible Awards");
 
         auto popupSize = m_mainLayer->getContentSize();
@@ -196,7 +196,7 @@ protected:
 public:
     static RewardListPopup* create(const std::map<std::string, matjson::Value>& rewards, const std::map<std::string, int>& weights) {
         auto ret = new RewardListPopup();
-        if (ret && ret->initAnchored(400.f, 280.f, rewards, weights, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init(rewards, weights)) {
             ret->autorelease();
             return ret;
         }
@@ -491,7 +491,7 @@ public:
     }
 };
 
-class EventPopup : public Popup<> {
+class EventPopup : public Popup {
 protected:
     CCLayer* m_contentLayer = nullptr;
     CCMenu* m_rewardMenu = nullptr;
@@ -511,8 +511,9 @@ protected:
     matjson::Value m_playerProgress;
     std::map<std::string, int> m_rarityWeights;
 
-    EventListener<web::WebTask> m_loadListener;
-    EventListener<web::WebTask> m_claimListener;
+   
+    async::TaskHolder<web::WebResponse> m_loadTask;
+    async::TaskHolder<web::WebResponse> m_claimTask;
 
     bool m_isClaiming = false;
 
@@ -529,7 +530,9 @@ protected:
     ccColor3B m_currentColor;
     ccColor3B m_targetColor;
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(380.f, 280.f, "geode.loader/GE_square03.png")) return false;
+
         this->setTitle("Event");
         auto winSize = m_mainLayer->getContentSize();
         auto listSize = CCSize{ 340.f, 200.f };
@@ -634,9 +637,6 @@ protected:
         m_spinner->setPosition(winSize / 2);
         m_mainLayer->addChild(m_spinner, 20);
 
-        m_loadListener.bind(this, &EventPopup::onEventResponse);
-        m_claimListener.bind(this, &EventPopup::onClaimResponse);
-
         m_mythicColors = {
             ccc3(255, 0, 0), ccc3(255, 165, 0), ccc3(255, 255, 0),
             ccc3(0, 255, 0), ccc3(0, 0, 255), ccc3(75, 0, 130),
@@ -704,64 +704,67 @@ protected:
         m_spinner->setLoading("Loading...");
         m_contentLayer->setVisible(false);
         auto req = web::WebRequest();
-        m_loadListener.setFilter(req.get(fmt::format(
-            "https://streak-servidor.onrender.com/event/current/{}?type=roulette",
-            GJAccountManager::sharedState()->m_accountID
-        )));
+
+       
+        m_loadTask.spawn(
+            req.get(fmt::format(
+                "https://streak-servidor.onrender.com/event/current/{}?type=roulette",
+                GJAccountManager::sharedState()->m_accountID
+            )),
+            [this](web::WebResponse res) {
+                this->onEventResponse(res);
+            }
+        );
     }
 
-    void onEventResponse(web::WebTask::Event* e) {
-        if (!e->getValue() && !e->isCancelled()) return;
+    void onEventResponse(web::WebResponse& res) {
+        if (res.code() == 404) {
+            m_spinner->setError("No active event");
+            return;
+        }
 
-        if (web::WebResponse* res = e->getValue()) {
-            if (res->code() == 404) {
+        if (res.ok() && res.json().isOk()) {
+            auto data = res.json().unwrap();
+            auto eventData = data["event"];
+
+            bool activeNormal = eventData["isActive"].as<bool>().unwrapOr(false);
+            bool activeRoulette = eventData["isActiveRoulette"].as<bool>().unwrapOr(false);
+
+            if (!activeNormal && !activeRoulette) {
                 m_spinner->setError("No active event");
                 return;
             }
 
-            if (res->ok() && res->json().isOk()) {
-                auto data = res->json().unwrap();
-                auto eventData = data["event"];
+            m_eventID = eventData["eventID"].as<std::string>().unwrapOr("error_id");
+            m_eventName = eventData["eventName"].as<std::string>().unwrapOr("Event");
+            m_eventType = eventData["eventType"].as<std::string>().unwrapOr("days");
 
-                bool activeNormal = eventData["isActive"].as<bool>().unwrapOr(false);
-                bool activeRoulette = eventData["isActiveRoulette"].as<bool>().unwrapOr(false);
+            m_spinCost = eventData["spinCost"].as<int>().unwrapOr(0);
+            m_spinCurrency = eventData["spinCurrency"].as<std::string>().unwrapOr("tickets");
 
-                if (!activeNormal && !activeRoulette) {
-                    m_spinner->setError("No active event");
-                    return;
-                }
+            m_eventRewards = eventData["rewards"];
+            m_playerProgress = data["progress"];
 
-                m_eventID = eventData["eventID"].as<std::string>().unwrapOr("error_id");
-                m_eventName = eventData["eventName"].as<std::string>().unwrapOr("Event");
-                m_eventType = eventData["eventType"].as<std::string>().unwrapOr("days");
+            m_rarityWeights.clear();
+            if (eventData.contains("rarityWeights")) {
+                auto wMap = eventData["rarityWeights"].as<std::map<std::string, int>>().unwrapOr(std::map<std::string, int>());
+                m_rarityWeights = wMap;
+            }
 
-                m_spinCost = eventData["spinCost"].as<int>().unwrapOr(0);
-                m_spinCurrency = eventData["spinCurrency"].as<std::string>().unwrapOr("tickets");
+            this->setTitle(m_eventName.c_str());
 
-                m_eventRewards = eventData["rewards"];
-                m_playerProgress = data["progress"];
+            m_spinner->hide();
+            m_contentLayer->setVisible(true);
 
-                m_rarityWeights.clear();
-                if (eventData.contains("rarityWeights")) {
-                    auto wMap = eventData["rarityWeights"].as<std::map<std::string, int>>().unwrapOr(std::map<std::string, int>());
-                    m_rarityWeights = wMap;
-                }
-
-                this->setTitle(m_eventName.c_str());
-
-                m_spinner->hide();
-                m_contentLayer->setVisible(true);
-
-                if (m_eventType == "roulette") {
-                    this->buildRoulette();
-                }
-                else {
-                    this->buildList();
-                }
+            if (m_eventType == "roulette") {
+                this->buildRoulette();
             }
             else {
-                m_spinner->setError("Error loading");
+                this->buildList();
             }
+        }
+        else {
+            m_spinner->setError("Error loading");
         }
     }
 
@@ -819,9 +822,15 @@ protected:
         payload.set("claimID", "roulette_spin");
 
         auto req = web::WebRequest();
-        m_claimListener.setFilter(req.bodyJSON(payload).post(
-            "https://streak-servidor.onrender.com/event/claim"
-        ));
+        req.bodyJSON(payload);
+
+ 
+        m_claimTask.spawn(
+            req.post("https://streak-servidor.onrender.com/event/claim"),
+            [this](web::WebResponse res) {
+                this->onClaimResponse(res);
+            }
+        );
     }
 
     void buildList() {
@@ -833,61 +842,46 @@ protected:
         m_spinner->setError("List Mode Disabled in this version");
     }
 
-    void onClaimResponse(web::WebTask::Event* e) {
-        if (e->isCancelled()) {
-            m_isClaiming = false;
-            m_spinner->hide();
-            m_contentLayer->setVisible(true);
-            if (m_eventType == "roulette") {
-                buildRoulette();
+    void onClaimResponse(web::WebResponse& res) {
+        m_tempSuccess = res.ok();
+        m_spinner->hide();
+        m_contentLayer->setVisible(true);
+
+        if (m_tempSuccess) {
+            if (m_spinCost > 0) {
+                if (m_spinCurrency == "stars") g_streakData.superStars -= m_spinCost;
+                else g_streakData.starTickets -= m_spinCost;
+                this->updateLabels();
+            }
+
+            auto jsonRes = res.json().unwrapOr(matjson::Value::object());
+            m_claimingID = jsonRes["rewardID"].as<std::string>().unwrapOr("");
+
+            if (m_eventRewards.contains(m_claimingID)) {
+                auto rewardData = m_eventRewards[m_claimingID];
+                parseRewardData(rewardData);
+            }
+
+            if (m_eventType == "roulette" && m_rouletteLayer) {
+                m_rouletteLayer->spinToID(m_claimingID, [this]() { this->finalizeClaim(); });
+                return;
+            }
+        }
+        else {
+            if (res.code() == 402) {
+                FLAlertLayer::create("Error", "Insufficient Balance on Server", "OK")->show();
             }
             else {
-                buildList();
+                FLAlertLayer::create("Error", "Error processing turn", "OK")->show();
             }
-            return;
         }
 
-        if (web::WebResponse* res = e->getValue()) {
-            m_tempSuccess = res->ok();
-            m_spinner->hide();
-            m_contentLayer->setVisible(true);
-
-            if (m_tempSuccess) {
-                if (m_spinCost > 0) {
-                    if (m_spinCurrency == "stars") g_streakData.superStars -= m_spinCost;
-                    else g_streakData.starTickets -= m_spinCost;
-                    this->updateLabels();
-                }
-
-                auto jsonRes = res->json().unwrapOr(matjson::Value::object());
-                m_claimingID = jsonRes["rewardID"].as<std::string>().unwrapOr("");
-
-                if (m_eventRewards.contains(m_claimingID)) {
-                    auto rewardData = m_eventRewards[m_claimingID];
-                    parseRewardData(rewardData);
-                }
-
-                if (m_eventType == "roulette" && m_rouletteLayer) {
-                    m_rouletteLayer->spinToID(m_claimingID, [this]() { this->finalizeClaim(); });
-                    return;
-                }
-            }
-            else {
-                if (res->code() == 402) {
-                    FLAlertLayer::create("Error", "Insufficient Balance on Server", "OK")->show();
-                }
-                else {
-                    FLAlertLayer::create("Error", "Error processing turn", "OK")->show();
-                }
-            }
-
-            float remainingTime = 1.0f;
-            this->runAction(CCSequence::create(
-                CCDelayTime::create(remainingTime),
-                CCCallFunc::create(this, callfunc_selector(EventPopup::restoreUI)),
-                nullptr
-            ));
-        }
+        float remainingTime = 1.0f;
+        this->runAction(CCSequence::create(
+            CCDelayTime::create(remainingTime),
+            CCCallFunc::create(this, callfunc_selector(EventPopup::restoreUI)),
+            nullptr
+        ));
     }
 
     void parseRewardData(matjson::Value& rewardData) {
@@ -1000,7 +994,7 @@ protected:
 public:
     static EventPopup* create() {
         auto ret = new EventPopup();
-        if (ret && ret->initAnchored(380.f, 280.f, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

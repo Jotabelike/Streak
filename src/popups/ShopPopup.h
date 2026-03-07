@@ -10,7 +10,7 @@
 
 using namespace geode::prelude;
 
-class ShopPopup : public Popup<> {
+class ShopPopup : public Popup {
 protected:
     enum ShopMode {
         MODE_BADGES,
@@ -35,6 +35,7 @@ protected:
     CCMenuItemSpriteExtra* m_nextBtn = nullptr;
     int m_page = 0;
     int m_itemsPerPage = 6;
+    CCSize m_size;
 
     CCMenuItemToggler* m_badgesToggle = nullptr;
     CCMenuItemToggler* m_bannersToggle = nullptr;
@@ -52,7 +53,10 @@ protected:
         return "$" + s;
     }
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(400.f, 280.f, "geode.loader/GE_square01.png")) return false;
+
+        m_size = m_mainLayer->getContentSize();
         this->setTitle("Streak Shop");
         g_streakData.load();
 
@@ -653,7 +657,7 @@ public:
     static ShopPopup* create(std::function<void()> callback = nullptr) {
         auto ret = new ShopPopup();
         ret->m_onCloseCallback = callback;
-        if (ret && ret->initAnchored(400.f, 280.f, "geode.loader/GE_square01.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

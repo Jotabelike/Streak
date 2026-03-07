@@ -9,7 +9,7 @@
 
 using namespace geode::prelude;
 
-class StProgressPopup : public Popup<> {
+class StProgressPopup : public Popup {
 protected:
     ScrollLayer* m_scrollLayer = nullptr;
 
@@ -37,18 +37,17 @@ protected:
         auto children = node->getChildren();
         if (!children) return;
 
-        CCObject* obj = nullptr;
-        CCARRAY_FOREACH(children, obj) {
-            if (auto sprite = dynamic_cast<CCSprite*>(obj)) {
+        for (auto* child : CCArrayExt<CCNode*>(children)) {
+            if (auto sprite = typeinfo_cast<CCSprite*>(child)) {
                 sprite->setOpacity(opacity);
             }
-            else if (auto label = dynamic_cast<CCLabelBMFont*>(obj)) {
+            else if (auto label = typeinfo_cast<CCLabelBMFont*>(child)) {
                 label->setOpacity(opacity);
             }
-            else if (auto layer = dynamic_cast<CCLayerColor*>(obj)) {
+            else if (auto layer = typeinfo_cast<CCLayerColor*>(child)) {
                 layer->setOpacity(opacity);
             }
-            else if (auto menu = dynamic_cast<CCMenu*>(obj)) {
+            else if (auto menu = typeinfo_cast<CCMenu*>(child)) {
                 setOpacityToChildren(menu, opacity);
             }
         }
@@ -353,7 +352,8 @@ protected:
         m_scrollLayer->m_contentLayer->setContentSize(content->getContentSize());
     }
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(320.f, 220.f, "geode.loader/GE_square03.png")) return false;
         this->setTitle("Streak Points Progress");
         auto winSize = m_mainLayer->getContentSize();
 
@@ -380,7 +380,7 @@ protected:
 public:
     static StProgressPopup* create() {
         auto ret = new StProgressPopup();
-        if (ret && ret->initAnchored(300.f, 210.f, "geode.loader/GE_square01.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

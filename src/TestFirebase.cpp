@@ -1,5 +1,6 @@
 ﻿#include "FirebaseManager.h"
 #include <Geode/utils/web.hpp>
+#include <Geode/utils/async.hpp>
 #include <matjson.hpp>
 #include <Geode/binding/GJAccountManager.hpp>
 #include "StreakData.h"
@@ -12,10 +13,10 @@
 
 using namespace geode::prelude;
 
-
-static EventListener<web::WebTask> s_updateListener;
-static EventListener<web::WebTask> s_loadListener;
-static EventListener<web::WebTask> s_completeLevelListener;
+ 
+static async::TaskHolder<web::WebResponse> s_updateListener;
+static async::TaskHolder<web::WebResponse> s_loadListener;
+static async::TaskHolder<web::WebResponse> s_completeLevelListener;
 
 void loadPlayerDataFromServer() {
     auto am = GJAccountManager::sharedState();
@@ -30,15 +31,18 @@ void loadPlayerDataFromServer() {
     std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
     log::info("Requesting data from the server...");
 
-    s_loadListener.bind([accountID](web::WebTask::Event* e) {
-        if (web::WebResponse* res = e->getValue()) {
-            if (res->ok() && res->json().isOk()) {
-                g_streakData.parseServerResponse(res->json().unwrap());
+    auto req = web::WebRequest();
+   
+    s_loadListener.spawn(
+        req.get(url),
+        [accountID](web::WebResponse res) {
+            if (res.ok() && res.json().isOk()) {
+                g_streakData.parseServerResponse(res.json().unwrap());
                 g_streakData.isDataLoaded = true;
                 g_streakData.m_initialized = true;
                 log::info("Data received and processed.");
             }
-            else if (res->code() == 404) {
+            else if (res.code() == 404) {
                 log::info("New user (404). Registration required.");
                 g_streakData.resetToDefault();
                 g_streakData.needsRegistration = true;
@@ -46,20 +50,12 @@ void loadPlayerDataFromServer() {
                 g_streakData.m_initialized = true;
             }
             else {
-                log::warn("Load failed (Code: {}). We maintain error state.", res->code());
+                log::warn("Load failed (Code: {}). We maintain error state.", res.code());
                 g_streakData.isDataLoaded = false;
                 g_streakData.m_initialized = false;
             }
         }
-        else if (e->isCancelled()) {
-            log::warn("Loading canceled.");
-            g_streakData.isDataLoaded = false;
-            g_streakData.m_initialized = false;
-        }
-        });
-
-    auto req = web::WebRequest();
-    s_loadListener.setFilter(req.get(url));
+    );
 }
 
 void updatePlayerDataInFirebase() {
@@ -73,36 +69,37 @@ void updatePlayerDataInFirebase() {
     int userID = GameManager::sharedState()->m_playerUserID;
     matjson::Value playerData = matjson::Value::object();
 
- 
     playerData.set("username", std::string(accountManager->m_username));
     playerData.set("accountID", accountID);
     playerData.set("userID", userID);
     playerData.set("equipped_badge_id", g_streakData.equippedBadge);
     playerData.set("equipped_banner_id", g_streakData.equippedBanner);
-    playerData.set("last_streak_animated", g_streakData.lastStreakAnimated);  
+    playerData.set("equipped_name_color", g_streakData.equippedNameColor);
+    playerData.set("equipped_name_font", g_streakData.equippedNameFont);
+    playerData.set("equipped_name_effect", g_streakData.equippedNameEffect);
+    playerData.set("equipped_name_animation", g_streakData.equippedNameAnimation);
+    playerData.set("last_streak_animated", g_streakData.lastStreakAnimated);
     playerData.set("super_stars", g_streakData.superStars);
     playerData.set("star_tickets", g_streakData.starTickets);
     playerData.set("gems", g_streakData.gems);
     playerData.set("current_level", g_streakData.currentLevel);
-    playerData.set("current_xp", g_streakData.currentXP); 
+    playerData.set("current_xp", g_streakData.currentXP);
     playerData.set("gem_roulette_spin_count", g_streakData.gemRouletteSpinCount);
     playerData.set("gem_roulette_hash", g_streakData.gemRouletteHash);
     playerData.set("last_roulette_index", g_streakData.lastRouletteIndex);
     playerData.set("total_spins", g_streakData.totalSpins);
-    playerData.set("last_day", g_streakData.lastDay); 
+    playerData.set("last_day", g_streakData.lastDay);
 
-  
     std::vector<bool> gemStateVec = g_streakData.gemRouletteState;
     if (gemStateVec.size() < 7) gemStateVec.resize(7, false);
     playerData.set("gem_roulette_state", gemStateVec);
 
- 
     matjson::Value tasksJson = matjson::Value::object();
     for (auto const& [id, status] : g_streakData.taskStatuses) {
         tasksJson.set(id, status);
     }
     playerData.set("taskStatuses", tasksJson);
- 
+
     std::vector<std::string> unlocked_badges_vec;
     if (g_streakData.unlockedBadges.size() == g_streakData.badges.size()) {
         for (size_t i = 0; i < g_streakData.badges.size(); ++i) {
@@ -113,7 +110,6 @@ void updatePlayerDataInFirebase() {
     }
     playerData.set("unlocked_badges", unlocked_badges_vec);
 
-     
     std::vector<std::string> unlocked_banners_vec;
     if (g_streakData.unlockedBanners.size() == g_streakData.banners.size()) {
         for (size_t i = 0; i < g_streakData.banners.size(); ++i) {
@@ -140,14 +136,12 @@ void updatePlayerDataInFirebase() {
     missions_obj.set("pm6", g_streakData.pointMission6Claimed);
     playerData.set("missions", missions_obj);
 
-    
     matjson::Value history_obj = matjson::Value::object();
     for (const auto& pair : g_streakData.streakPointsHistory) {
         history_obj.set(pair.first, pair.second);
     }
     playerData.set("history", history_obj);
 
-     
     bool hasMythicEquipped = false;
     if (!g_streakData.equippedBadge.empty()) {
         if (auto* badgeInfo = g_streakData.getBadgeInfo(g_streakData.equippedBadge)) {
@@ -155,7 +149,7 @@ void updatePlayerDataInFirebase() {
         }
     }
     playerData.set("has_mythic_color", hasMythicEquipped);
- 
+
     matjson::Value completed_levels_obj = matjson::Value::object();
     for (int levelID : g_streakData.completedLevelMissions) {
         completed_levels_obj.set(std::to_string(levelID), true);
@@ -168,21 +162,25 @@ void updatePlayerDataInFirebase() {
     }
     playerData.set("claimed_streak_goals", goalsArray);
 
-  
+    std::vector<std::string> unlocked_names_vec;
+    for (const auto& item : g_streakData.unlockedNameItems) {
+        unlocked_names_vec.push_back(item);
+    }
+    playerData.set("unlocked_name_items", unlocked_names_vec);
+
     std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
 
-    s_updateListener.bind([](web::WebTask::Event* e) {
-        if (web::WebResponse* res = e->getValue()) {
-            if (!res->ok()) {
-                log::error("SERVER ERROR SAVING: {}", res->code());
+    auto req = web::WebRequest();
+   
+    s_updateListener.spawn(
+        req.bodyJSON(playerData).post(url),
+        [](web::WebResponse res) {
+            if (!res.ok()) {
+                log::error("SERVER ERROR SAVING: {}", res.code());
             }
         }
-        });
-
-    auto req = web::WebRequest();
-    s_updateListener.setFilter(req.bodyJSON(playerData).post(url));
+    );
 }
-
 
 void completeLevelInFirebase(int stars) {
     auto am = GJAccountManager::sharedState();
@@ -193,30 +191,30 @@ void completeLevelInFirebase(int stars) {
 
     matjson::Value payload = matjson::Value::object();
     payload.set("stars", stars);
-    
-    
+
     payload.set("clientDate", g_streakData.getCurrentDate());
 
     log::info("Sending completed level to the server...");
 
-    s_completeLevelListener.bind([](web::WebTask::Event* e) {
-        if (web::WebResponse* res = e->getValue()) {
-            if (res->ok() && res->json().isOk()) {
-                auto data = res->json().unwrap();
+    auto req = web::WebRequest();
+  
+    s_completeLevelListener.spawn(
+        req.bodyJSON(payload).post(url),
+        [](web::WebResponse res) {
+            if (res.ok() && res.json().isOk()) {
+                auto data = res.json().unwrap();
 
-              
                 if (data.contains("current_xp")) g_streakData.currentXP = data["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
-                if (data.contains("daily_shop_seed")) { g_streakData.dailyShopSeed = data["daily_shop_seed"].as<int>().unwrapOr(0); }                
+                if (data.contains("daily_shop_seed")) { g_streakData.dailyShopSeed = data["daily_shop_seed"].as<int>().unwrapOr(0); }
                 if (data.contains("current_level")) g_streakData.currentLevel = data["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);
                 if (data.contains("super_stars")) g_streakData.superStars = data["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
                 if (data.contains("star_tickets")) g_streakData.starTickets = data["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
                 if (data.contains("current_streak_days")) g_streakData.currentStreak = data["current_streak_days"].as<int>().unwrapOr(g_streakData.currentStreak);
-                if (data.contains("gems")) g_streakData.gems = data["gems"].as<int>().unwrapOr(g_streakData.gems);           
+                if (data.contains("gems")) g_streakData.gems = data["gems"].as<int>().unwrapOr(g_streakData.gems);
                 if (data.contains("streakPointsToday")) g_streakData.streakPointsToday = data["streakPointsToday"].as<int>().unwrapOr(g_streakData.streakPointsToday);
                 if (data.contains("total_streak_points")) g_streakData.totalStreakPoints = data["total_streak_points"].as<int>().unwrapOr(g_streakData.totalStreakPoints);
-                if (data.contains("lastDay")) g_streakData.lastDay = data["lastDay"].as<std::string>().unwrapOr(g_streakData.lastDay);
+                if (data.contains("lastDay")) g_streakData.lastDay = data["lastDay"].as<std::string>().unwrapOr(std::string(""));
 
-           
                 if (data.contains("newRewards")) {
                     auto rewards = data["newRewards"];
                     int starsGiven = rewards["stars"].as<int>().unwrapOr(0);
@@ -234,7 +232,7 @@ void completeLevelInFirebase(int stars) {
                         if (starsGiven > 0) RewardNotification::show("super_star.png"_spr,
                             g_streakData.superStars - starsGiven,
                             starsGiven);
-                        if (ticketsGiven > 0) RewardNotification::show("star_tiket.png"_spr, 
+                        if (ticketsGiven > 0) RewardNotification::show("star_tiket.png"_spr,
                             g_streakData.starTickets - ticketsGiven,
                             ticketsGiven);
                     }
@@ -247,11 +245,8 @@ void completeLevelInFirebase(int stars) {
                     g_streakData.streakPointsToday);
             }
             else {
-                log::error("Error completing level: {}", res->code());
+                log::error("Error completing level: {}", res.code());
             }
         }
-    });
-
-    auto req = web::WebRequest();
-    s_completeLevelListener.setFilter(req.bodyJSON(payload).post(url));
+    );
 }

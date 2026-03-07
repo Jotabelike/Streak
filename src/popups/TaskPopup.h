@@ -3,6 +3,7 @@
 #include <Geode/ui/ScrollLayer.hpp>
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/web.hpp>
+#include <Geode/utils/async.hpp>  
 #include <Geode/binding/CCTextInputNode.hpp>
 #include "../StreakData.h"
 #include "../BadgeNotification.h"
@@ -11,7 +12,7 @@
 
 using namespace geode::prelude;
 
-class SubmitInputPopup : public Popup<std::string, std::string> {
+class SubmitInputPopup : public Popup {
 protected:
     TextInput* m_input;
     std::string m_taskID;
@@ -19,7 +20,13 @@ protected:
     CCMenuItemSpriteExtra* m_sendBtn = nullptr;
     bool m_isSending = false;
 
-    bool setup(std::string taskID, std::string title) override {
+   
+    async::TaskHolder<web::WebResponse> m_reqTask;
+
+    bool init(std::string taskID, std::string title) {
+     
+        if (!Popup::init(280.f, 180.f, "geode.loader/GE_square03.png")) return false;
+
         m_taskID = taskID;
         this->setTitle(title);
 
@@ -76,33 +83,39 @@ protected:
         body.set("taskID", m_taskID);
         body.set("url", url);
 
-        web::WebRequest req;
-        req.bodyJSON(body).post(endpoint).listen([this](auto* res) {
-            if (res && res->ok()) {
-                g_streakData.setTaskStatus(m_taskID, "pending");
-                if (m_callback) {
-                    m_callback();
+        auto req = web::WebRequest();
+        req.bodyJSON(body);
+
+       
+        m_reqTask.spawn(
+            req.post(endpoint),
+            [this](web::WebResponse res) {
+                if (res.ok()) {
+                    g_streakData.setTaskStatus(m_taskID, "pending");
+                    if (m_callback) {
+                        m_callback();
+                    }
+                    this->onClose(nullptr);
+                    FLAlertLayer::create("Success", "Sent for review!", "OK")->show();
                 }
-                this->onClose(nullptr);
-                FLAlertLayer::create("Success", "Sent for review!", "OK")->show();
-            }
-            else {
-                m_isSending = false;
-                if (m_sendBtn) {
-                    m_sendBtn->setEnabled(true);
-                    auto spr = ButtonSprite::create("Send", "goldFont.fnt", "GJ_button_01.png", 0.8f);
-                    m_sendBtn->setNormalImage(spr);
+                else {
+                    m_isSending = false;
+                    if (m_sendBtn) {
+                        m_sendBtn->setEnabled(true);
+                        auto spr = ButtonSprite::create("Send", "goldFont.fnt", "GJ_button_01.png", 0.8f);
+                        m_sendBtn->setNormalImage(spr);
+                    }
+                    FLAlertLayer::create("Error", "Failed to send.", "OK")->show();
                 }
-                FLAlertLayer::create("Error", "Failed to send.", "OK")->show();
             }
-            });
+        );
     }
 
 public:
     static SubmitInputPopup* create(std::string taskID, std::function<void()> callback) {
         auto ret = new SubmitInputPopup();
         ret->m_callback = callback;
-        if (ret && ret->initAnchored(280.f, 180.f, taskID, "Send Proof", "geode.loader/GE_square03.png")) {
+        if (ret && ret->init(taskID, "Send Proof")) {
             ret->autorelease();
             return ret;
         }
@@ -170,20 +183,8 @@ protected:
         CCPoint actionBtnPos = { width - 35.0f, height / 2 };
 
         if (status == "" || status == "none") {
-            auto btnSpr = ButtonSprite::create(
-                "Send",
-                40,
-                true,
-                "goldFont.fnt",
-                "GJ_button_01.png",
-                30.0f,
-                0.6f
-            );
-            auto btn = CCMenuItemSpriteExtra::create(
-                btnSpr,
-                this,
-                menu_selector(TaskCell::onSendClick)
-            );
+            auto btnSpr = ButtonSprite::create("Send", 40, true, "goldFont.fnt", "GJ_button_01.png", 30.0f, 0.6f);
+            auto btn = CCMenuItemSpriteExtra::create(btnSpr, this, menu_selector(TaskCell::onSendClick));
             btn->setPosition(actionBtnPos);
             menu->addChild(btn);
         }
@@ -197,22 +198,21 @@ protected:
             lbl->setScale(0.35f);
             lbl->setPosition({ width - 25.0f, height / 2 - 12.0f });
             this->addChild(lbl, 15);
+
+            auto editSpr = CCSprite::create("edit_btn_link.png"_spr);
+            if (!editSpr) editSpr = CCSprite::create("edit_btn_link.png");
+
+            if (editSpr) {
+                editSpr->setScale(0.7f);
+                auto editBtn = CCMenuItemSpriteExtra::create(editSpr, this, menu_selector(TaskCell::onEditClick));
+            
+                editBtn->setPosition({ width - 70.0f, height / 2 });
+                menu->addChild(editBtn);
+            }
         }
         else if (status == "approved") {
-            auto btnSpr = ButtonSprite::create(
-                "Claim",
-                40,
-                true,
-                "goldFont.fnt",
-                "GJ_button_02.png",
-                30.0f,
-                0.6f
-            );
-            auto btn = CCMenuItemSpriteExtra::create(
-                btnSpr,
-                this,
-                menu_selector(TaskCell::onClaimClick)
-            );
+            auto btnSpr = ButtonSprite::create("Claim", 40, true, "goldFont.fnt", "GJ_button_02.png", 30.0f, 0.6f);
+            auto btn = CCMenuItemSpriteExtra::create(btnSpr, this, menu_selector(TaskCell::onClaimClick));
             btn->setPosition(actionBtnPos);
             menu->addChild(btn);
         }
@@ -230,11 +230,7 @@ protected:
 
             auto trashSpr = CCSprite::createWithSpriteFrameName("edit_delBtn_001.png");
             trashSpr->setScale(0.7f);
-            auto trashBtn = CCMenuItemSpriteExtra::create(
-                trashSpr,
-                this,
-                menu_selector(TaskCell::onResetClick)
-            );
+            auto trashBtn = CCMenuItemSpriteExtra::create(trashSpr, this, menu_selector(TaskCell::onResetClick));
             trashBtn->setPosition({ width - 60.0f, height / 2 });
             menu->addChild(trashBtn);
         }
@@ -245,6 +241,7 @@ protected:
             this->addChild(check, 15);
         }
 
+      
         if (!m_data.badgeID.empty()) {
             std::string badgeSprite = "reward5.png"_spr;
             if (auto bInfo = g_streakData.getBadgeInfo(m_data.badgeID)) {
@@ -254,11 +251,12 @@ protected:
             auto spr = CCSprite::create(badgeSprite.c_str());
             if (spr) {
                 spr->setScale(0.30f);
-                spr->setPosition({ width - 90.0f, height / 2 });
+              
+                spr->setPosition({ width - 110.0f, height / 2 });
                 this->addChild(spr, 15);
 
-                if (contentRightEdge > width - 95.0f) {
-                    contentRightEdge = width - 95.0f;
+                if (contentRightEdge > width - 125.0f) {
+                    contentRightEdge = width - 125.0f;  
                 }
             }
         }
@@ -321,6 +319,11 @@ protected:
         SubmitInputPopup::create(m_data.id, m_reloadFunc)->show();
     }
 
+     void onEditClick(CCObject*) {
+     
+        SubmitInputPopup::create(m_data.id, m_reloadFunc)->show();
+    }
+
     void onResetClick(CCObject*) {
         auto am = GJAccountManager::sharedState();
         std::string url = "https://streak-servidor.onrender.com/tasks/reset";
@@ -331,15 +334,20 @@ protected:
         std::string safeTaskID = m_data.id;
         auto safeReloadFunc = m_reloadFunc;
 
-        web::WebRequest req;
-        req.bodyJSON(body).post(url).listen([safeTaskID, safeReloadFunc](auto* res) {
-            if (res && res->ok()) {
-                g_streakData.setTaskStatus(safeTaskID, "");
-                if (safeReloadFunc) {
-                    safeReloadFunc();
+        auto req = web::WebRequest();
+        req.bodyJSON(body);
+
+        async::spawn(
+            req.post(url),
+            [safeTaskID, safeReloadFunc](web::WebResponse res) {
+                if (res.ok()) {
+                    g_streakData.setTaskStatus(safeTaskID, "");
+                    if (safeReloadFunc) {
+                        safeReloadFunc();
+                    }
                 }
             }
-            });
+        );
     }
 
     void onClaimClick(CCObject*) {
@@ -390,11 +398,14 @@ public:
     }
 };
 
-class TaskPopup : public Popup<> {
+class TaskPopup : public Popup {
 protected:
     ScrollLayer* m_list = nullptr;
 
-    bool setup() override {
+    bool init() {
+ 
+        if (!Popup::init(340.f, 210.f, "geode.loader/GE_square03.png")) return false;
+
         this->setTitle("Special Tasks");
         float listWidth = 300.0f;
         float listHeight = 140.0f;
@@ -468,7 +479,7 @@ protected:
 public:
     static TaskPopup* create() {
         auto ret = new TaskPopup();
-        if (ret && ret->initAnchored(340.f, 210.f, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

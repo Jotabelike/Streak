@@ -50,24 +50,17 @@ private:
         auto scene = CCDirector::sharedDirector()->getRunningScene();
         if (!scene) return;
 
-      
         int highestZ = 0;
-        auto children = scene->getChildren();
-        if (children && children->count() > 0) {
-            CCObject* obj;
-            CCARRAY_FOREACH(children, obj) {
-                auto node = static_cast<CCNode*>(obj);
-        
-                if (node->getZOrder() > highestZ && node->getZOrder() < 10000000) {
-                    highestZ = node->getZOrder();
-                }
+    
+        for (auto node : CCArrayExt<CCNode*>(scene->getChildren())) {
+            if (node->getZOrder() > highestZ && node->getZOrder() < 10000000) {
+                highestZ = node->getZOrder();
             }
         }
 
         auto node = SystemNotification::create(title, message, iconName, iconScale);
         s_activeNotification = node;
 
-     
         scene->addChild(node, highestZ + 100);
     }
 

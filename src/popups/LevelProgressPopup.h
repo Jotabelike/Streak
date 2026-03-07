@@ -13,7 +13,7 @@
 
 using namespace geode::prelude;
 
-class LevelProgressPopup : public Popup<> {
+class LevelProgressPopup : public Popup {
 protected:
     ScrollLayer* m_scrollLayer = nullptr;
 
@@ -34,7 +34,7 @@ protected:
             NotificationIcon::None,
             0.5f
         )->show();
-      
+
     }
 
     void onMissionInfo(CCObject*) {
@@ -366,7 +366,8 @@ protected:
         setupProgressBar();
     }
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(360.f, 270.f, "geode.loader/GE_square03.png")) return false;
         this->setTitle("Level Challenges");
         auto winSize = m_mainLayer->getContentSize();
 
@@ -403,7 +404,7 @@ protected:
 public:
     static LevelProgressPopup* create() {
         auto ret = new LevelProgressPopup();
-        if (ret && ret->initAnchored(360.f, 270.f, "geode.loader/GE_square03.png")) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }

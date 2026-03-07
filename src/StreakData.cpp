@@ -21,6 +21,11 @@ SystemNotification* SystemNotification::s_activeNotification = nullptr;
 StreakData g_streakData;
 
 void StreakData::resetToDefault() {
+    equippedNameColor = "Default";
+    equippedNameFont = "Default";
+    equippedNameEffect = "None";
+    equippedNameAnimation = "None";
+    unlockedNameItems.clear();
     currentStreak = 0;
     streakPointsToday = 0;
     pinnedLevels.clear();
@@ -92,7 +97,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
         auto val = json[key];
         if (val.isNumber()) return val.as<int>().unwrapOr(defaultVal);
         if (val.isString()) {
-            std::string s = val.as<std::string>().unwrapOr("");
+            std::string s = val.as<std::string>().unwrapOr(std::string(""));
             try { return std::stoi(s); }
             catch (...) { return defaultVal; }
         }
@@ -102,17 +107,21 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     currentStreak = safeInt(data, "current_streak_days", 0);
     lastStreakAnimated = safeInt(data, "last_streak_animated", 0);
     totalStreakPoints = safeInt(data, "total_streak_points", 0);
-    equippedBadge = data["equipped_badge_id"].as<std::string>().unwrapOr("");
-    equippedBanner = data["equipped_banner_id"].as<std::string>().unwrapOr("");
+    equippedBadge = data["equipped_badge_id"].as<std::string>().unwrapOr(std::string(""));
+    equippedBanner = data["equipped_banner_id"].as<std::string>().unwrapOr(std::string(""));
     superStars = safeInt(data, "super_stars", 0);
     starTickets = safeInt(data, "star_tickets", 0);
     lastRouletteIndex = safeInt(data, "last_roulette_index", 0);
     totalSpins = safeInt(data, "total_spins", 0);
-    lastDay = data["last_day"].as<std::string>().unwrapOr("");
+    lastDay = data["last_day"].as<std::string>().unwrapOr(std::string(""));
     streakPointsToday = safeInt(data, "streakPointsToday", 0);
     gems = safeInt(data, "gems", 0);
     gemRouletteSpinCount = safeInt(data, "gem_roulette_spin_count", 0);
-    gemRouletteHash = data["gem_roulette_hash"].as<std::string>().unwrapOr("");
+    gemRouletteHash = data["gem_roulette_hash"].as<std::string>().unwrapOr(std::string(""));
+    equippedNameAnimation = data["equipped_name_animation"].as<std::string>().unwrapOr(std::string("None"));
+    equippedNameColor = data["equipped_name_color"].as<std::string>().unwrapOr(std::string("Default"));
+    equippedNameFont = data["equipped_name_font"].as<std::string>().unwrapOr(std::string("Default"));
+    equippedNameEffect = data["equipped_name_effect"].as<std::string>().unwrapOr(std::string("None"));
 
     if (data.contains("gem_roulette_state")) {
         gemRouletteState = data["gem_roulette_state"].as<std::vector<bool>>().unwrapOr(std::vector<bool>(7, false));
@@ -128,7 +137,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
         pendingSeasonRank = 0;
     }
 
-    streakID = data["streakID"].as<std::string>().unwrapOr("Pending...");
+    streakID = data["streakID"].as<std::string>().unwrapOr(std::string("Pending..."));
     currentXP = safeInt(data, "current_xp", 0);
     currentLevel = safeInt(data, "current_level", 1);
 
@@ -161,7 +170,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
             auto res = statusesVal.as<std::map<std::string, matjson::Value>>();
             if (res.isOk()) {
                 for (auto const& [key, value] : res.unwrap()) {
-                    taskStatuses[key] = value.as<std::string>().unwrapOr("");
+                    taskStatuses[key] = value.as<std::string>().unwrapOr(std::string(""));
                 }
             }
         }
@@ -170,7 +179,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     userRole = 0;
     if (data.contains("role")) {
         if (data["role"].isString()) {
-            std::string roleStr = data["role"].as<std::string>().unwrapOr("");
+            std::string roleStr = data["role"].as<std::string>().unwrapOr(std::string(""));
             std::transform(roleStr.begin(), roleStr.end(), roleStr.begin(), [](unsigned char c) { return std::tolower(c); });
             if (roleStr == "admin" || roleStr == "administrator") userRole = 2;
             else if (roleStr == "moderator" || roleStr == "mod") userRole = 1;
@@ -182,7 +191,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     specialRank = safeInt(data, "special_rank", 0);
     dailyMsgCount = safeInt(data, "daily_msg_count", 0);
     isBanned = data["ban"].as<bool>().unwrapOr(false);
-    banReason = data["ban_reason"].as<std::string>().unwrapOr("No reason provided.");
+    banReason = data["ban_reason"].as<std::string>().unwrapOr(std::string("No reason provided."));
 
     if (unlockedBadges.size() != badges.size()) {
         unlockedBadges.assign(badges.size(), false);
@@ -195,7 +204,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
         auto badgesResult = data["unlocked_badges"].as<std::vector<matjson::Value>>();
         if (badgesResult.isOk()) {
             for (const auto& badge_id_json : badgesResult.unwrap()) {
-                unlockBadge(badge_id_json.as<std::string>().unwrapOr(""));
+                unlockBadge(badge_id_json.as<std::string>().unwrapOr(std::string("")));
             }
         }
     }
@@ -211,7 +220,18 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
         auto bannersResult = data["unlocked_banners"].as<std::vector<matjson::Value>>();
         if (bannersResult.isOk()) {
             for (const auto& banner_id_json : bannersResult.unwrap()) {
-                unlockBanner(banner_id_json.as<std::string>().unwrapOr(""));
+                unlockBanner(banner_id_json.as<std::string>().unwrapOr(std::string("")));
+            }
+        }
+    }
+
+    
+    unlockedNameItems.clear();
+    if (data.contains("unlocked_name_items")) {
+        auto itemsResult = data["unlocked_name_items"].as<std::vector<matjson::Value>>();
+        if (itemsResult.isOk()) {
+            for (const auto& val : itemsResult.unwrap()) {
+                unlockedNameItems.insert(val.as<std::string>().unwrapOr(std::string("")));
             }
         }
     }
@@ -243,7 +263,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
             for (const auto& [date, val] : h.unwrap()) {
                 if (val.isNumber()) streakPointsHistory[date] = val.as<int>().unwrapOr(0);
                 else if (val.isString()) {
-                    try { streakPointsHistory[date] = std::stoi(val.as<std::string>().unwrapOr("0")); }
+                    try { streakPointsHistory[date] = std::stoi(val.as<std::string>().unwrapOr(std::string("0"))); }
                     catch (...) { streakPointsHistory[date] = 0; }
                 }
             }
@@ -579,28 +599,28 @@ int getRarityWeight(StreakData::BadgeCategory category) {
 std::vector<StreakData::ShopItem> StreakData::getDailyShopSelection() {
     std::vector<ShopItem> selection;
 
-    
+
     unsigned int seed = 0;
     if (this->dailyShopSeed != 0) {
         seed = static_cast<unsigned int>(this->dailyShopSeed);
     }
     else {
-      
+
         std::string dateStr = getCurrentDate();
         if (dateStr.empty()) return selection;
         seed = static_cast<unsigned int>(std::stoi(dateStr.substr(0, 4) + dateStr.substr(5, 2) + dateStr.substr(8, 2)));
     }
 
-    
+
     std::mt19937 gen(seed);
 
-    
+
     std::set<std::string> excludedIDs = {
         "ncs_badge", "super_star_badge", "beta_badge", "magic_flower_badge",
         "diamond_streak_badge", "past1_badge", "marshmello_badge", "alan_walker_badge",
         "shiver_badge", "dual_badge", "ttv_badge", "tsukasa_badge", "funhouse_badge",
         "miku_badge", "nantendo_badge", "youtube_badge", "tiktok_badge",
-		"Skeletal_Shenanigans_badge", "bh_badge_7", "winter_badge", "freddy_badge", 
+        "Skeletal_Shenanigans_badge", "bh_badge_7", "winter_badge", "freddy_badge",
         "chica_badge","bonnie_badge","foxy_badge",
         "banner_5", "banner_15", "banner_21", "banner_22", "banner_23",
         "banner_33", "banner_40", "banner_41", "banner_44", "banner_45",
@@ -617,21 +637,21 @@ std::vector<StreakData::ShopItem> StreakData::getDailyShopSelection() {
 
     std::vector<ShopItem> candidates;
 
-    auto addCandidate = [&](const std::string& id, 
+    auto addCandidate = [&](const std::string& id,
         bool isBadge,
-        BadgeCategory cat, 
-        const std::string& name, 
+        BadgeCategory cat,
+        const std::string& name,
         const std::string& spr, int daysReq) {
-        if (cat == BadgeCategory::MYTHIC) return;
-        if (excludedIDs.count(id)) return;
-        if (daysReq > 0) return;
-        candidates.push_back({ id, isBadge, getPriceForRarity(cat), cat, name, spr });
+            if (cat == BadgeCategory::MYTHIC) return;
+            if (excludedIDs.count(id)) return;
+            if (daysReq > 0) return;
+            candidates.push_back({ id, isBadge, getPriceForRarity(cat), cat, name, spr });
         };
 
     for (const auto& b : badges) addCandidate(b.badgeID, true, b.category, b.displayName, b.spriteName, b.daysRequired);
     for (const auto& b : banners) addCandidate(b.bannerID, false, b.rarity, b.displayName, b.spriteName, 0);
 
-    
+
     if (!candidates.empty()) {
         for (int i = candidates.size() - 1; i > 0; i--) {
             std::uniform_int_distribution<> dist(0, i);
@@ -639,7 +659,7 @@ std::vector<StreakData::ShopItem> StreakData::getDailyShopSelection() {
             std::swap(candidates[i], candidates[j]);
         }
     }
- 
+
     for (int i = 0; i < 3; i++) {
         if (candidates.empty()) break;
 
@@ -779,4 +799,19 @@ StreakData::LevelRewards StreakData::getRewardsForLevel(int level) {
     }
     r_gems = ((level - 1) / 10) + 1;
     return { r_stars, r_tickets, r_gems };
+}
+
+bool StreakData::isNameItemUnlocked(const std::string& item) {
+    if (item == "Default" || item == "None") return true;
+    return unlockedNameItems.count(item) > 0;
+}
+
+void StreakData::unlockNameItem(const std::string& item) {
+    unlockedNameItems.insert(item);
+    save();
+}
+
+int StreakData::getNameItemPrice(const std::string& item) {
+  
+    return 100;
 }
