@@ -23,15 +23,14 @@ namespace NameModifiers {
         else if (colorID == "Green") label->setColor({ 50, 255, 50 });
         else if (colorID == "Yellow") label->setColor({ 255, 255, 50 });
         else if (colorID == "Purple") label->setColor({ 150, 50, 255 });
-        else if (colorID == "Orange") label->setColor({ 255, 150, 50 });
-        // --- NUEVOS COLORES ---
+        else if (colorID == "Orange") label->setColor({ 255, 150, 50 });  
         else if (colorID == "Black") label->setColor({ 0, 0, 0 });
         else if (colorID == "Cyan") label->setColor({ 0, 255, 255 });
         else if (colorID == "Pink") label->setColor({ 255, 105, 180 });
         else if (colorID == "Lime") label->setColor({ 150, 255, 50 });
         else if (colorID == "Magenta") label->setColor({ 255, 0, 255 });
         else {
-            label->setColor({ 255, 255, 255 }); // Default
+            label->setColor({ 255, 255, 255 }); 
         }
     }
 }

@@ -227,7 +227,7 @@ protected:
     CCLabelBMFont* m_loadingLabel = nullptr;
     async::TaskHolder<web::WebResponse> m_listener;
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(360.f, 220.f)) return false;
         this->setTitle("My Codes");
         auto winSize = m_mainLayer->getContentSize();

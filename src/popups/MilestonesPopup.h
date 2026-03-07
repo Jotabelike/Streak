@@ -740,7 +740,7 @@ protected:
         }
     }
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(440.f, 290.f, "geode.loader/GE_square03.png")) return false;
 
         this->setTitle("Collection");

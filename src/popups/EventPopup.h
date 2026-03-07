@@ -530,7 +530,7 @@ protected:
     ccColor3B m_currentColor;
     ccColor3B m_targetColor;
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(380.f, 280.f, "geode.loader/GE_square03.png")) return false;
 
         this->setTitle("Event");

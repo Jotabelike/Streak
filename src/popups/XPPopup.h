@@ -8,7 +8,7 @@ class XPPopup : public Popup {
 protected:
     ScrollLayer* m_list = nullptr;
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(380.f, 260.f, "geode.loader/GE_square01.png")) return false;
         this->setTitle("Level Rewards");
 

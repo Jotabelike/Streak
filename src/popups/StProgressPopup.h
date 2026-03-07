@@ -352,7 +352,7 @@ protected:
         m_scrollLayer->m_contentLayer->setContentSize(content->getContentSize());
     }
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(320.f, 220.f, "geode.loader/GE_square03.png")) return false;
         this->setTitle("Streak Points Progress");
         auto winSize = m_mainLayer->getContentSize();

@@ -57,7 +57,7 @@ class HistoryPopup : public Popup {
 protected:
     std::vector<std::pair<std::string, int>> m_historyEntries;
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(260.f, 220.f, "geode.loader/GE_square03.png")) return false;
 
         this->setTitle("Points History");

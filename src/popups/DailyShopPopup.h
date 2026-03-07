@@ -52,7 +52,7 @@ protected:
         }
     }
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(360.f, 220.f, "geode.loader/GE_square03.png")) return false;
         auto size = m_mainLayer->getContentSize();
         this->setTitle("Daily Shop");

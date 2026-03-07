@@ -6,17 +6,14 @@ namespace NameModifiers {
 
         auto parent = label->getParent();
         if (!parent) return;
-
-        // 1. Detección Inteligente del Contenedor
-        // Si estamos en el ProfilePage, el padre es 'username-menu' y mandamos el efecto a la capa del fondo.
-        // Si estamos en el menú de efectos, lo dejamos en el padre directo para que funcionen las previews.
+ 
         bool isProfile = (parent->getID() == "username-menu");
         CCNode* targetLayer = parent;
         if (isProfile && parent->getParent()) {
             targetLayer = parent->getParent();
         }
 
-        // 2. Limpieza de partículas viejas
+      
         if (auto oldParticles = targetLayer->getChildByTag(8888)) {
             oldParticles->removeFromParentAndCleanup(true);
         }
@@ -29,8 +26,7 @@ namespace NameModifiers {
         CCSize labelSize = label->getContentSize();
         float scale = label->getScale();
 
-        // 3. FÓRMULA DE CENTRADO ABSOLUTO (A prueba de balas)
-        // Calcula el centro 100% exacto de las letras, lo convierte a la pantalla global y luego a la capa objetivo.
+        
         CCPoint centerInLabel = { labelSize.width / 2.0f, labelSize.height / 2.0f };
         CCPoint worldPos = label->convertToWorldSpace(centerInLabel);
         CCPoint centerPos = targetLayer->convertToNodeSpace(worldPos);
@@ -38,11 +34,11 @@ namespace NameModifiers {
         if (effectID != "None") {
             CCParticleSystemQuad* particles = nullptr;
 
-            // --- EFECTOS COMPACTADOS (Para que no invadan los popups) ---
+           
             if (effectID == "Sparkle") {
                 particles = CCParticleGalaxy::create();
                 particles->setTotalParticles(40);
-                particles->setLife(0.8f); // Reducido
+                particles->setLife(0.8f);  
                 particles->setEmissionRate(40.f / 0.8f);
                 particles->setStartColor({ 0.1f, 0.8f, 1.0f, 1.0f });
                 particles->setEndColor({ 0.0f, 0.2f, 0.8f, 0.0f });
@@ -54,7 +50,7 @@ namespace NameModifiers {
             else if (effectID == "Fire") {
                 particles = CCParticleFire::create();
                 particles->setTotalParticles(60);
-                particles->setLife(0.6f); // Reducido
+                particles->setLife(0.6f);  
                 particles->setEmissionRate(60.f / 0.6f);
                 particles->setStartSize(18.f * scale);
                 particles->setPosVar({ (labelSize.width * scale) / 2.2f, 2.f });
@@ -63,9 +59,9 @@ namespace NameModifiers {
             else if (effectID == "Snow") {
                 particles = CCParticleSnow::create();
                 particles->setTotalParticles(50);
-                particles->setLife(1.0f); // ¡De 2.5 a 1.0! Ya no caerá por toda la pantalla
+                particles->setLife(1.0f); 
                 particles->setEmissionRate(50.f / 1.0f);
-                particles->setGravity({ 0.f, -8.f * scale }); // Caída más suave y local
+                particles->setGravity({ 0.f, -8.f * scale });  
                 particles->setStartSize(8.f * scale);
                 particles->setPosVar({ (labelSize.width * scale) / 1.5f, 0.f });
                 centerPos.y += (labelSize.height * scale) / 1.5f;
@@ -73,7 +69,7 @@ namespace NameModifiers {
             else if (effectID == "Poison") {
                 particles = CCParticleSmoke::create();
                 particles->setTotalParticles(45);
-                particles->setLife(0.8f); // Humo más concentrado
+                particles->setLife(0.8f);  
                 particles->setEmissionRate(45.f / 0.8f);
                 particles->setStartColor({ 0.2f, 0.9f, 0.2f, 0.8f });
                 particles->setEndColor({ 0.0f, 0.4f, 0.0f, 0.0f });
@@ -85,7 +81,7 @@ namespace NameModifiers {
             else if (effectID == "Stars") {
                 particles = CCParticleMeteor::create();
                 particles->setTotalParticles(120);
-                particles->setLife(0.5f); // Estela más intensa y corta
+                particles->setLife(0.5f);  
                 particles->setEmissionRate(120.f / 0.5f);
                 particles->setStartColor({ 1.0f, 0.8f, 0.2f, 1.0f });
                 particles->setEndColor({ 1.0f, 0.2f, 0.0f, 0.0f });
@@ -98,7 +94,7 @@ namespace NameModifiers {
             else if (effectID == "Rain") {
                 particles = CCParticleRain::create();
                 particles->setTotalParticles(50);
-                particles->setLife(0.5f); // Lluvia rápida que no mancha los menús de abajo
+                particles->setLife(0.5f); 
                 particles->setEmissionRate(50.f / 0.5f);
                 particles->setStartSize(8.f * scale);
                 particles->setSpeed(40.f * scale);
@@ -108,7 +104,7 @@ namespace NameModifiers {
             else if (effectID == "Blood") {
                 particles = CCParticleRain::create();
                 particles->setTotalParticles(30);
-                particles->setLife(0.6f); // Goteo corto
+                particles->setLife(0.6f);  
                 particles->setEmissionRate(30.f / 0.6f);
                 particles->setStartColor({ 0.8f, 0.0f, 0.0f, 1.0f });
                 particles->setEndColor({ 0.4f, 0.0f, 0.0f, 0.5f });
@@ -120,7 +116,7 @@ namespace NameModifiers {
             else if (effectID == "Void") {
                 particles = CCParticleFlower::create();
                 particles->setTotalParticles(150);
-                particles->setLife(0.8f); // Succión rápida y al centro
+                particles->setLife(0.8f);  
                 particles->setEmissionRate(150.f / 0.8f);
                 particles->setStartColor({ 0.4f, 0.0f, 0.8f, 1.0f });
                 particles->setEndColor({ 0.0f, 0.0f, 0.0f, 1.0f });
@@ -136,7 +132,7 @@ namespace NameModifiers {
             else if (effectID == "Toxic") {
                 particles = CCParticleMeteor::create();
                 particles->setTotalParticles(70);
-                particles->setLife(0.9f); // Ácido controlado, ya no cae al fondo
+                particles->setLife(0.9f); 
                 particles->setEmissionRate(70.f / 0.9f);
                 particles->setStartColor({ 0.4f, 1.0f, 0.0f, 1.0f });
                 particles->setEndColor({ 0.0f, 0.0f, 0.0f, 0.9f });
@@ -152,7 +148,7 @@ namespace NameModifiers {
             else if (effectID == "Holy") {
                 particles = CCParticleSun::create();
                 particles->setTotalParticles(90);
-                particles->setLife(1.5f); // Aura centrada, no invade la pantalla
+                particles->setLife(1.5f);  
                 particles->setEmissionRate(90.f / 1.5f);
                 particles->setStartColor({ 1.0f, 1.0f, 1.0f, 1.0f });
                 particles->setEndColor({ 1.0f, 1.0f, 1.0f, 0.0f });
@@ -181,7 +177,6 @@ namespace NameModifiers {
                         copyLayer->setColor(layerColors[i]);
                         copyLayer->setScale(scale);
                         copyLayer->setOpacity(255);
-                        // Forzamos el ancla al centro exacto
                         copyLayer->setAnchorPoint({ 0.5f, 0.5f });
 
                         float currentOffset = offsetStep * (i + 1);
@@ -195,7 +190,7 @@ namespace NameModifiers {
                 targetLayer->addChild(textContainer, parent->getZOrder() - 1);
             }
 
-            // Aplicamos las partículas al target seleccionado
+         
             if (particles) {
                 particles->setDuration(-1);
                 particles->setPosition(centerPos);

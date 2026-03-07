@@ -260,7 +260,7 @@ protected:
     CCNode* m_contentNode = nullptr;
     async::TaskHolder<web::WebResponse> m_fetchTask;
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(350.f, 180.f, "geode.loader/GE_square03.png")) return false;      
         auto titleSprite = CCSprite::create("trend_title.png"_spr);
         if (titleSprite) {      

@@ -151,7 +151,7 @@ protected:
         return container;
     }
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(320.f, 240.f, "geode.loader/GE_square03.png")) return false;
 
         this->setTitle("Missions");

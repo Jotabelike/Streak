@@ -402,7 +402,7 @@ class TaskPopup : public Popup {
 protected:
     ScrollLayer* m_list = nullptr;
 
-    bool init() {
+    bool init() override {
  
         if (!Popup::init(340.f, 210.f, "geode.loader/GE_square03.png")) return false;
 

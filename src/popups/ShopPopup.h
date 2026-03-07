@@ -53,7 +53,7 @@ protected:
         return "$" + s;
     }
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(400.f, 280.f, "geode.loader/GE_square01.png")) return false;
 
         m_size = m_mainLayer->getContentSize();

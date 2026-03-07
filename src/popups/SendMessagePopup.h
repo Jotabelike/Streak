@@ -117,7 +117,7 @@ protected:
     long long m_newestMessageTime = 0;
     int m_activeColorTag = 0;
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(360.f, 240.f, "geode.loader/GE_square03.png")) return false;
         this->setTitle("Advertisements");
         auto winSize = m_mainLayer->getContentSize();
@@ -362,7 +362,7 @@ protected:
     }
 
     void insertText(std::string text) {
-        if (m_textInput) m_textInput->setString(m_textInput->getString() + text);
+        if (m_textInput) m_textInput->setString(std::string(m_textInput->getString()) + text);
     }
 
     void onColorClicked(CCObject* sender) {

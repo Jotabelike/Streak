@@ -495,7 +495,7 @@ protected:
         if (!std::string(
             m_badgeInput->getString()).empty()) rewards.set(
                 "badge",
-                m_badgeInput->getString()
+                std::string(m_badgeInput->getString())
             );
 
         matjson::Value payload = matjson::Value::object();
@@ -584,7 +584,7 @@ protected:
     CCLabelBMFont* m_loadingLabel = nullptr;
     std::vector<StreakData::MailMessage> m_messages;
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(340.f, 220.f, "geode.loader/GE_square01.png")) return false;
         this->setTitle("Inbox");
         auto winSize = m_mainLayer->getContentSize();

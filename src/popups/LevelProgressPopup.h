@@ -366,7 +366,7 @@ protected:
         setupProgressBar();
     }
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(360.f, 270.f, "geode.loader/GE_square03.png")) return false;
         this->setTitle("Level Challenges");
         auto winSize = m_mainLayer->getContentSize();

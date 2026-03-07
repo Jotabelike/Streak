@@ -70,7 +70,7 @@ class $modify(MyMenuLayer, MenuLayer) {
 
     enum class ButtonState { Loading, Active, Error };
 
-    bool init() {
+    bool init() override {
         if (!MenuLayer::init()) return false;
 
         this->createStreakButton(ButtonState::Loading);

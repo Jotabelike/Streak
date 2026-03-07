@@ -6,7 +6,7 @@ using namespace geode::prelude;
 
 class LevelLockPopup : public Popup {
 protected:
-    bool init() {
+    bool init() override {
         if (!Popup::init(280.f, 240.f, "geode.loader/GE_square01.png")) return false;
 
         auto popupSize = m_mainLayer->getContentSize();

@@ -456,7 +456,7 @@ protected:
         reloadRouletteContent();
     }
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(260.f, 260.f, "geode.loader/GE_square01.png")) return false;
 
         std::srand(static_cast<unsigned int>(std::time(nullptr)));

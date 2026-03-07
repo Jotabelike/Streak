@@ -459,7 +459,7 @@ protected:
         }
     }
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(340.f, 280.f, "geode.loader/GE_square03.png")) return false;
 
         this->setTitle("Top Streaks (beta)");

@@ -325,7 +325,7 @@ protected:
         mStarsLayer->setVisible(tag == 2);
     }
 
-    bool init() {
+    bool init() override{
        
         if (!Popup::init(440.f, 280.f, "geode.loader/GE_square03.png")) return false;
         auto winSize = m_mainLayer->getContentSize();

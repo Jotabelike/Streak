@@ -482,7 +482,7 @@ protected:
         NameModifiers::applyEffect(m_namePreviewLabel, m_previewEffect);
     }
 
-    bool init() {
+    bool init() override {
         if (!Popup::init(POPUP_WIDTH, POPUP_HEIGHT, "geode.loader/GE_square03.png")) return false;
 
         this->setTitle("Cosmetics");

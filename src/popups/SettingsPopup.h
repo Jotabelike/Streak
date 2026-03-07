@@ -12,7 +12,7 @@ using namespace geode::prelude;
  
 class CreditsPopup : public Popup {
 protected:
-    bool init() {
+    bool init() override {
         if (!Popup::init(260.f, 200.f, "geode.loader/GE_square03.png")) return false;
 
         this->setTitle("Credits");
