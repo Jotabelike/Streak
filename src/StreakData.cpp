@@ -742,39 +742,52 @@ void StreakData::addPoints(int count) {
 
 void StreakData::addXP(int amount) {
     if (amount <= 0) return;
+
     int preLevel = currentLevel;
     currentXP += amount;
+
     while (currentXP >= getXPRequiredForNextLevel()) {
         currentXP -= getXPRequiredForNextLevel();
         currentLevel++;
     }
+
     int levelsGained = currentLevel - preLevel;
+
     if (levelsGained > 0) {
         int totalStarsGained = 0;
         int totalTicketsGained = 0;
         int totalGemsGained = 0;
+
         for (int i = 1; i <= levelsGained; i++) {
             auto rewards = getRewardsForLevel(preLevel + i);
             totalStarsGained += rewards.stars;
             totalTicketsGained += rewards.tickets;
             totalGemsGained += rewards.gems;
         }
+
         int startGems = this->gems;
         int startStars = this->superStars;
         int startTickets = this->starTickets;
+
         this->superStars += totalStarsGained;
         this->starTickets += totalTicketsGained;
         this->gems += totalGemsGained;
         this->save();
+
         SystemNotification::show(
             "LEVEL UP!",
             fmt::format("Welcome to Level {}", currentLevel),
             "xp.png"_spr,
             0.3f
         );
-        if (totalGemsGained > 0) RewardNotification::show("gem.png"_spr, startGems, totalGemsGained);
-        if (totalStarsGained > 0) RewardNotification::show("super_star.png"_spr, startStars, totalStarsGained);
-        if (totalTicketsGained > 0) RewardNotification::show("star_tiket.png"_spr, startTickets, totalTicketsGained);
+
+      
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
+        CCPoint spawnPos = winSize / 2;
+
+        if (totalGemsGained > 0) RewardNotification::show("gem.png"_spr, startGems, totalGemsGained, spawnPos);
+        if (totalStarsGained > 0) RewardNotification::show("super_star.png"_spr, startStars, totalStarsGained, spawnPos);
+        if (totalTicketsGained > 0) RewardNotification::show("star_tiket.png"_spr, startTickets, totalTicketsGained, spawnPos);
     }
     else {
         this->save();

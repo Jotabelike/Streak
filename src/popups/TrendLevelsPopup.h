@@ -5,6 +5,7 @@
 #include "../StreakData.h"
 #include "../RewardNotification.h"
 #include "../StatusSpinner.h"
+#include "StreakChestPopup.h"
 
 using namespace geode::prelude;
 
@@ -15,7 +16,7 @@ struct TrendLevelDef {
     int superStars;
     int starTickets;
     int gems;
-    std::string difficultySprite; 
+    std::string difficultySprite;
     bool isClaimed;
 };
 
@@ -24,6 +25,10 @@ protected:
     TrendLevelDef m_data;
     std::function<void()> m_reloadFunc;
     async::TaskHolder<web::WebResponse> m_claimTask;
+
+ 
+    CCMenuItemSpriteExtra* m_claimBtn = nullptr;
+    CCMenuItemSpriteExtra* m_chestBtn = nullptr;
 
     bool init(const TrendLevelDef& data, float width, std::function<void()> reloadCallback) {
         if (!CCLayerColor::init()) return false;
@@ -34,9 +39,8 @@ protected:
         this->setContentSize({ width, height });
         this->setAnchorPoint({ 0, 0 });
 
-        auto bg = cocos2d::extension::CCScale9Sprite::create("square02_small.png");
+        auto bg = cocos2d::extension::CCScale9Sprite::create("GJ_square02.png");
         bg->setContentSize({ width, height - 2.0f });
-        bg->setOpacity(70);
         bg->setPosition({ width / 2, height / 2 });
         this->addChild(bg, 0);
 
@@ -45,21 +49,32 @@ protected:
         int percent = level ? level->m_normalPercent : 0;
         bool isCompleted = (percent >= 100);
 
+     
+        auto menu = CCMenu::create();
+        menu->setPosition({ 0, 0 });
+        this->addChild(menu, 2);
+
        
         auto face = CCSprite::createWithSpriteFrameName(m_data.difficultySprite.c_str());
         if (!face) {
-          
             face = CCSprite::createWithSpriteFrameName("difficulty_00_btn_001.png");
         }
-
         if (face) {
-            face->setPosition({ 35.f, height / 2 + 5.f });
-            face->setScale(1.15f);
+            face->setPosition({ 35.f, height / 2 + 15.f });
+            face->setScale(0.95f);
             this->addChild(face, 1);
         }
 
-      
-        auto title = CCLabelBMFont::create(data.name.c_str(), "goldFont.fnt");
+       
+        auto playSpr = CCSprite::create("play_btn.png"_spr);
+        if (!playSpr) playSpr = CCSprite::createWithSpriteFrameName("GJ_playBtn2_001.png");  
+        playSpr->setScale(0.45f);
+        auto playBtn = CCMenuItemSpriteExtra::create(playSpr, this, menu_selector(TrendLevelCell::onPlayClick));
+        playBtn->setPosition({ 35.f, height / 2 - 20.f });
+        menu->addChild(playBtn);
+
+    
+        auto title = CCLabelBMFont::create(data.name.c_str(), "bigFont.fnt");
         title->setScale(0.65f);
         title->setAnchorPoint({ 0, 0.5f });
         title->setPosition({ 75.0f, height - 20.0f });
@@ -70,39 +85,40 @@ protected:
         }
         this->addChild(title, 1);
 
-        auto creator = CCLabelBMFont::create(fmt::format("By {}", data.creator).c_str(), "chatFont.fnt");
+        auto creator = CCLabelBMFont::create(fmt::format("By {}", data.creator).c_str(), "goldFont.fnt");
         creator->setScale(0.45f);
         creator->setAnchorPoint({ 0, 0.5f });
-        creator->setColor({ 200, 200, 200 });
-        creator->setPosition({ 75.0f, height - 35.0f });
+        creator->setPosition({ 75.0f, height - 33.0f });
         this->addChild(creator, 1);
 
-         
+      
         float barW = 140.0f;
         float barH = 14.0f;
         float barX = 75.0f;
         float barY = height / 2 - 12.f;
 
-       
-        auto barBorder = CCLayerColor::create({ 255, 255, 255, 80 }, barW + 2.f, barH + 2.f);
-        barBorder->setPosition({ barX - 1.f, barY - 1.f });
-        this->addChild(barBorder, 0);
+        auto borderOuter = CCLayerColor::create({ 0, 0, 0, 255 }, barW + 4.f, barH + 4.f);
+        borderOuter->setPosition({ barX - 2.f, barY - 2.f });
+        this->addChild(borderOuter, 0);
 
-       
-        auto barBg = CCLayerColor::create({ 0, 0, 0, 200 }, barW, barH);
+        auto borderInner = CCLayerColor::create({ 255, 255, 255, 120 }, barW + 2.f, barH + 2.f);
+        borderInner->setPosition({ barX - 1.f, barY - 1.f });
+        this->addChild(borderInner, 1);
+
+        auto barBg = CCLayerColor::create({ 15, 15, 15, 255 }, barW, barH);
         barBg->setPosition({ barX, barY });
-        this->addChild(barBg, 1);
+        this->addChild(barBg, 2);
 
-      
         if (percent > 0) {
-            ccColor4B fillColor = isCompleted ? ccColor4B{ 50, 255, 50, 255 } : ccColor4B{ 50, 150, 255, 255 };
+            ccColor4B topColor = ccColor4B{ 100, 200, 255, 255 };
+            ccColor4B botColor = ccColor4B{ 0, 100, 255, 255 };
             float fillW = barW * (std::min(percent, 100) / 100.0f);
-            auto barFg = CCLayerColor::create(fillColor, fillW, barH);
+            auto barFg = CCLayerGradient::create(topColor, botColor, { 0, -1 });
+            barFg->setContentSize({ fillW, barH });
             barFg->setPosition({ barX, barY });
-            this->addChild(barFg, 2);
+            this->addChild(barFg, 3);
         }
 
-        
         auto pctLbl = CCLabelBMFont::create(fmt::format("{}%", percent).c_str(), "bigFont.fnt");
         pctLbl->setScale(0.32f);
         pctLbl->setAnchorPoint({ 0.5f, 0.5f });
@@ -126,7 +142,6 @@ protected:
             starLbl->setAnchorPoint({ 0, 0.5f });
             starLbl->setPosition({ rewardX + 15.f, rewardY });
             this->addChild(starLbl);
-
             rewardX += gap;
         }
 
@@ -142,14 +157,13 @@ protected:
             ticketLbl->setAnchorPoint({ 0, 0.5f });
             ticketLbl->setPosition({ rewardX + 15.f, rewardY });
             this->addChild(ticketLbl);
-
             rewardX += gap;
         }
 
         if (data.gems > 0) {
             auto gemIcon = CCSprite::create("gem.png"_spr);
             if (!gemIcon) gemIcon = CCSprite::createWithSpriteFrameName("GJ_diamondsIcon_001.png");
-            gemIcon->setScale(0.18f);  
+            gemIcon->setScale(0.18f);
             gemIcon->setPosition({ rewardX + 5.f, rewardY });
             this->addChild(gemIcon);
 
@@ -160,32 +174,34 @@ protected:
             this->addChild(gemLbl);
         }
 
-      
-        auto menu = CCMenu::create();
-        menu->setPosition({ 0, 0 });
-        this->addChild(menu, 2);
-
+       
         CCPoint actionBtnPos = { width - 40.0f, height / 2 };
 
         if (data.isClaimed) {
+         
             auto check = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
-            check->setScale(0.8f);
+            check->setScale(1.0f);
             check->setPosition(actionBtnPos);
             this->addChild(check);
         }
-        else if (isCompleted) {
-            auto btnSpr = ButtonSprite::create("Claim", 40, true, "goldFont.fnt", "GJ_button_02.png", 30.0f, 0.6f);
-            auto btn = CCMenuItemSpriteExtra::create(btnSpr, this, menu_selector(TrendLevelCell::onClaimClick));
-            btn->setPosition(actionBtnPos);
-            menu->addChild(btn);
-        }
         else {
-         
-            auto playSpr = CCSprite::createWithSpriteFrameName("GJ_playBtn2_001.png");
-            playSpr->setScale(0.70);
-            auto playBtn = CCMenuItemSpriteExtra::create(playSpr, this, menu_selector(TrendLevelCell::onPlayClick));
-            playBtn->setPosition(actionBtnPos);
-            menu->addChild(playBtn);
+            if (isCompleted) {
+                
+                auto claimSpr = CCSprite::createWithSpriteFrameName("GJ_rewardBtn_001.png");
+                claimSpr->setScale(1.0f);
+                m_claimBtn = CCMenuItemSpriteExtra::create(claimSpr, this, menu_selector(TrendLevelCell::onClaimClick));
+                m_claimBtn->setPosition(actionBtnPos);  
+                menu->addChild(m_claimBtn);
+            }
+            else {
+            
+                auto chest = CCSprite::createWithSpriteFrameName("chest_02_02_001.png");
+                if (chest) {
+                    chest->setScale(0.5f);
+                    chest->setPosition(actionBtnPos);  
+                    this->addChild(chest);
+                }
+            }
         }
 
         return true;
@@ -199,8 +215,7 @@ protected:
     }
 
     void onClaimClick(CCObject* sender) {
-        auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
-        btn->setEnabled(false);
+        if (m_claimBtn) m_claimBtn->setEnabled(false);
 
         auto am = GJAccountManager::sharedState();
         matjson::Value body = matjson::Value::object();
@@ -214,33 +229,31 @@ protected:
             req.post("https://streak-servidor.onrender.com/trending-level/claim"),
             [this](web::WebResponse res) {
                 if (res.ok()) {
-                    if (m_data.superStars > 0) {
-                        int startStars = g_streakData.superStars;
-                        g_streakData.superStars += m_data.superStars;
-                        RewardNotification::show("super_star.png"_spr, startStars, m_data.superStars);
-                    }
-                    if (m_data.starTickets > 0) {
-                        int startTickets = g_streakData.starTickets;
-                        g_streakData.starTickets += m_data.starTickets;
-                        RewardNotification::show("star_tiket.png"_spr, startTickets, m_data.starTickets);
-                    }
-                    if (m_data.gems > 0) {
-                        int startGems = g_streakData.gems;
-                        g_streakData.gems += m_data.gems;
-                        RewardNotification::show("gem.png"_spr, startGems, m_data.gems);
+                
+                    m_data.isClaimed = true;
+
+                
+                    if (m_claimBtn) {
+                        m_claimBtn->removeFromParent();
+                        m_claimBtn = nullptr;
                     }
 
-                    g_streakData.save();
-                    FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
+                
+                    auto check = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
+                    check->setScale(0.8f);
+                    check->setPosition({ this->getContentSize().width - 40.0f, this->getContentSize().height / 2 });
+                    this->addChild(check);
 
-                    if (m_reloadFunc) m_reloadFunc();
+                    StreakChestPopup::create(m_data.superStars, m_data.starTickets, m_data.gems, 0, m_reloadFunc)->show();
                 }
                 else {
+                    if (m_claimBtn) m_claimBtn->setEnabled(true);
                     FLAlertLayer::create("Error", "Failed to claim reward.", "OK")->show();
                 }
             }
         );
     }
+
 
 public:
     static TrendLevelCell* create(const TrendLevelDef& data, float width, std::function<void()> reloadCallback) {
@@ -261,11 +274,47 @@ protected:
     async::TaskHolder<web::WebResponse> m_fetchTask;
 
     bool init() override {
-        if (!Popup::init(350.f, 180.f, "geode.loader/GE_square03.png")) return false;      
+        if (!Popup::init(350.f, 180.f, "geode.loader/GE_square03.png")) return false;
+        
         auto titleSprite = CCSprite::create("trend_title.png"_spr);
-        if (titleSprite) {      
+        if (titleSprite) {
             titleSprite->setPosition({ m_size.width / 2, m_size.height - 15.f });
             m_mainLayer->addChild(titleSprite, 1);
+        }
+
+      
+        float offset = 0.0f; 
+
+        auto cornerTL = CCSprite::createWithSpriteFrameName("rewardCorner_001.png");
+        if (cornerTL) {
+            cornerTL->setAnchorPoint({0, 1});
+            cornerTL->setPosition({offset, m_size.height - offset});
+            cornerTL->setFlipY(true);
+            m_mainLayer->addChild(cornerTL, 2);
+        }
+
+        auto cornerTR = CCSprite::createWithSpriteFrameName("rewardCorner_001.png");
+        if (cornerTR) {
+            cornerTR->setAnchorPoint({1, 1});
+            cornerTR->setPosition({m_size.width - offset, m_size.height - offset});
+            cornerTR->setFlipX(true);
+            cornerTR->setFlipY(true);
+            m_mainLayer->addChild(cornerTR, 2);
+        }
+
+        auto cornerBL = CCSprite::createWithSpriteFrameName("rewardCorner_001.png");
+        if (cornerBL) {
+            cornerBL->setAnchorPoint({0, 0});
+            cornerBL->setPosition({offset, offset});
+            m_mainLayer->addChild(cornerBL, 2);
+        }
+
+        auto cornerBR = CCSprite::createWithSpriteFrameName("rewardCorner_001.png");
+        if (cornerBR) {
+            cornerBR->setAnchorPoint({1, 0});
+            cornerBR->setPosition({m_size.width - offset, offset});
+            cornerBR->setFlipX(true);
+            m_mainLayer->addChild(cornerBR, 2);
         }
 
         m_spinner = StatusSpinner::create();
@@ -276,8 +325,6 @@ protected:
 
         return true;
     }
-
-
 
     void fetchData() {
         if (m_contentNode) {
@@ -321,7 +368,7 @@ protected:
         def.levelID = data["levelID"].as<int>().unwrapOr(0);
         def.name = data["name"].as<std::string>().unwrapOr(std::string("Unknown"));
         def.creator = data["creator"].as<std::string>().unwrapOr(std::string("-"));
-        def.difficultySprite = data["difficultySprite"].as<std::string>().unwrapOr(std::string("difficulty_00_btn_001.png")); 
+        def.difficultySprite = data["difficultySprite"].as<std::string>().unwrapOr(std::string("difficulty_00_btn_001.png"));
         def.isClaimed = data["isClaimed"].as<bool>().unwrapOr(false);
 
         if (data.contains("rewards")) {
@@ -338,7 +385,7 @@ protected:
         float cellWidth = 320.0f;
         auto cell = TrendLevelCell::create(def, cellWidth, [this]() {
             this->fetchData();
-            });
+        });
 
         cell->setPosition({ (m_size.width - cellWidth) / 2, (m_size.height - 90.f) / 2 - 10.f });
         m_contentNode->addChild(cell);

@@ -1,310 +1,233 @@
 #pragma once
 #include <cocos2d.h>
 #include <Geode/Geode.hpp>
-#include <random>
-#include <vector>
-#include <algorithm>
+#include <Geode/modify/CurrencyRewardLayer.hpp>
+
+
 
 using namespace cocos2d;
 using namespace geode::prelude;
 
-class RewardNotification : public CCNode {
-    static std::vector<RewardNotification*> s_activeRewards;
+class $modify(ProCurrencyRewardLayer, CurrencyRewardLayer) {
+    struct Fields {
+        std::unordered_map<int, CCLabelBMFont*> m_labels;
+        std::unordered_map<int, CCSprite*> m_sprites;
+        std::unordered_map<int, std::vector<CurrencySprite*>> m_curSprites;
+        std::unordered_map<int, int> m_spriteCounts;
+        std::unordered_map<int, int> m_totalCounts;
+        std::vector<int> m_types;
+        bool m_isExiting = false;
+    };
 
-protected:
-    int m_addedAmount;
-    int m_startAmount;
-    int m_sessionAddedAmount; 
-    float m_currentAccumulator;
+    bool isDying() {
+        return !m_objects || m_objects->count() == 0;
+    }
 
-    CCLabelBMFont* m_label;      
-    CCLabelBMFont* m_addedLabel;  
-    cocos2d::extension::CCScale9Sprite* m_bg;
-    std::string m_spriteName;
-    CCPoint m_finalBGPosition;
-    int m_targetTotal;
+    void update(float dt) {
+        CurrencyRewardLayer::update(dt);
+        if (!m_objects) return;
 
-public:
-    static void show(const std::string& spriteName, int startAmount, int addedAmount) {
-        auto scene = CCDirector::sharedDirector()->getRunningScene();
-        if (!scene) return;
-
-      
-        for (auto node : s_activeRewards) {
-            if (node->m_spriteName == spriteName) {
-                node->addBonus(addedAmount);
-                return;
+        auto f = m_fields.self();
+        for (auto type : f->m_types) {
+            auto count = 0;
+            for (auto sprite : f->m_curSprites.at(type)) {
+                if (m_objects->containsObject(sprite)) count++;
             }
-        }
 
-        auto node = RewardNotification::create(spriteName, startAmount, addedAmount);
-        s_activeRewards.push_back(node);
-        scene->addChild(node, 1501);
-    }
-
-    virtual ~RewardNotification() {
-        auto it = std::find(s_activeRewards.begin(), s_activeRewards.end(), this);
-        if (it != s_activeRewards.end()) {
-            s_activeRewards.erase(it);
-        }
-    }
-
-    static void updatePositions() {
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-        float startY = winSize.height - 30.f;
-        float gap = 55.f; 
-
-        for (size_t i = 0; i < s_activeRewards.size(); ++i) {
-            auto node = s_activeRewards[i];
-            if (!node || !node->m_bg) continue;
-
-            float absTargetY = startY - (i * gap) - (node->m_bg->getContentSize().height / 2);
-
-            if (std::abs(node->m_bg->getPositionY() - absTargetY) > 1.0f) {
-                node->m_bg->stopActionByTag(50);
-                auto move = CCEaseInOut::create(CCMoveTo::create(0.3f, ccp(node->m_bg->getPositionX(), absTargetY)), 2.0f);
-                move->setTag(50);
-                node->m_bg->runAction(move);
-
-                node->m_finalBGPosition = ccp(node->m_bg->getPositionX(), absTargetY);
+            if (f->m_spriteCounts.contains(type) && f->m_spriteCounts.at(type) != count) {
+                pulseSprite(f->m_sprites.at(type));
+                f->m_labels.at(type)->setString(std::to_string(f->m_totalCounts.at(type) - count).c_str());
+                FMODAudioEngine::sharedEngine()->playEffect("drop_01.ogg", 0.49f, 1.f, 0.3f);
             }
-        }
-    }
-
-    void addBonus(int extraAmount) {
-        m_targetTotal += extraAmount;
-        m_sessionAddedAmount += extraAmount;
-
-      
-        if (m_addedLabel) {
-            m_addedLabel->setString(fmt::format("+{}", m_sessionAddedAmount).c_str());
+            f->m_spriteCounts[type] = count;
         }
 
-        this->stopActionByTag(100);
-        m_bg->stopActionByTag(200);
-        auto resetMove = CCEaseOut::create(CCMoveTo::create(0.2f, m_finalBGPosition), 2.0f);
-        m_bg->runAction(resetMove);
+    
+        if (m_objects->count() == 0 && !f->m_isExiting) {
+            f->m_isExiting = true;
 
-        this->runParticleAnimation(extraAmount);
-        this->scheduleExit();
-    }
-
-protected:
-    static RewardNotification* create(const std::string& spriteName, int startAmount, int addedAmount) {
-        auto ret = new RewardNotification();
-        if (ret && ret->init(spriteName, startAmount, addedAmount)) {
-            ret->autorelease();
-            return ret;
-        }
-        CC_SAFE_DELETE(ret);
-        return nullptr;
-    }
-
-    bool init(const std::string& spriteName, int startAmount, int addedAmount) {
-        if (!CCNode::init()) return false;
-
-     
-        FMODAudioEngine::sharedEngine()->playEffect("claim_mission.mp3"_spr);
-
-        m_spriteName = spriteName;
-        m_startAmount = startAmount;
-        m_addedAmount = addedAmount;
-        m_sessionAddedAmount = addedAmount;
-        m_targetTotal = startAmount + addedAmount;
-        m_currentAccumulator = (float)startAmount;
-
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-
-        m_bg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
-        m_bg->setColor({ 0, 0, 0 });
-        m_bg->setOpacity(150);
-        this->addChild(m_bg);
-
-        auto icon = CCSprite::create(m_spriteName.c_str());
-        if (!icon) icon = CCSprite::createWithSpriteFrameName(m_spriteName.c_str());
-        if (icon) {
-            icon->setTag(99);
-            icon->setScale(0.35f);
-            m_bg->addChild(icon);
-        }
-
-      
-        m_label = CCLabelBMFont::create(std::to_string(m_startAmount).c_str(), "goldFont.fnt");
-        m_label->setScale(0.45f);
-        m_bg->addChild(m_label);
-
-     
-        m_addedLabel = CCLabelBMFont::create(fmt::format("+{}", m_sessionAddedAmount).c_str(), "goldFont.fnt");
-        m_addedLabel->setScale(0.35f);
-        m_addedLabel->setColor({ 0, 255, 0 }); 
-        m_bg->addChild(m_addedLabel);
-
-        this->updateBGSize();
-
-        int myIndex = s_activeRewards.size();
-        float gap = 55.f;
-        float startY = winSize.height - 30.f;
-        float targetY = startY - (myIndex * gap) - (m_bg->getContentSize().height / 2);
-
-        m_finalBGPosition = ccp(winSize.width - (m_bg->getContentSize().width / 2) - 5.f, targetY);
-
-        CCPoint startPos = ccp(winSize.width + m_bg->getContentSize().width, targetY);
-        m_bg->setPosition(startPos);
-
-        auto moveIn = CCEaseElasticOut::create(CCMoveTo::create(0.8f, m_finalBGPosition), 0.6f);
-        m_bg->runAction(moveIn);
-
-        this->scheduleOnce(schedule_selector(RewardNotification::initialParticles), 0.3f);
-        this->scheduleExit();
-
-        return true;
-    }
-
-    void updateBGSize() {
-        auto icon = m_bg->getChildByTag(99);
-        float iconWidth = icon ? icon->getScaledContentSize().width : 20.f;
-
-     
-        float labelWidth = m_label->getScaledContentSize().width;
-        float addedWidth = m_addedLabel->getScaledContentSize().width;
-        float maxTextWidth = std::max(labelWidth, addedWidth);
-
-        float bgWidth = maxTextWidth + iconWidth + 30.f;
-        float bgHeight = 45.f;
-
-        m_bg->setContentSize({ bgWidth, bgHeight });
-
-        if (icon) icon->setPosition({ 18.f, bgHeight / 2 });
-
-      
-        m_label->setPosition({ bgWidth - (maxTextWidth / 2) - 10.f, bgHeight / 2 + 7.f });
-
-        m_addedLabel->setPosition({ bgWidth - (maxTextWidth / 2) - 10.f, bgHeight / 2 - 7.f });
-    }
-
-    void scheduleExit() {
-        this->stopActionByTag(100);
-        auto seq = CCSequence::create(
-            CCDelayTime::create(4.5f),
-            CCCallFunc::create(this, callfunc_selector(RewardNotification::onAnimationEnd)),
-            nullptr
-        );
-        seq->setTag(100);
-        this->runAction(seq);
-    }
-
-    void initialParticles(float dt) {
-        this->runParticleAnimation(m_addedAmount);
-    }
-
-    void runParticleAnimation(int amountForThisWave) {
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-
-      
-        int particleCount = amountForThisWave;
-        if (particleCount > 30) particleCount = 30;
-        if (particleCount < 1) particleCount = 1;
-
-        float valPerParticle = (float)amountForThisWave / (float)particleCount;
-        std::string valStr = fmt::format("{}", valPerParticle);
-
-        CCPoint centerPos = this->convertToNodeSpace(winSize / 2);
-
-        for (int i = 0; i < particleCount; ++i) {
-            auto particle = CCSprite::create(m_spriteName.c_str());
-            if (!particle) particle = CCSprite::createWithSpriteFrameName(m_spriteName.c_str());
-            if (!particle) continue;
-
-            auto dataObj = CCString::create(valStr);
-            particle->setUserObject(dataObj);
-
-            particle->setPosition(centerPos);
-            particle->setScale(0.0f);
-            this->addChild(particle, 100);
-
-            float angle = (float)(rand() % 360) * (3.14159f / 180.f);
-            float distance = 40.f + (rand() % 30);
-            CCPoint explosionOffset = ccp(cosf(angle) * distance, sinf(angle) * distance);
-            CCPoint popPosition = centerPos + explosionOffset;
-
-          
-            float sequenceDelay = i * 0.05f;
-
-            float popTime = 0.4f;
-            auto popMove = CCEaseOut::create(CCMoveTo::create(popTime, popPosition), 2.0f);
-            auto popScale = CCScaleTo::create(popTime, 0.5f);
-            auto popFade = CCFadeIn::create(0.1f);
-
-            ccBezierConfig bezier;
-            bezier.endPosition = m_bg->getPosition();
-            bezier.controlPoint_1 = popPosition + (explosionOffset * 0.5f);
-            bezier.controlPoint_2 = m_bg->getPosition() + ccp((rand() % 100) - 50, -50);
-
-            auto bezierTo = CCBezierTo::create(0.7f, bezier);
-            auto scaleDown = CCScaleTo::create(0.7f, 0.2f);
-
-            particle->runAction(CCSequence::create(
-                CCDelayTime::create(sequenceDelay),
-                CCSpawn::create(popMove, popScale, popFade, nullptr),
-                CCSpawn::create(
-                    CCEaseSineIn::create(bezierTo), scaleDown, CCRotateBy::create(0.7f, 360), nullptr
-                ),
-                CCCallFuncN::create(this, callfuncN_selector(RewardNotification::onParticleHit)),
-                CCRemoveSelf::create(),
+            m_mainNode->runAction(CCSequence::create(
+                CCDelayTime::create(0.5f),
+                CCEaseIn::create(CCMoveBy::create(0.4f, { 0, 40.f }), 2.f),
                 nullptr
             ));
+
+            for (auto node : m_mainNode->getChildrenExt()) {
+                node->runAction(CCSequence::create(
+                    CCDelayTime::create(0.5f),
+                    CCFadeOut::create(0.4f),
+                    nullptr
+                ));
+            }
         }
     }
 
-    void onParticleHit(CCNode* sender) {
-        FMODAudioEngine::sharedEngine()->playEffect("coin.mp3"_spr);
+    void addCurrencySprite(int type, CCPoint position, const std::string & spriteName) {
+        auto f = m_fields.self();
 
-        float valToAdd = 0.f;
-        if (auto dataObj = static_cast<CCString*>(sender->getUserObject())) {
-            valToAdd = dataObj->floatValue();
+        auto sprite = CCSprite::create(spriteName.c_str());
+        if (!sprite) sprite = CCSprite::createWithSpriteFrameName(spriteName.c_str());
+        if (!sprite) return;
+
+        auto curSprite = CurrencySprite::createWithSprite(sprite);
+
+        float baseScale = 33.0f;
+        curSprite->setScale(baseScale / std::max(sprite->getContentHeight(), sprite->getContentWidth()));
+
+        curSprite->setPosition(position);
+        curSprite->m_position = f->m_sprites.at(type)->convertToWorldSpaceAR({ 0, 0 }) + ccp(0, -10 - m_rewardCount * 30);
+        curSprite->m_unkFloat1 = GameToolbox::fast_rand_0_1() * 5.f * (GameToolbox::fast_rand_0_1() <= 0.5f ? -1.f : 1.f);
+        curSprite->m_unkFloat2 = GameToolbox::fast_rand_0_1() * 12.f;
+        curSprite->m_remaining = GameToolbox::fast_rand_0_1() * 0.2f + m_time * 0.1f + 1.4f;
+
+        if (curSprite->m_burstSprite) {
+   
+            curSprite->m_burstSprite->setPosition(position);
+
+            curSprite->m_burstSprite->setScale(curSprite->m_burstSprite->getScale() * 0.60f);
+            curSprite->m_burstSprite->setColor({ 255, 255, 120 });
+            m_orbBatchNode->addChild(curSprite->m_burstSprite);
+
+            if (!curSprite->m_followers) {
+                curSprite->m_followers = CCArray::create();
+                curSprite->m_followers->retain();
+            }
+
+            curSprite->m_followers->addObject(curSprite->m_burstSprite);
+            curSprite->m_propagateScaleChanges = false;
+            curSprite->m_hasFollower = true;
         }
 
-        m_currentAccumulator += valToAdd;
-        int displayValue = static_cast<int>(std::round(m_currentAccumulator));
+        addChild(curSprite, 100);
+        m_objects->addObject(curSprite);
 
-        if (displayValue > m_targetTotal) displayValue = m_targetTotal;
+        auto particle = CCParticleSystemQuad::create("fireballEffect.plist", false);
+        if (particle) {
+            particle->setTotalParticles(30);
+            particle->setStartSize(4.5f);
+            particle->setEndSize(0.5f);
+            particle->setStartColor({ 1.f, 1.f, 0.47f, 1.f });
+            particle->setEndColor({ 1.f, 1.f, 0.47f, 0.f });
+            particle->setLife(0.3f);
+            particle->setAutoRemoveOnFinish(false);
 
-        m_label->setString(std::to_string(displayValue).c_str());
-    
+            particle->setPosition(position);
 
-        m_label->stopAllActions();
-        m_label->setScale(0.55f);
-        m_label->runAction(CCScaleTo::create(0.1f, 0.45f));
-    }
-
-    void onAnimationEnd() {
-        m_label->setString(std::to_string(m_targetTotal).c_str());
-
-        auto slideOff = CCEaseBackIn::create(
-            CCMoveBy::create(0.5f, ccp(m_bg->getContentSize().width + 100.f, 0))
-        );
-        slideOff->setTag(200);
-
-        auto seq = CCSequence::create(
-            slideOff,
-            CCCallFunc::create(this, callfunc_selector(RewardNotification::cleanupAndRemove)),
-            nullptr
-        );
-        seq->setTag(200);
-        m_bg->runAction(seq);
-    }
-
-    void cleanupAndRemove() {
-        auto it = std::find(s_activeRewards.begin(), s_activeRewards.end(), this);
-        if (it == s_activeRewards.end()) {
-            return;
+            addChild(particle, -1);
+            curSprite->m_particleSystem = particle;
         }
 
-        s_activeRewards.erase(it);
-        RewardNotification::updatePositions();
-        this->removeFromParentAndCleanup(true);
+        f->m_curSprites[type].push_back(curSprite);
+    }
+
+    void addObjects(int type, int count, int prevCount, CCPoint position, const std::string & spriteName) {
+        auto f = m_fields.self();
+        if (f->m_curSprites.contains(type)) return;
+
+        f->m_types.push_back(type);
+        f->m_totalCounts[type] = count + prevCount;
+
+        auto circleWave = CCCircleWave::create(10.f, 110.f, 0.3f, false, true);
+        circleWave->setPosition(position);
+        circleWave->m_color.r = 255;
+        circleWave->m_color.g = 255;
+        circleWave->m_color.b = 120;
+        addChild(circleWave, 9);
+
+        auto label = CCLabelBMFont::create(std::to_string(prevCount).c_str(), "bigFont.fnt");
+        label->setAnchorPoint({ 1, 0.5f });
+        label->setScale(0.6f);
+
+        float lowest = 0;
+        for (auto node : m_mainNode->getChildrenExt()) {
+            if (node->getPositionY() < lowest) lowest = node->getPositionY();
+        }
+        label->setPositionY(lowest - 35);
+        m_mainNode->addChild(label);
+        f->m_labels[type] = label;
+
+        auto sprite = CCSprite::create(spriteName.c_str());
+        if (!sprite) sprite = CCSprite::createWithSpriteFrameName(spriteName.c_str());
+        if (sprite) {
+            sprite->setScale(22.0f / std::max(sprite->getContentHeight(), sprite->getContentWidth()));
+            sprite->setPosition({ 18, label->getPositionY() });
+            m_mainNode->addChild(sprite);
+            f->m_sprites[type] = sprite;
+        }
+
+        FMODAudioEngine::sharedEngine()->playEffect("magicExplosion.ogg", 1.35f, 1.f, 0.1f);
+
+        int visualCount = std::min(count, 30);
+        for (int i = 0; i < visualCount; i++) {
+            addCurrencySprite(type, position, spriteName);
+        }
+    }
+
+    void addMoreObjects(int type, int count, CCPoint position, const std::string & spriteName) {
+        auto f = m_fields.self();
+        if (!f->m_curSprites.contains(type)) return;
+
+        f->m_totalCounts[type] += count;
+
+        auto circleWave = CCCircleWave::create(10.f, 110.f, 0.3f, false, true);
+        circleWave->setPosition(position);
+        circleWave->m_color.r = 255;
+        circleWave->m_color.g = 255;
+        circleWave->m_color.b = 120;
+        addChild(circleWave, 9);
+
+        FMODAudioEngine::sharedEngine()->playEffect("magicExplosion.ogg", 1.35f, 1.f, 0.1f);
+
+        int visualCount = std::min(count, 30);
+        for (int i = 0; i < visualCount; i++) {
+            addCurrencySprite(type, position, spriteName);
+        }
     }
 };
 
+class RewardNotification {
+public:
+    static void show(const std::string& spriteName,
+        int startAmount,
+        int addedAmount, 
+        CCPoint spawnPosition = CCPointZero) {
+        auto overlay = OverlayManager::get();
+        if (!overlay) return;
 
-inline std::vector<RewardNotification*> RewardNotification::s_activeRewards;
+        if (spawnPosition == CCPointZero) {
+            spawnPosition = CCDirector::sharedDirector()->getWinSize() / 2;
+        }
+
+        int const LAYER_TAG = 849302;
+        auto activeLayer = overlay->getChildByTag(LAYER_TAG);
+
+        if (activeLayer && static_cast<ProCurrencyRewardLayer*>(activeLayer)->isDying()) {
+            activeLayer->setTag(0);
+            activeLayer = nullptr;
+        }
+
+        if (!activeLayer) {
+            auto newLayer = CurrencyRewardLayer::create(0, 0, 0, 0, CurrencySpriteType::Icon, 0,
+                CurrencySpriteType::Icon, 0,
+                spawnPosition, 
+                CurrencyRewardType::Default, 0.f, 0.9f);
+            if (auto bg = typeinfo_cast<CCLayerColor*>(newLayer->getChildren()->objectAtIndex(0))) bg->setOpacity(0);
+            newLayer->setTag(LAYER_TAG);
+            overlay->addChild(newLayer, 105000);
+            activeLayer = newLayer;
+        }
+        else {
+            overlay->reorderChild(activeLayer, 105000);
+        }
+
+        auto modLayer = static_cast<ProCurrencyRewardLayer*>(activeLayer);
+        int typeID = std::hash<std::string>{}(spriteName);
+
+        if (modLayer->m_fields->m_curSprites.contains(typeID)) {
+            modLayer->addMoreObjects(typeID, addedAmount, spawnPosition, spriteName);
+        }
+        else {
+            modLayer->addObjects(typeID, addedAmount, startAmount, spawnPosition, spriteName);
+        }
+    }
+};

@@ -53,11 +53,11 @@ protected:
         }
     }
 
-    bool isGoalClaimed(int index) {   
+    bool isGoalClaimed(int index) {
         return g_streakData.isStreakGoalClaimed(index);
     }
 
-    void setGoalClaimed(int index) {    
+    void setGoalClaimed(int index) {
         g_streakData.setStreakGoalClaimed(index);
         g_streakData.save();
     }
@@ -120,7 +120,11 @@ protected:
     }
 
     void onClaim(CCObject* sender) {
-        int index = sender->getTag();
+      
+        auto btn = static_cast<CCNode*>(sender);
+        CCPoint spawnPos = btn->convertToWorldSpaceAR(CCPointZero);
+
+        int index = btn->getTag();
         if (index < 0 || index >= m_goals.size()) return;
         if (isGoalClaimed(index)) return;
 
@@ -146,7 +150,9 @@ protected:
         else if (goal.rewardTickets > 0) {
             int start = g_streakData.starTickets;
             g_streakData.starTickets += goal.rewardTickets;
-            RewardNotification::show("star_tiket.png"_spr, start, goal.rewardTickets);
+
+       
+            RewardNotification::show("star_tiket.png"_spr, start, goal.rewardTickets, spawnPos);
         }
 
         setGoalClaimed(index);

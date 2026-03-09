@@ -762,23 +762,27 @@ protected:
 
             g_streakData.save();
 
+            // Calculamos el centro de la pantalla para pasarle la posición a la animación
+            auto winSize = CCDirector::sharedDirector()->getWinSize();
+            CCPoint spawnPos = winSize / 2;
+
             auto showSideNotifications = [=]() {
                 if (codeXP > 0) {
-                    RewardNotification::show("xp.png"_spr, xpStart, codeXP);
+                    RewardNotification::show("xp.png"_spr, xpStart, codeXP, spawnPos);
                 }
 
                 int totalStars = codeStars + levelStars;
                 if (totalStars > 0) {
-                    RewardNotification::show("super_star.png"_spr, starsStart, totalStars);
+                    RewardNotification::show("super_star.png"_spr, starsStart, totalStars, spawnPos);
                 }
 
                 int totalTickets = codeTickets + levelTickets;
                 if (totalTickets > 0) {
-                    RewardNotification::show("star_tiket.png"_spr, ticketsStart, totalTickets);
+                    RewardNotification::show("star_tiket.png"_spr, ticketsStart, totalTickets, spawnPos);
                 }
 
                 if (codeGems > 0) {
-                    RewardNotification::show("gem.png"_spr, gemsStart, codeGems);
+                    RewardNotification::show("gem.png"_spr, gemsStart, codeGems, spawnPos);
                 }
 
                 if (isNewBanner && !bannerID.empty()) {

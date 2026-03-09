@@ -963,7 +963,10 @@ protected:
             for (const auto& badgeID : m_newBadgesWon) BadgeNotification::show(badgeID);
             if (m_pendingTotalTickets > 0) {
                 int startAmount = g_streakData.starTickets - m_pendingTotalTickets;
-                RewardNotification::show("star_tiket.png"_spr, startAmount, m_pendingTotalTickets);
+                auto winSize = CCDirector::sharedDirector()->getWinSize();
+
+                // Salen desde el centro de la pantalla
+                RewardNotification::show("star_tiket.png"_spr, startAmount, m_pendingTotalTickets, winSize / 2);
             }
             updateButtons();
             })->show();
@@ -1076,13 +1079,19 @@ protected:
         }
 
         if (!isMythicAnimation) {
+            // Calculamos la posición real de la casilla para que salgan de ahí
+            CCPoint spawnPos = m_orderedSlots[m_currentSelectorIndex]->convertToWorldSpaceAR(CCPointZero);
+
             if (showBadgeNotify) BadgeNotification::show(prize.id);
-            if (pendingTickets > 0) RewardNotification::show("star_tiket.png"_spr,
-                g_streakData.starTickets - pendingTickets, pendingTickets);
-            if (pendingStars > 0) RewardNotification::show("super_star.png"_spr,
-                g_streakData.superStars - pendingStars, pendingStars);
+
+            if (pendingTickets > 0) {
+                RewardNotification::show("star_tiket.png"_spr, g_streakData.starTickets - pendingTickets, pendingTickets, spawnPos);
+            }
+            if (pendingStars > 0) {
+                RewardNotification::show("super_star.png"_spr, g_streakData.superStars - pendingStars, pendingStars, spawnPos);
+            }
         }
-    }
+    } // ¡Esta era la llave que faltaba!
 
     void updateAllCheckmarks() {
         if (m_currentMode == RouletteMode::Gem) return;
@@ -1100,11 +1109,25 @@ protected:
         }
     }
 
-    void playTickSound() { FMODAudioEngine::sharedEngine()->playEffect("ruleta_sfx.mp3"_spr); }
-    void onOpenShop(CCObject*) {
-        auto shop = ShopPopup::create([this]() { this->updateAllCheckmarks(); updateButtons(); });
-        shop->show();
+    void playTickSound() {
+        FMODAudioEngine::sharedEngine()->playEffect("ruleta_sfx.mp3"_spr);
     }
+
+
+    void onOpenShop(CCObject*) {
+        
+        auto shopScene = ShopLayer::scene([this]() {
+            this->updateAllCheckmarks();
+            this->updateButtons();
+            });
+
+      
+        auto transition = CCTransitionFade::create(0.5f, shopScene);
+        CCDirector::sharedDirector()->pushScene(transition);
+    }
+
+
+
     void onToggleSkip(CCObject* sender) {}
 
     void onShowProbabilities(CCObject*) {

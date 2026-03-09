@@ -201,7 +201,7 @@ struct StreakData {
         {0, "Frostbite_badge.png"_spr, "Frostbite", BadgeCategory::SPECIAL, "Frostbite_badge", true, "LaFluffaroni"},
         {0, "Skybound_badge.png"_spr, "Skybound", BadgeCategory::EPIC, "Skybound_badge", true, "LaFluffaroni"},
         {0, "Steampunk_Dash_badge.png"_spr, "Steampunk", BadgeCategory::COMMON, "Steampunk_Dash_badge", true, "LaFluffaroni"},
-        {0, "money_badge.png"_spr, "Money Money", BadgeCategory::SPECIAL, "money_badge", true, "XJotaBeLikeX"},
+        {0, "money_badge.png"_spr, "Money Money", BadgeCategory::SPECIAL, "money_badge", true, "LaFluffaroni"},
         {0, "Skeletal_Shenanigans_badge.png"_spr, "Skeletal Shenanigans", BadgeCategory::LEGENDARY, "Skeletal_Shenanigans_badge", true, "LaFluffaroni"},
         {0, "random_badge.png"_spr, "GD Randomizer", BadgeCategory::SPECIAL, "random_badge", true, "XJotaBeLikeX"},
         {0, "mai_badge.png"_spr, "Mai Waifu", BadgeCategory::EPIC, "mai_badge", true, "XJotaBeLikeX"},

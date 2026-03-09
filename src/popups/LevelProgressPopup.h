@@ -315,7 +315,11 @@ protected:
     }
 
     void onClaimMission(CCObject* sender) {
-        int levelID = sender->getTag();
+ 
+        auto btn = static_cast<CCNode*>(sender);
+        CCPoint spawnPos = btn->convertToWorldSpaceAR(CCPointZero);
+
+        int levelID = btn->getTag();
         if (g_streakData.isLevelMissionClaimed(levelID)) return;
 
         const LevelMission* missionPtr = nullptr;
@@ -340,20 +344,25 @@ protected:
             if (missionPtr->secondaryRewardType == LevelRewardType::SuperStars) {
                 int start = g_streakData.superStars;
                 g_streakData.superStars += missionPtr->secondaryRewardQuantity;
+ 
                 RewardNotification::show(
                     "super_star.png"_spr,
                     start,
-                    missionPtr->secondaryRewardQuantity
+                    missionPtr->secondaryRewardQuantity,
+                    spawnPos
                 );
             }
 
             if (missionPtr->secondaryRewardType == LevelRewardType::StarTickets) {
                 int start = g_streakData.starTickets;
                 g_streakData.starTickets += missionPtr->secondaryRewardQuantity;
+
+           
                 RewardNotification::show(
                     "star_tiket.png"_spr,
                     start,
-                    missionPtr->secondaryRewardQuantity
+                    missionPtr->secondaryRewardQuantity,
+                    spawnPos
                 );
             }
             g_streakData.save();

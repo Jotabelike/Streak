@@ -9,36 +9,119 @@
 #include "SharedVisuals.h" 
 
 using namespace geode::prelude;
-
-class ShopPopup : public Popup {
+ 
+class ItemConfirmPopup : public Popup {
 protected:
-    enum ShopMode {
-        MODE_BADGES,
-        MODE_BANNERS
+    std::function<void()> m_onBuy;
+
+    bool init(std::string spriteName, std::string displayName, int price, std::function<void()> onBuy) {
+    
+        if (!Popup::init(250.f, 200.f, "GJ_square04.png")) return false;
+
+        m_onBuy = onBuy;
+        this->setTitle("Confirm Purchase");
+
+     
+        auto sprite = CCSprite::create(spriteName.c_str());
+        if (sprite) {
+            float maxDim = 70.f;  
+            float currentMax = std::max(sprite->getContentSize().width, sprite->getContentSize().height);
+            if (currentMax > maxDim) {
+                sprite->setScale(maxDim / currentMax);
+            }
+            else {
+                sprite->setScale(1.1f);
+            }
+            sprite->setPosition({ m_size.width / 2, m_size.height / 2 + 30.f });
+            m_mainLayer->addChild(sprite);
+        }
+ 
+        auto nameLabel = CCLabelBMFont::create(displayName.c_str(), "goldFont.fnt");
+        nameLabel->setScale(0.55f);
+        nameLabel->setPosition({ m_size.width / 2, m_size.height / 2 - 15.f });
+        m_mainLayer->addChild(nameLabel);
+
+       
+        auto priceNode = CCNode::create();
+        auto priceLabel = CCLabelBMFont::create(std::to_string(price).c_str(), "goldFont.fnt");
+        priceLabel->setScale(0.45f);
+
+        auto ticketIcon = CCSprite::create("star_tiket.png"_spr);
+        ticketIcon->setScale(0.18f);
+
+        float totalW = priceLabel->getScaledContentSize().width + ticketIcon->getScaledContentSize().width + 5.f;
+        priceLabel->setPosition({ -totalW / 2 + priceLabel->getScaledContentSize().width / 2, 0 });
+        ticketIcon->setPosition({ priceLabel->getPositionX() + priceLabel->getScaledContentSize().width / 2 + 5.f + ticketIcon->getScaledContentSize().width / 2, 0 });
+
+        priceNode->addChild(priceLabel);
+        priceNode->addChild(ticketIcon);
+
+      
+        priceNode->setPosition({ m_size.width / 2, m_size.height / 2 - 40.f });
+        m_mainLayer->addChild(priceNode);
+
+      
+        auto menu = CCMenu::create();
+        menu->setPosition({ m_size.width / 2, 28.f });
+        m_mainLayer->addChild(menu);
+
+        auto cancelSpr = ButtonSprite::create("Cancel", 0, false, "goldFont.fnt", "GJ_button_06.png", 0, 0.7f);
+        auto cancelBtn = CCMenuItemSpriteExtra::create(cancelSpr, this, menu_selector(ItemConfirmPopup::onClose));
+        cancelBtn->setPosition({ -65.f, 0 });
+        menu->addChild(cancelBtn);
+
+        auto buySpr = ButtonSprite::create("Buy", 0, false, "goldFont.fnt", "GJ_button_01.png", 0, 0.7f);
+        auto buyBtn = CCMenuItemSpriteExtra::create(buySpr, this, menu_selector(ItemConfirmPopup::onConfirmBuy));
+        buyBtn->setPosition({ 65.f, 0 });
+        menu->addChild(buyBtn);
+
+        return true;
+    }
+
+    void onConfirmBuy(CCObject* sender) {
+        if (m_onBuy) m_onBuy();
+        this->onClose(sender);  
+    }
+
+public:
+    static ItemConfirmPopup* create(std::string spriteName, std::string displayName, int price, std::function<void()> onBuy) {
+        auto ret = new ItemConfirmPopup();
+        if (ret && ret->init(spriteName, displayName, price, onBuy)) {
+            ret->autorelease();
+            return ret;
+        }
+        CC_SAFE_DELETE(ret);
+        return nullptr;
+    }
+};
+ 
+
+
+class ShopLayer : public CCLayer {
+protected:
+    enum ItemType {
+        TYPE_BADGE,
+        TYPE_BANNER
     };
 
-    ShopMode m_currentMode = MODE_BADGES;
+    struct DisplayItem {
+        std::string id;
+        int price;
+        std::string spriteName;
+        bool unlocked;
+        StreakData::BadgeCategory category;
+        ItemType type;
+    };
+
     std::function<void()> m_onCloseCallback;
     CCLabelBMFont* m_ticketCounterLabel = nullptr;
     CCMenu* m_itemMenu = nullptr;
 
-    CCLabelBMFont* m_categoryLabel = nullptr;
-    int m_categoryIndex = 0;
-
-    int m_colorIndex = 0;
-    float m_colorTransitionTime = 0.0f;
-    std::vector<ccColor3B> m_mythicColors;
-    ccColor3B m_currentColor;
-    ccColor3B m_targetColor;
-
     CCMenuItemSpriteExtra* m_prevBtn = nullptr;
     CCMenuItemSpriteExtra* m_nextBtn = nullptr;
     int m_page = 0;
-    int m_itemsPerPage = 6;
+    int m_itemsPerPage = 8;
     CCSize m_size;
-
-    CCMenuItemToggler* m_badgesToggle = nullptr;
-    CCMenuItemToggler* m_bannersToggle = nullptr;
 
     std::map<std::string, int> m_shopItems;
     std::map<std::string, int> m_bannerItems;
@@ -54,198 +137,87 @@ protected:
     }
 
     bool init() override {
-        if (!Popup::init(400.f, 280.f, "geode.loader/GE_square01.png")) return false;
+        if (!CCLayer::init()) return false;
 
-        m_size = m_mainLayer->getContentSize();
-        this->setTitle("Streak Shop");
+        m_size = CCDirector::sharedDirector()->getWinSize();
         g_streakData.load();
+        this->setKeypadEnabled(true);
 
-        m_mythicColors = {
-            ccc3(255, 0, 0),
-            ccc3(255, 165, 0),
-            ccc3(255, 255, 0),
-            ccc3(0, 255, 0),
-            ccc3(0, 0, 255),
-            ccc3(75, 0, 130),
-            ccc3(238, 130, 238),
-            ccc3(255, 105, 180),
-            ccc3(255, 215, 0),
-            ccc3(192, 192, 192)
-        };
-        m_currentColor = m_mythicColors[0];
-        m_targetColor = m_mythicColors[1];
+        GameManager::sharedState()->fadeInMusic("Streak_shop_loop.mp3"_spr);
 
         m_shopItems = {
-            {"diamante_mc_badge", 550},
-            {"platino_streak_badge", 30},
-            {"diamante_gd_badge", 40},
-            {"hounter_badge", 60},
-            {"money_badge", 100},
-            {"gd_badge", 130},
-            {"Steampunk_Dash_badge",150},
-            {"dark_streak_badge", 500},
-            {"gold_streak_badge", 1200},
-            {"bh_badge_1", 29990},
-            {"bh_badge_2", 1300},
-            {"bh_badge_3", 520},
-            {"bh_badge_4", 990},
-            {"bh_badge_5", 11990},
-            {"bh_badge_6", 1190},
-            {"bh_badge_7", 45990},
-            {"mc_badge_1", 3999},
-            {"mc_badge_2", 1699},
-            {"mc_badge_3", 199},
-            {"mai_badge", 1200}
+            {"diamante_mc_badge", 550}, {"platino_streak_badge", 30},
+            {"diamante_gd_badge", 40}, {"hounter_badge", 60},
+            {"money_badge", 100}, {"gd_badge", 130},
+            {"Steampunk_Dash_badge",150}, {"dark_streak_badge", 500},
+            {"gold_streak_badge", 1200}, {"bh_badge_1", 29990},
+            {"bh_badge_2", 1300}, {"bh_badge_3", 520},
+            {"bh_badge_4", 990}, {"bh_badge_5", 11990},
+            {"bh_badge_6", 1190}, {"bh_badge_7", 45990},
+            {"mc_badge_1", 3999}, {"mc_badge_2", 1699},
+            {"mc_badge_3", 199}, {"mai_badge", 1200}
         };
 
         m_bannerItems = {
-            {"banner_1", 5600},
-            {"banner_2", 8000},
-            {"banner_9", 29500},
-            {"banner_22",120500},
-            {"banner_7", 67500},
-            {"banner_11", 72300}
+            {"banner_1", 5600}, {"banner_2", 8000},
+            {"banner_9", 29500}, {"banner_22",120500},
+            {"banner_7", 67500}, {"banner_11", 72300}
         };
 
-        auto background = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
-        background->setColor({ 0, 0, 0 });
-        background->setOpacity(120);
-        background->setContentSize({
-            340.f,
-            150.f
-            });
-        background->setPosition({
-            m_size.width / 2,
-            m_size.height / 2 - 30.f
-            });
-        m_mainLayer->addChild(background);
+        auto bg = CCSprite::create("shopBG_001.png"_spr);
+        if (!bg) bg = CCSprite::create("game_bg_01_001.png");
+        bg->setPosition(m_size / 2);
+        bg->setScaleX(m_size.width / bg->getContentSize().width);
+        bg->setScaleY(m_size.height / bg->getContentSize().height);
+        this->addChild(bg, -3);
 
-        setupTabs();
+        auto desk = CCSprite::create("storeDesk_001.png"_spr);
+        if (desk) {
+            desk->setAnchorPoint({ 0.5f, 0.5f });
+            desk->setPosition({ m_size.width / 2, m_size.height / 2 - 75.f });
+            desk->setScale(0.85f);
+            this->addChild(desk, -2);
+        }
+
+        auto jotabelike = CCSprite::create("jotabelike_cube.png"_spr);
+        if (jotabelike) {
+            jotabelike->setPosition({ m_size.width / 2 + 130.f, m_size.height / 2 + 37.f });
+            jotabelike->setScale(2.0f); 
+            this->addChild(jotabelike, -1);
+        }
+
+        auto sign = CCSprite::create("shopSign_001.png"_spr);
+        if (sign) {
+            sign->setPosition({ m_size.width / 2 - 120.f, m_size.height - 35.f });
+            sign->setScale(0.55f);
+            this->addChild(sign, -1);
+        }
+
+        auto backBtnMenu = CCMenu::create();
+        backBtnMenu->setPosition({ 25.f, m_size.height - 25.f });
+        this->addChild(backBtnMenu, 10);
+
+        auto backSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        auto backBtn = CCMenuItemSpriteExtra::create(backSpr, this, menu_selector(ShopLayer::onBack));
+        backBtnMenu->addChild(backBtn);
+
         setupTicketCounter();
 
         m_itemMenu = CCMenu::create();
-        m_itemMenu->setContentSize(background->getContentSize());
-        m_itemMenu->setPosition(background->getPosition());
-        m_itemMenu->ignoreAnchorPointForPosition(false);
-        m_mainLayer->addChild(m_itemMenu);
+        m_itemMenu->setContentSize(m_size);
+        m_itemMenu->setPosition({ 0, 0 });
+        this->addChild(m_itemMenu);
 
-        setupPaginationArrows(background);
-        setupCategorySelector(background);
+        setupPaginationArrows();
 
-        this->scheduleUpdate();
-
-        m_badgesToggle->toggle(true);
-        m_bannersToggle->toggle(false);
         updateItems();
 
         return true;
     }
 
-    void setupTabs() {
-        auto badgeOn = ButtonSprite::create(
-            "Badges", 80, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.6f
-        );
-        auto badgeOff = ButtonSprite::create(
-            "Badges", 80, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.6f
-        );
-
-        auto bannerOn = ButtonSprite::create(
-            "Banners", 80, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.6f
-        );
-        auto bannerOff = ButtonSprite::create(
-            "Banners", 80, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.6f
-        );
-
-        badgeOn->setScale(0.8f);
-        badgeOff->setScale(0.8f);
-        bannerOn->setScale(0.8f);
-        bannerOff->setScale(0.8f);
-
-        m_badgesToggle = CCMenuItemToggler::create(
-            badgeOff,
-            badgeOn,
-            this,
-            menu_selector(ShopPopup::onSwitchToBadges)
-        );
-        m_bannersToggle = CCMenuItemToggler::create(
-            bannerOff,
-            bannerOn,
-            this,
-            menu_selector(ShopPopup::onSwitchToBanners)
-        );
-
-        auto menu = CCMenu::create();
-        menu->addChild(m_badgesToggle);
-        menu->addChild(m_bannersToggle);
-
-        float topY = m_size.height - 45.f;
-
-        m_badgesToggle->setPosition({
-            m_size.width / 2 - 55.f,
-            topY
-            });
-        m_bannersToggle->setPosition({
-            m_size.width / 2 + 55.f,
-            topY
-            });
-
-        menu->setPosition(0, 0);
-        m_mainLayer->addChild(menu);
-    }
-
-    void onSwitchToBadges(CCObject* sender) {
-        if (m_currentMode == MODE_BADGES) {
-            m_badgesToggle->toggle(true);
-            return;
-        }
-        m_currentMode = MODE_BADGES;
-        m_badgesToggle->toggle(true);
-        m_bannersToggle->toggle(false);
-
-        m_page = 0;
-        m_categoryIndex = 0;
-        updateCategoryVisuals();
-        updateItems();
-    }
-
-    void onSwitchToBanners(CCObject* sender) {
-        if (m_currentMode == MODE_BANNERS) {
-            m_bannersToggle->toggle(true);
-            return;
-        }
-        m_currentMode = MODE_BANNERS;
-        m_bannersToggle->toggle(true);
-        m_badgesToggle->toggle(false);
-
-        m_page = 0;
-        m_categoryIndex = 0;
-        updateCategoryVisuals();
-        updateItems();
-    }
-
-    void update(float dt) override {
-        if (m_categoryIndex != 5 || !m_categoryLabel) return;
-
-        m_colorTransitionTime += dt;
-        if (m_colorTransitionTime >= 1.0f) {
-            m_colorTransitionTime = 0.0f;
-            m_colorIndex = (m_colorIndex + 1) % m_mythicColors.size();
-            m_currentColor = m_targetColor;
-            m_targetColor = m_mythicColors[(m_colorIndex + 1) % m_mythicColors.size()];
-        }
-
-        float progress = m_colorTransitionTime / 1.0f;
-        ccColor3B interpolatedColor = {
-            static_cast<GLubyte>(m_currentColor.r + (m_targetColor.r - m_currentColor.r) * progress),
-            static_cast<GLubyte>(m_currentColor.g + (m_targetColor.g - m_currentColor.g) * progress),
-            static_cast<GLubyte>(m_currentColor.b + (m_targetColor.b - m_currentColor.b) * progress)
-        };
-        m_categoryLabel->setColor(interpolatedColor);
-    }
-
     void setupTicketCounter() {
         auto ticketNode = CCNode::create();
-        m_mainLayer->addChild(ticketNode);
+        this->addChild(ticketNode, 5);
 
         auto ticketSprite = CCSprite::create("star_tiket.png"_spr);
         ticketSprite->setScale(0.25f);
@@ -263,117 +235,27 @@ protected:
 
         ticketSprite->setPosition({ 0, 0 });
         m_ticketCounterLabel->setPosition({ -iconW / 2 - 6.f, 0 });
-        ticketNode->setPosition({
-            m_size.width - 30.f,
-            m_size.height - 22.f
-            });
+        ticketNode->setPosition({ m_size.width - 30.f, m_size.height - 22.f });
     }
 
-    void setupPaginationArrows(CCNode* bg) {
+    void setupPaginationArrows() {
         auto navMenu = CCMenu::create();
         navMenu->setContentSize(m_size);
         navMenu->setPosition({ 0, 0 });
-        m_mainLayer->addChild(navMenu);
+        this->addChild(navMenu, 5);
 
         auto spriteLeft = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
-        spriteLeft->setScale(0.8f);
-        m_prevBtn = CCMenuItemSpriteExtra::create(
-            spriteLeft,
-            this,
-            menu_selector(ShopPopup::onPageChange)
-        );
+        m_prevBtn = CCMenuItemSpriteExtra::create(spriteLeft, this, menu_selector(ShopLayer::onPageChange));
         m_prevBtn->setTag(-1);
-
-        float bgCenterY = bg->getPositionY();
-        float bgLeftX = bg->getPositionX() - (bg->getContentSize().width / 2);
-
-        m_prevBtn->setPosition({ bgLeftX - 25.f, bgCenterY });
+        m_prevBtn->setPosition({ 25.f, m_size.height / 2 });
         navMenu->addChild(m_prevBtn);
 
         auto spriteRight = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
         spriteRight->setFlipX(true);
-        spriteRight->setScale(0.8f);
-        m_nextBtn = CCMenuItemSpriteExtra::create(
-            spriteRight,
-            this,
-            menu_selector(ShopPopup::onPageChange)
-        );
+        m_nextBtn = CCMenuItemSpriteExtra::create(spriteRight, this, menu_selector(ShopLayer::onPageChange));
         m_nextBtn->setTag(1);
-
-        float bgRightX = bg->getPositionX() + (bg->getContentSize().width / 2);
-
-        m_nextBtn->setPosition({ bgRightX + 25.f, bgCenterY });
+        m_nextBtn->setPosition({ m_size.width - 25.f, m_size.height / 2 });
         navMenu->addChild(m_nextBtn);
-    }
-
-    void setupCategorySelector(CCNode* bg) {
-        auto selectorMenu = CCMenu::create();
-        float yPos = bg->getPositionY() + (bg->getContentSize().height / 2) + 25.f;
-
-        selectorMenu->setPosition({ m_size.width / 2, yPos });
-        m_mainLayer->addChild(selectorMenu);
-
-        m_categoryLabel = CCLabelBMFont::create("ALL", "bigFont.fnt");
-        m_categoryLabel->setScale(0.5f);
-        selectorMenu->addChild(m_categoryLabel);
-
-        auto leftSpr = CCSprite::createWithSpriteFrameName("edit_leftBtn_001.png");
-        auto leftBtn = CCMenuItemSpriteExtra::create(
-            leftSpr,
-            this,
-            menu_selector(ShopPopup::onCycleCategory)
-        );
-        leftBtn->setTag(-1);
-        leftBtn->setPosition({ -90.f, 0 });
-        selectorMenu->addChild(leftBtn);
-
-        auto rightSpr = CCSprite::createWithSpriteFrameName("edit_rightBtn_001.png");
-        auto rightBtn = CCMenuItemSpriteExtra::create(
-            rightSpr,
-            this,
-            menu_selector(ShopPopup::onCycleCategory)
-        );
-        rightBtn->setTag(1);
-        rightBtn->setPosition({ 90.f, 0 });
-        selectorMenu->addChild(rightBtn);
-
-        updateCategoryVisuals();
-    }
-
-    void onCycleCategory(CCObject* sender) {
-        int direction = sender->getTag();
-        int totalCategories = 6;
-        m_categoryIndex += direction;
-
-        if (m_categoryIndex < 0) {
-            m_categoryIndex = totalCategories - 1;
-        }
-        if (m_categoryIndex >= totalCategories) {
-            m_categoryIndex = 0;
-        }
-
-        m_page = 0;
-        updateCategoryVisuals();
-        updateItems();
-    }
-
-    void updateCategoryVisuals() {
-        if (!m_categoryLabel) return;
-        std::string text = "";
-        m_categoryLabel->setColor({ 255, 255, 255 });
-
-        if (m_categoryIndex == 0) {
-            text = "ALL";
-        }
-        else {
-            StreakData::BadgeCategory cat = static_cast<StreakData::BadgeCategory>(m_categoryIndex - 1);
-            text = g_streakData.getCategoryName(cat);
-            if (cat != StreakData::BadgeCategory::MYTHIC) {
-                m_categoryLabel->setColor(g_streakData.getCategoryColor(cat));
-            }
-        }
-        std::transform(text.begin(), text.end(), text.begin(), ::toupper);
-        m_categoryLabel->setString(text.c_str());
     }
 
     void onPageChange(CCObject* sender) {
@@ -385,48 +267,24 @@ protected:
         m_itemMenu->removeAllChildren();
         g_streakData.load();
 
-        int filterValue = (m_categoryIndex == 0) ? -1 : (m_categoryIndex - 1);
-
-        struct DisplayItem {
-            std::string id;
-            int price;
-            std::string spriteName;
-            bool unlocked;
-            StreakData::BadgeCategory category;
-        };
         std::vector<DisplayItem> filteredItems;
 
-        if (m_currentMode == MODE_BADGES) {
-            m_itemsPerPage = 6;
-            for (const auto& item : m_shopItems) {
-                auto* info = g_streakData.getBadgeInfo(item.first);
-                if (!info) continue;
-                if (filterValue == -1 || static_cast<int>(info->category) == filterValue) {
-                    filteredItems.push_back({
-                        item.first,
-                        item.second,
-                        info->spriteName,
-                        g_streakData.isBadgeUnlocked(item.first),
-                        info->category
-                        });
-                }
-            }
+        for (const auto& item : m_shopItems) {
+            auto* info = g_streakData.getBadgeInfo(item.first);
+            if (!info) continue;
+            filteredItems.push_back({
+                item.first, item.second, info->spriteName,
+                g_streakData.isBadgeUnlocked(item.first), info->category, TYPE_BADGE
+                });
         }
-        else {
-            m_itemsPerPage = 4;
-            for (const auto& item : m_bannerItems) {
-                auto* info = g_streakData.getBannerInfo(item.first);
-                if (!info) continue;
-                if (filterValue == -1 || static_cast<int>(info->rarity) == filterValue) {
-                    filteredItems.push_back({
-                        item.first,
-                        item.second,
-                        info->spriteName,
-                        g_streakData.isBannerUnlocked(item.first),
-                        info->rarity
-                        });
-                }
-            }
+
+        for (const auto& item : m_bannerItems) {
+            auto* info = g_streakData.getBannerInfo(item.first);
+            if (!info) continue;
+            filteredItems.push_back({
+                item.first, item.second, info->spriteName,
+                g_streakData.isBannerUnlocked(item.first), info->rarity, TYPE_BANNER
+                });
         }
 
         std::sort(filteredItems.begin(), filteredItems.end(), [](const DisplayItem& a, const DisplayItem& b) {
@@ -442,18 +300,12 @@ protected:
         m_prevBtn->setVisible(m_page > 0);
         m_nextBtn->setVisible(m_page < totalPages - 1);
 
-        int cols = 3;
-        float spacingX = 100.f;
-
-        if (m_currentMode == MODE_BANNERS) {
-            cols = 2;
-            spacingX = 150.f;
-        }
-
+        int cols = 4;
+        float spacingX = 90.f;
         float itemSize = 60.f;
-        float spacingY = 70.f;
-        float menuWidth = m_itemMenu->getContentSize().width;
-        float menuHeight = m_itemMenu->getContentSize().height;
+
+        float topShelfY = m_size.height / 2 - 42.f;
+        float bottomShelfY = m_size.height / 2 - 110.f;
 
         for (int i = startIdx; i < endIdx; ++i) {
             int localIndex = i - startIdx;
@@ -466,25 +318,20 @@ protected:
 
             auto sprite = CCSprite::create(data.spriteName.c_str());
             if (sprite) {
-                float scale = 0.28f;
-                if (m_currentMode == MODE_BANNERS) {
-                    float targetWidth = 100.f;
-                    if (sprite->getContentSize().width > targetWidth) {
-                        scale = targetWidth / sprite->getContentSize().width;
-                    }
-                    else {
-                        scale = 0.5f;
-                    }
+                float maxDimension = 60.f;
+                float currentMax = std::max(sprite->getContentSize().width, sprite->getContentSize().height);
+                if (currentMax > maxDimension) {
+                    sprite->setScale(maxDimension / currentMax);
                 }
-                sprite->setScale(scale);
+                else {
+                    sprite->setScale(0.8f);
+                }
+
                 sprite->setPosition({ itemSize / 2, itemSize / 2 + 10.f });
                 itemNode->addChild(sprite);
             }
 
-            auto priceLabel = CCLabelBMFont::create(
-                formatPrice(data.price).c_str(),
-                "goldFont.fnt"
-            );
+            auto priceLabel = CCLabelBMFont::create(formatPrice(data.price).c_str(), "goldFont.fnt");
             priceLabel->setScale(0.35f);
 
             auto priceTicketIcon = CCSprite::create("star_tiket.png"_spr);
@@ -492,41 +339,44 @@ protected:
 
             float totalW = priceLabel->getScaledContentSize().width + priceTicketIcon->getScaledContentSize().width + 3.f;
 
-            priceLabel->setPosition({
-                (itemSize - totalW) / 2 + priceLabel->getScaledContentSize().width / 2,
-                0.f
-                });
-            priceTicketIcon->setPosition({
-                priceLabel->getPositionX() + priceLabel->getScaledContentSize().width / 2 + 3.f + priceTicketIcon->getScaledContentSize().width / 2,
-                0.f
-                });
+            priceLabel->setPosition({ (itemSize - totalW) / 2 + priceLabel->getScaledContentSize().width / 2, 8.f });
+            priceTicketIcon->setPosition({ priceLabel->getPositionX() + priceLabel->getScaledContentSize().width / 2 + 3.f + priceTicketIcon->getScaledContentSize().width / 2, 8.f });
 
             itemNode->addChild(priceLabel);
             itemNode->addChild(priceTicketIcon);
 
-            CCMenuItemSpriteExtra* buyBtn = CCMenuItemSpriteExtra::create(
-                itemNode,
-                this,
-                menu_selector(ShopPopup::onBuyItem)
-            );
+            CCMenuItemSpriteExtra* buyBtn = CCMenuItemSpriteExtra::create(itemNode, this, menu_selector(ShopLayer::onBuyItem));
             buyBtn->setUserObject("item_id"_spr, CCString::create(data.id));
 
-            float posX = (menuWidth / 2) + (col - (cols - 1) / 2.0f) * spacingX;
-            float startY = menuHeight - 35.f;
-            float posY = startY - (row * spacingY);
+            float posX = (m_size.width / 2) + (col - (cols - 1) / 2.0f) * spacingX;
+            float posY = (row == 0) ? topShelfY : bottomShelfY;
 
             buyBtn->setPosition({ posX, posY });
             m_itemMenu->addChild(buyBtn);
 
+            buyBtn->setScale(0.f);
+
+            float delay = localIndex * 0.04f;
+
+            buyBtn->runAction(CCSequence::create(
+                CCDelayTime::create(delay),
+                CCEaseElasticOut::create(CCScaleTo::create(0.5f, 1.0f), 0.6f),
+                nullptr
+            ));
+
             if (data.unlocked) {
                 buyBtn->setEnabled(false);
+
+                priceLabel->setVisible(false);
+                priceTicketIcon->setVisible(false);
+
                 for (auto* child : CCArrayExt<CCNode*>(itemNode->getChildren())) {
                     if (auto* rgbaNode = typeinfo_cast<CCRGBAProtocol*>(child)) {
                         rgbaNode->setOpacity(100);
                     }
                 }
                 auto checkmark = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
-                checkmark->setScale(0.5f);
+                checkmark->setScale(0.6f);
                 checkmark->setPosition({ itemSize / 2, itemSize / 2 + 10.f });
                 itemNode->addChild(checkmark, 10);
             }
@@ -536,15 +386,20 @@ protected:
 
     void onBuyItem(CCObject* sender) {
         std::string itemID = static_cast<CCString*>(static_cast<CCNode*>(sender)->getUserObject("item_id"_spr))->getCString();
+
+        bool isBadge = (m_shopItems.find(itemID) != m_shopItems.end());
+
         int price = 0;
         std::string displayName = "";
+        std::string spriteName = "";
         StreakData::BadgeCategory category = StreakData::BadgeCategory::COMMON;
 
-        if (m_currentMode == MODE_BADGES) {
+        if (isBadge) {
             auto info = g_streakData.getBadgeInfo(itemID);
             if (!info) return;
             price = m_shopItems[itemID];
             displayName = info->displayName;
+            spriteName = info->spriteName;
             category = info->category;
         }
         else {
@@ -552,110 +407,90 @@ protected:
             if (!info) return;
             price = m_bannerItems[itemID];
             displayName = info->displayName;
+            spriteName = info->spriteName;
             category = info->rarity;
         }
 
         if (g_streakData.starTickets < price) {
-            FLAlertLayer::create(
-                "Not Enough Tickets",
-                "You need more tickets!",
-                "OK"
-            )->show();
+            FLAlertLayer::create("Not Enough Tickets", "You need more tickets!", "OK")->show();
             return;
         }
 
-        createQuickPopup(
-            "Confirm",
-            fmt::format("Buy <cg>{}</c>?", displayName),
-            "No", "Yes",
-            [this, itemID, price, category](FLAlertLayer*, bool btn2) {
-                if (btn2) {
-                    g_streakData.load();
-                    if (g_streakData.starTickets >= price) {
-                        g_streakData.starTickets -= price;
+        ItemConfirmPopup::create(spriteName, displayName, price, [this, itemID, price, category, isBadge]() {
+            g_streakData.load();
+            if (g_streakData.starTickets >= price) {
+         
+                g_streakData.starTickets -= price;
 
-                        if (m_currentMode == MODE_BADGES) {
-                            g_streakData.unlockBadge(itemID);
-                        }
-                        else {
-                            g_streakData.unlockBanner(itemID);
-                        }
+                if (isBadge) {
+                    g_streakData.unlockBadge(itemID);
+                }
+                else {
+                    g_streakData.unlockBanner(itemID);
+                }
 
-                        g_streakData.save();
-                        m_ticketCounterLabel->setString(
-                            std::to_string(g_streakData.starTickets).c_str()
-                        );
-                        updateItems();
-                        FMODAudioEngine::sharedEngine()->playEffect("buy_obj.mp3"_spr);
+                g_streakData.save();
+                m_ticketCounterLabel->setString(std::to_string(g_streakData.starTickets).c_str());
+                updateItems();
+                FMODAudioEngine::sharedEngine()->playEffect("buy_obj.mp3"_spr);
 
-                        if (m_currentMode == MODE_BADGES) {
-                            if (category == StreakData::BadgeCategory::MYTHIC) {
-                                auto badgeInfo = g_streakData.getBadgeInfo(itemID);
-                                if (badgeInfo) {
-                                    auto animLayer = MythicAnimationLayer::create(
-                                        *badgeInfo,
-                                        [itemID]() {
-                                            BadgeNotification::show(itemID);
-                                        }
-                                    );
-                                    CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 99999);
-                                }
-                            }
-                            else {
-                                BadgeNotification::show(itemID);
-                            }
+           
+                if (isBadge) {
+                    if (category == StreakData::BadgeCategory::MYTHIC) {
+                        auto badgeInfo = g_streakData.getBadgeInfo(itemID);
+                        if (badgeInfo) {
+                            auto animLayer = MythicAnimationLayer::create(
+                                *badgeInfo, [itemID]() { BadgeNotification::show(itemID); }
+                            );
+                            CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 99999);
                         }
-                        else {
-                            auto info = g_streakData.getBannerInfo(itemID);
-                            if (info) {
-                                if (category == StreakData::BadgeCategory::MYTHIC) {
-                                    auto animLayer = MythicBannerAnimationLayer::create(
-                                        *info,
-                                        [itemID, info]() {
-                                            std::string rTxt = g_streakData.getCategoryName(info->rarity);
-                                            ccColor3B rCol = g_streakData.getCategoryColor(info->rarity);
-                                            BannerNotification::show(
-                                                itemID,
-                                                info->spriteName,
-                                                info->displayName,
-                                                rTxt,
-                                                rCol
-                                            );
-                                        }
-                                    );
-                                    CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 99999);
-                                }
-                                else {
+                    }
+                    else {
+                        BadgeNotification::show(itemID);
+                    }
+                }
+                else {
+                    auto info = g_streakData.getBannerInfo(itemID);
+                    if (info) {
+                        if (category == StreakData::BadgeCategory::MYTHIC) {
+                            auto animLayer = MythicBannerAnimationLayer::create(
+                                *info, [itemID, info]() {
                                     std::string rTxt = g_streakData.getCategoryName(info->rarity);
                                     ccColor3B rCol = g_streakData.getCategoryColor(info->rarity);
-                                    BannerNotification::show(
-                                        itemID,
-                                        info->spriteName,
-                                        info->displayName,
-                                        rTxt,
-                                        rCol
-                                    );
+                                    BannerNotification::show(itemID, info->spriteName, info->displayName, rTxt, rCol);
                                 }
-                            }
+                            );
+                            CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 99999);
+                        }
+                        else {
+                            std::string rTxt = g_streakData.getCategoryName(info->rarity);
+                            ccColor3B rCol = g_streakData.getCategoryColor(info->rarity);
+                            BannerNotification::show(itemID, info->spriteName, info->displayName, rTxt, rCol);
                         }
                     }
                 }
-                updatePlayerDataInFirebase();
             }
-        );
+            updatePlayerDataInFirebase();
+            })->show();
     }
 
-    void onClose(CCObject* sender) override {
-        this->unscheduleUpdate();
+    void onBack(CCObject* sender) {
         if (m_onCloseCallback) {
             m_onCloseCallback();
         }
-        Popup::onClose(sender);
+
+        GameManager::sharedState()->fadeInMenuMusic();
+
+        CCDirector::sharedDirector()->popSceneWithTransition(0.5f, PopTransition::kPopTransitionFade);
+    }
+
+    void keyBackClicked() override {
+        onBack(nullptr);
     }
 
 public:
-    static ShopPopup* create(std::function<void()> callback = nullptr) {
-        auto ret = new ShopPopup();
+    static ShopLayer* create(std::function<void()> callback = nullptr) {
+        auto ret = new ShopLayer();
         ret->m_onCloseCallback = callback;
         if (ret && ret->init()) {
             ret->autorelease();
@@ -663,5 +498,12 @@ public:
         }
         CC_SAFE_DELETE(ret);
         return nullptr;
+    }
+
+    static CCScene* scene(std::function<void()> callback = nullptr) {
+        auto scene = CCScene::create();
+        auto layer = ShopLayer::create(callback);
+        scene->addChild(layer);
+        return scene;
     }
 };

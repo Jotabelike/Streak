@@ -285,9 +285,15 @@ protected:
         this->m_fields.m_timerLabel->setString(timeStr.c_str());
     }
 
-    void onClaimSeasonReward(CCObject*) {
+    void onClaimSeasonReward(CCObject* sender) {
         auto am = GJAccountManager::sharedState();
         if (!am || am->m_accountID == 0) return;
+
+     
+        CCPoint spawnPos = CCDirector::sharedDirector()->getWinSize() / 2;  
+        if (auto btn = static_cast<CCNode*>(sender)) {
+            spawnPos = btn->convertToWorldSpaceAR(CCPointZero);
+        }
 
         this->m_fields.m_claimBtn->setVisible(false);
         this->m_fields.m_spinner->setVisible(true);
@@ -297,7 +303,8 @@ protected:
         body.set("accountID", am->m_accountID);
 
         auto req = web::WebRequest();
-        this->m_fields.m_claimListener.spawn(req.bodyJSON(body).post(url), [this](web::WebResponse res) {
+       
+        this->m_fields.m_claimListener.spawn(req.bodyJSON(body).post(url), [this, spawnPos](web::WebResponse res) {
             this->m_fields.m_spinner->setVisible(false);
             if (res.ok() && res.json().isOk()) {
                 auto data = res.json().unwrap();
@@ -317,9 +324,10 @@ protected:
 
                     Notification::create(fmt::format("Season Reward Rank #{}", rank), NotificationIcon::Success)->show();
 
-                    if (gems > 0) RewardNotification::show("gem.png"_spr, g_streakData.gems - gems, gems);
-                    if (stars > 0) RewardNotification::show("super_star.png"_spr, g_streakData.superStars - stars, stars);
-                    if (tickets > 0) RewardNotification::show("star_tiket.png"_spr, g_streakData.starTickets - tickets, tickets);
+                 
+                    if (gems > 0) RewardNotification::show("gem.png"_spr, g_streakData.gems - gems, gems, spawnPos);
+                    if (stars > 0) RewardNotification::show("super_star.png"_spr, g_streakData.superStars - stars, stars, spawnPos);
+                    if (tickets > 0) RewardNotification::show("star_tiket.png"_spr, g_streakData.starTickets - tickets, tickets, spawnPos);
 
                     FMODAudioEngine::sharedEngine()->playEffect("chest07.mp3");
                 }

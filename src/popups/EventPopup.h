@@ -19,7 +19,7 @@ protected:
     bool init(const std::map<std::string, matjson::Value>& rewards,
         const std::map<std::string, int>& weights) {
 
-      
+
         if (!Popup::init(400.f, 280.f, "geode.loader/GE_square03.png")) return false;
 
         this->setTitle("Possible Awards");
@@ -511,7 +511,7 @@ protected:
     matjson::Value m_playerProgress;
     std::map<std::string, int> m_rarityWeights;
 
-   
+
     async::TaskHolder<web::WebResponse> m_loadTask;
     async::TaskHolder<web::WebResponse> m_claimTask;
 
@@ -705,7 +705,7 @@ protected:
         m_contentLayer->setVisible(false);
         auto req = web::WebRequest();
 
-       
+
         m_loadTask.spawn(
             req.get(fmt::format(
                 "https://streak-servidor.onrender.com/event/current/{}?type=roulette",
@@ -824,7 +824,7 @@ protected:
         auto req = web::WebRequest();
         req.bodyJSON(payload);
 
- 
+
         m_claimTask.spawn(
             req.post("https://streak-servidor.onrender.com/event/claim"),
             [this](web::WebResponse res) {
@@ -931,12 +931,19 @@ protected:
             g_streakData.save();
             this->updateLabels();
 
-            auto showConsumables = [this, starsStart, ticketsStart]() {
+          
+            CCPoint spawnPos = CCDirector::sharedDirector()->getWinSize() / 2;
+            if (m_rouletteLayer) {
+              
+                spawnPos = m_rouletteLayer->convertToWorldSpace({ m_rouletteLayer->getContentSize().width / 2, 100.f });
+            }
+
+            auto showConsumables = [this, starsStart, ticketsStart, spawnPos]() {
                 if (m_tempStars > 0) {
-                    RewardNotification::show("super_star.png"_spr, starsStart, m_tempStars);
+                    RewardNotification::show("super_star.png"_spr, starsStart, m_tempStars, spawnPos);
                 }
                 if (m_tempTickets > 0) {
-                    RewardNotification::show("star_tiket.png"_spr, ticketsStart, m_tempTickets);
+                    RewardNotification::show("star_tiket.png"_spr, ticketsStart, m_tempTickets, spawnPos);
                 }
                 };
 
