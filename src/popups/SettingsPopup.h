@@ -647,7 +647,7 @@ protected:
             "Disables the Streak animation"
         );
 
-        addVersionSetting("Mod Version", "1.10.36-beta.2");
+        addVersionSetting("Mod Version", "1.10.36-beta.3");
 
         content->updateLayout();
         m_mainLayer->addChild(m_scrollLayer);

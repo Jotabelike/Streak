@@ -70,8 +70,11 @@ public:
 
         this->setContentSize({ width, totalHeight });
         this->setAnchorPoint({ 0.5f, 0.5f });
-
-        auto bg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
+        auto bg = cocos2d::extension::CCScale9Sprite::create(
+            "square02_001.png",
+            CCRect(0, 0, 80, 80),
+            CCRect(10, 10, 60, 60)
+        );
         bg->setContentSize({ width, totalHeight });
         bg->setPosition({ width / 2, totalHeight / 2 });
         bg->setColor({ 0, 0, 0 });
@@ -131,7 +134,11 @@ protected:
         m_scrollLayer->setPosition((winSize - scrollSize) / 2 + CCPoint{ 0, 10.f });
         m_viewLayer->addChild(m_scrollLayer);
 
-        auto bg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
+        auto bg = cocos2d::extension::CCScale9Sprite::create(
+            "square02_001.png",
+            CCRect(0, 0, 80, 80),
+            CCRect(10, 10, 60, 60)
+        );
         bg->setContentSize(scrollSize + CCSize(10.f, 10.f));
         bg->setColor({ 0, 0, 0 });
         bg->setOpacity(100);

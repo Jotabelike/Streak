@@ -63,6 +63,15 @@ struct StreakData {
         std::string creator;
     };
 
+    struct ConsumableItem {
+        bool isTickets;
+        int amount;
+        int price;
+        BadgeCategory rarity;
+    };
+
+    std::vector<ConsumableItem> getDailyConsumableSelection();
+
     std::vector<bool> gemRouletteState;
     std::map<int, std::string> userBadgeCache;
     int currentStreak;
@@ -244,7 +253,13 @@ struct StreakData {
         {0, "xl_mastery.png"_spr, "XL Mastery", BadgeCategory::LEGENDARY, "xl_mastery_badge", true, "XJotaBeLikeX" },
         {0, "swingcopter_mastery.png"_spr, "Swingcopter mastery Mastery", BadgeCategory::LEGENDARY, "swingcopter_mastery_badge", true, "XJotaBeLikeX" },
         {0, "memory_mastery.png"_spr, "Memory mastery Mastery", BadgeCategory::LEGENDARY, "memory_mastery_badge", true, "XJotaBeLikeX" },
-        {0, "robot_mastery.png"_spr, "Robot mastery Mastery", BadgeCategory::LEGENDARY, "robot_mastery_badge", true, "XJotaBeLikeX" }
+        {0, "robot_mastery.png"_spr, "Robot mastery Mastery", BadgeCategory::LEGENDARY, "robot_mastery_badge", true, "XJotaBeLikeX" },
+
+         //achievements
+		{0, "achievement_1.png"_spr, "Achievement Badge", BadgeCategory::SPECIAL, "achievement_badge1", true, "XJotaBeLikeX"},
+		{0, "achievement_2.png"_spr, "Achievement Badge", BadgeCategory::LEGENDARY, "achievement_badge2", true, "XJotaBeLikeX" },
+		{0, "achievement_3.png"_spr, "Achievement Badge", BadgeCategory::MYTHIC, "achievement_badge3", true, "XJotaBeLikeX" }
+
     };
 
 
@@ -298,7 +313,10 @@ struct StreakData {
             {"banner_47", "banner47.png"_spr, "FNAF 2 Room", BadgeCategory::SPECIAL, "XJotaBeLikeX"},
             {"banner_48", "banner48.png"_spr, "what's up", BadgeCategory::COMMON, "XJotaBeLikeX"},
             {"banner_49", "banner49.png"_spr, "mountains", BadgeCategory::SPECIAL, "XJotaBeLikeX"},
-            {"banner_50", "banner50.png"_spr, "Oshi No Ko", BadgeCategory::EPIC, "XJotaBeLikeX"}
+            {"banner_50", "banner50.png"_spr, "Oshi No Ko", BadgeCategory::EPIC, "XJotaBeLikeX"},
+            {"banner_51", "banner51.png"_spr, "Archievement 1", BadgeCategory::COMMON, "XJotaBeLikeX"},
+            {"banner_52", "banner52.png"_spr, "Archievement 2", BadgeCategory::LEGENDARY, "XJotaBeLikeX"},
+            {"banner_53", "banner53.png"_spr, "Archievement 3", BadgeCategory::MYTHIC, "XJotaBeLikeX"}
 
             
     };

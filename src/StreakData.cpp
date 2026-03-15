@@ -13,6 +13,8 @@
 #include <random>
 #include <set>
 
+
+
 extern void completeLevelInFirebase(int stars);
 
 std::queue<NotificationData> SystemNotification::s_queue;
@@ -225,7 +227,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
         }
     }
 
-    
+
     unlockedNameItems.clear();
     if (data.contains("unlocked_name_items")) {
         auto itemsResult = data["unlocked_name_items"].as<std::vector<matjson::Value>>();
@@ -625,14 +627,15 @@ std::vector<StreakData::ShopItem> StreakData::getDailyShopSelection() {
         "banner_5", "banner_15", "banner_21", "banner_22", "banner_23",
         "banner_33", "banner_40", "banner_41", "banner_44", "banner_45",
         "banner_19", "banner_26", "banner_32", "banner_16", "banner_29",
-        "banner_42",
+		"banner_42", "banner_51", "banner_52", "banner_53", 
         "badge_5", "badge_10", "badge_30", "badge_50", "badge_70",
         "badge_100", "badge_150", "badge_300", "badge_365",
         "moderator_badge", "creator_badge", "vip_badge", "stellar_badge",
         "cube_mastery_badge", "ship_mastery_badge", "ufo_mastery_badge",
-        "ball_mastery_badge", "spider_mastery_badge", "wave_mastery_badge"
+        "ball_mastery_badge", "spider_mastery_badge", "wave_mastery_badge",
         "robot_mastery_badge", "memory_mastery_badge", "swingcopter_mastery_badge",
-        "xl_mastery_badge", "dual_mastery_badge"
+		"xl_mastery_badge", "dual_mastery_badge", "achievement_badge3", "archievement_badge2",
+         "archievement_badge1"
     };
 
     std::vector<ShopItem> candidates;
@@ -691,6 +694,95 @@ std::vector<StreakData::ShopItem> StreakData::getDailyShopSelection() {
     return selection;
 }
 
+std::vector<StreakData::ConsumableItem> StreakData::getDailyConsumableSelection() {
+    std::vector<ConsumableItem> selection;
+
+    unsigned int seed = 0;
+    if (this->dailyShopSeed != 0) {
+        seed = static_cast<unsigned int>(this->dailyShopSeed);
+    }
+    else {
+        std::string dateStr = getCurrentDate();
+        if (dateStr.empty()) return selection;
+        seed = static_cast<unsigned int>(std::stoi(dateStr.substr(0, 4) + dateStr.substr(5, 2) + dateStr.substr(8, 2)));
+    }
+
+  
+    std::mt19937 gen(seed + 77777);
+ 
+    std::vector<ConsumableItem> pool = {
+        // Common Star Tickets
+        { true, 100,  5, BadgeCategory::COMMON },
+        { true, 120,  6, BadgeCategory::COMMON },
+        { true, 200,  7, BadgeCategory::COMMON },
+        // Special Star Tickets
+        { true, 350, 12, BadgeCategory::SPECIAL },
+        { true, 500, 15, BadgeCategory::SPECIAL },
+        { true, 600, 18, BadgeCategory::SPECIAL },
+        // Epic Star Tickets
+        { true, 800,  25, BadgeCategory::EPIC },
+        { true, 1000, 32, BadgeCategory::EPIC },
+        { true, 1500, 40, BadgeCategory::EPIC },
+        // Legendary Star Tickets
+        { true, 3000, 60, BadgeCategory::LEGENDARY },
+        { true, 5000, 80, BadgeCategory::LEGENDARY },
+
+        // Common Super Stars
+        { false, 5,  10, BadgeCategory::COMMON },
+        { false, 10, 15, BadgeCategory::COMMON },
+        { false, 12, 20, BadgeCategory::COMMON },
+        // Special Super Stars
+        { false, 20, 25, BadgeCategory::SPECIAL },
+        { false, 30, 30, BadgeCategory::SPECIAL },
+        { false, 40, 35, BadgeCategory::SPECIAL },
+        // Epic Super Stars
+        { false, 60,  45, BadgeCategory::EPIC },
+        { false, 80,  55, BadgeCategory::EPIC },
+        { false, 100, 65, BadgeCategory::EPIC },
+        // Legendary Super Stars
+        { false, 150, 80,  BadgeCategory::LEGENDARY },
+        { false, 200, 100, BadgeCategory::LEGENDARY },
+        { false, 300, 120, BadgeCategory::LEGENDARY },
+    };
+
+ 
+    for (int i = pool.size() - 1; i > 0; i--) {
+        std::uniform_int_distribution<> dist(0, i);
+        int j = dist(gen);
+        std::swap(pool[i], pool[j]);
+    }
+
+ 
+    for (int i = 0; i < 3; i++) {
+        if (pool.empty()) break;
+
+        int totalWeight = 0;
+        for (const auto& item : pool) totalWeight += getRarityWeight(item.rarity);
+        if (totalWeight == 0) break;
+
+        std::uniform_int_distribution<> dist(0, totalWeight - 1);
+        int randomValue = dist(gen);
+
+        int selectedIndex = -1;
+        int currentWeight = 0;
+
+        for (int j = 0; j < (int)pool.size(); j++) {
+            currentWeight += getRarityWeight(pool[j].rarity);
+            if (randomValue < currentWeight) {
+                selectedIndex = j;
+                break;
+            }
+        }
+
+        if (selectedIndex != -1) {
+            selection.push_back(pool[selectedIndex]);
+            pool.erase(pool.begin() + selectedIndex);
+        }
+    }
+
+    return selection;
+}
+
 void StreakData::purchaseItem(const ShopItem& item) {
     if (gems < item.price) return;
     gems -= item.price;
@@ -720,13 +812,12 @@ void StreakData::addPoints(int count) {
 
     dailyUpdate();
 
+
     streakPointsToday += count;
     totalStreakPoints += count;
 
     std::string today = getCurrentDate();
     if (!today.empty()) streakPointsHistory[today] = streakPointsToday;
-
-
 
     int starsToSend = 1;
     if (count >= 6) starsToSend = 10;
@@ -737,8 +828,10 @@ void StreakData::addPoints(int count) {
     else starsToSend = 1;
 
     completeLevelInFirebase(starsToSend);
-    this->save();
+
+
 }
+
 
 void StreakData::addXP(int amount) {
     if (amount <= 0) return;
@@ -781,7 +874,7 @@ void StreakData::addXP(int amount) {
             0.3f
         );
 
-      
+
         auto winSize = CCDirector::sharedDirector()->getWinSize();
         CCPoint spawnPos = winSize / 2;
 
@@ -802,7 +895,7 @@ StreakData::LevelRewards StreakData::getRewardsForLevel(int level) {
     else if (level < 20) r_tickets = 48;
     else {
         int tier = (level / 10) - 1;
-        r_tickets = 48 * std::pow(2, tier);
+        r_tickets = 48 * static_cast<int>(std::pow(2, tier));
     }
     if (level < 10) r_stars = 5;
     else if (level < 20) r_stars = 20;
@@ -825,6 +918,6 @@ void StreakData::unlockNameItem(const std::string& item) {
 }
 
 int StreakData::getNameItemPrice(const std::string& item) {
-  
+
     return 100;
 }

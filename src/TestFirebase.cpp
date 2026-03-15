@@ -72,6 +72,8 @@ void updatePlayerDataInFirebase() {
     playerData.set("username", std::string(accountManager->m_username));
     playerData.set("accountID", accountID);
     playerData.set("userID", userID);
+
+    
     playerData.set("equipped_badge_id", g_streakData.equippedBadge);
     playerData.set("equipped_banner_id", g_streakData.equippedBanner);
     playerData.set("equipped_name_color", g_streakData.equippedNameColor);
@@ -79,16 +81,13 @@ void updatePlayerDataInFirebase() {
     playerData.set("equipped_name_effect", g_streakData.equippedNameEffect);
     playerData.set("equipped_name_animation", g_streakData.equippedNameAnimation);
     playerData.set("last_streak_animated", g_streakData.lastStreakAnimated);
-    playerData.set("super_stars", g_streakData.superStars);
-    playerData.set("star_tickets", g_streakData.starTickets);
-    playerData.set("gems", g_streakData.gems);
-    playerData.set("current_level", g_streakData.currentLevel);
-    playerData.set("current_xp", g_streakData.currentXP);
+
+    
+
     playerData.set("gem_roulette_spin_count", g_streakData.gemRouletteSpinCount);
     playerData.set("gem_roulette_hash", g_streakData.gemRouletteHash);
     playerData.set("last_roulette_index", g_streakData.lastRouletteIndex);
     playerData.set("total_spins", g_streakData.totalSpins);
-    playerData.set("last_day", g_streakData.lastDay);
 
     std::vector<bool> gemStateVec = g_streakData.gemRouletteState;
     if (gemStateVec.size() < 7) gemStateVec.resize(7, false);
@@ -124,9 +123,8 @@ void updatePlayerDataInFirebase() {
     for (auto const& [key, val] : g_streakData.pinnedLevels) {
         pinnedObj.set(key, val);
     }
-
-
     playerData.set("pinned_levels", pinnedObj);
+
     matjson::Value missions_obj = matjson::Value::object();
     missions_obj.set("pm1", g_streakData.pointMission1Claimed);
     missions_obj.set("pm2", g_streakData.pointMission2Claimed);
@@ -136,11 +134,7 @@ void updatePlayerDataInFirebase() {
     missions_obj.set("pm6", g_streakData.pointMission6Claimed);
     playerData.set("missions", missions_obj);
 
-    matjson::Value history_obj = matjson::Value::object();
-    for (const auto& pair : g_streakData.streakPointsHistory) {
-        history_obj.set(pair.first, pair.second);
-    }
-    playerData.set("history", history_obj);
+
 
     bool hasMythicEquipped = false;
     if (!g_streakData.equippedBadge.empty()) {
@@ -171,7 +165,7 @@ void updatePlayerDataInFirebase() {
     std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
 
     auto req = web::WebRequest();
-   
+
     s_updateListener.spawn(
         req.bodyJSON(playerData).post(url),
         [](web::WebResponse res) {
@@ -191,30 +185,53 @@ void completeLevelInFirebase(int stars) {
 
     matjson::Value payload = matjson::Value::object();
     payload.set("stars", stars);
-
     payload.set("clientDate", g_streakData.getCurrentDate());
 
     log::info("Sending completed level to the server...");
 
     auto req = web::WebRequest();
-  
+
     s_completeLevelListener.spawn(
         req.bodyJSON(payload).post(url),
         [](web::WebResponse res) {
             if (res.ok() && res.json().isOk()) {
                 auto data = res.json().unwrap();
 
-                if (data.contains("current_xp")) g_streakData.currentXP = data["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
-                if (data.contains("daily_shop_seed")) { g_streakData.dailyShopSeed = data["daily_shop_seed"].as<int>().unwrapOr(0); }
-                if (data.contains("current_level")) g_streakData.currentLevel = data["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);
-                if (data.contains("super_stars")) g_streakData.superStars = data["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
-                if (data.contains("star_tickets")) g_streakData.starTickets = data["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
-                if (data.contains("current_streak_days")) g_streakData.currentStreak = data["current_streak_days"].as<int>().unwrapOr(g_streakData.currentStreak);
-                if (data.contains("gems")) g_streakData.gems = data["gems"].as<int>().unwrapOr(g_streakData.gems);
-                if (data.contains("streakPointsToday")) g_streakData.streakPointsToday = data["streakPointsToday"].as<int>().unwrapOr(g_streakData.streakPointsToday);
-                if (data.contains("total_streak_points")) g_streakData.totalStreakPoints = data["total_streak_points"].as<int>().unwrapOr(g_streakData.totalStreakPoints);
-                if (data.contains("lastDay")) g_streakData.lastDay = data["lastDay"].as<std::string>().unwrapOr(std::string(""));
+              
+                if (data.contains("current_xp"))
+                    g_streakData.currentXP = data["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
+                if (data.contains("daily_shop_seed"))
+                    g_streakData.dailyShopSeed = data["daily_shop_seed"].as<int>().unwrapOr(0);
+                if (data.contains("current_level"))
+                    g_streakData.currentLevel = data["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);
+                if (data.contains("super_stars"))
+                    g_streakData.superStars = data["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
+                if (data.contains("star_tickets"))
+                    g_streakData.starTickets = data["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
+                if (data.contains("current_streak_days"))
+                    g_streakData.currentStreak = data["current_streak_days"].as<int>().unwrapOr(g_streakData.currentStreak);
+                if (data.contains("gems"))
+                    g_streakData.gems = data["gems"].as<int>().unwrapOr(g_streakData.gems);
+                if (data.contains("streakPointsToday"))
+                    g_streakData.streakPointsToday = data["streakPointsToday"].as<int>().unwrapOr(g_streakData.streakPointsToday);
+                if (data.contains("total_streak_points"))
+                    g_streakData.totalStreakPoints = data["total_streak_points"].as<int>().unwrapOr(g_streakData.totalStreakPoints);
+                if (data.contains("lastDay"))
+                    g_streakData.lastDay = data["lastDay"].as<std::string>().unwrapOr(std::string(""));
 
+                
+                int reqPoints = g_streakData.getRequiredPoints();
+                if (g_streakData.streakPointsToday >= reqPoints && reqPoints > 0) {
+                    g_streakData.hasNewStreak = true;
+                }
+
+            
+                std::string today = g_streakData.getCurrentDate();
+                if (!today.empty()) {
+                    g_streakData.streakPointsHistory[today] = g_streakData.streakPointsToday;
+                }
+
+             
                 if (data.contains("newRewards")) {
                     auto rewards = data["newRewards"];
                     int starsGiven = rewards["stars"].as<int>().unwrapOr(0);
@@ -239,10 +256,11 @@ void completeLevelInFirebase(int stars) {
                 }
 
                 g_streakData.isDataLoaded = true;
-                log::info("Level completed. XP: {}, Level: {}, PointsToday: {}",
+                log::info("Level completed. XP: {}, Level: {}, PointsToday: {}, Streak: {}",
                     g_streakData.currentXP,
                     g_streakData.currentLevel,
-                    g_streakData.streakPointsToday);
+                    g_streakData.streakPointsToday,
+                    g_streakData.currentStreak);
             }
             else {
                 log::error("Error completing level: {}", res.code());

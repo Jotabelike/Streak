@@ -25,6 +25,7 @@
 #include "DailyShopPopup.h"
 #include "MilestonesPopup.h"
 #include "TrendLevelsPopup.h"  
+#include "AchievementsPopup.h"
 
 class InfoPopup : public Popup {
 protected:
@@ -517,6 +518,15 @@ protected:
         else kofiIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(kofiIcon, this, menu_selector(InfoPopup::onOpenDonations)));
 
+        auto achievementsIcon = CCSprite::create("achievements_btn.png"_spr);
+        if (!achievementsIcon) achievementsIcon = ButtonSprite::create("Logros");
+        else achievementsIcon->setScale(0.7f);
+
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(
+            achievementsIcon,
+            this,
+            menu_selector(InfoPopup::onOpenAchievements)
+        ));
     
         auto trendIcon = CCSprite::create("tendencies_btn.png"_spr);
         if (!trendIcon) trendIcon = ButtonSprite::create("Trend");
@@ -825,6 +835,9 @@ protected:
         DailyShopPopup::create()->show();
     }
 
+    void onOpenAchievements(CCObject*) {
+        AchievementsPopup::create()->show();
+    }
     void onOpenRoulette(CCObject*) {
         if (g_streakData.currentStreak < 1) {
             FLAlertLayer::create(

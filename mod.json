@@ -22,7 +22,7 @@
 	],
 	"dependencies": {
 		"jouca.badgesapi": ">=v1.4.1",
-		"geode.node-ids": ">=v1.23.0",
+		"geode.node-ids": ">=v1.23.3",
 		"prevter.imageplus": ">=v1.1.0"
 	},
 	"resources": {
