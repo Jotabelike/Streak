@@ -81,13 +81,22 @@ void updatePlayerDataInFirebase() {
     playerData.set("equipped_name_effect", g_streakData.equippedNameEffect);
     playerData.set("equipped_name_animation", g_streakData.equippedNameAnimation);
     playerData.set("last_streak_animated", g_streakData.lastStreakAnimated);
-
-    
-
     playerData.set("gem_roulette_spin_count", g_streakData.gemRouletteSpinCount);
     playerData.set("gem_roulette_hash", g_streakData.gemRouletteHash);
     playerData.set("last_roulette_index", g_streakData.lastRouletteIndex);
     playerData.set("total_spins", g_streakData.totalSpins);
+    playerData.set("super_stars", g_streakData.superStars);
+    playerData.set("star_tickets", g_streakData.starTickets);
+    playerData.set("gems", g_streakData.gems);
+    playerData.set("current_level", g_streakData.currentLevel);
+    playerData.set("current_xp", g_streakData.currentXP);
+    playerData.set("lastDay", g_streakData.lastDay);
+
+    matjson::Value history_obj = matjson::Value::object();
+    for (const auto& pair : g_streakData.streakPointsHistory) {
+        history_obj.set(pair.first, pair.second);
+    }
+    playerData.set("history", history_obj);
 
     std::vector<bool> gemStateVec = g_streakData.gemRouletteState;
     if (gemStateVec.size() < 7) gemStateVec.resize(7, false);

@@ -40,7 +40,7 @@ protected:
     CCLabelBMFont* m_xpProgressLabel = nullptr;
     CCLabelBMFont* m_gemsLabel = nullptr;
 
-   
+
     std::vector<CCMenu*> m_bottomPages;
     int m_currentPage = 0;
     CCMenuItemSpriteExtra* m_leftArrowBtn = nullptr;
@@ -469,50 +469,50 @@ protected:
         settingsBtn->setPosition({ winSize.width - 20, winSize.height - 20 });
         cornerMenu->addChild(settingsBtn);
 
-      
+
         std::vector<CCMenuItemSpriteExtra*> allBottomBtns;
 
-      
+
         auto eventIcon = CCSprite::create("event_boton.png"_spr);
         if (!eventIcon || eventIcon->getContentSize().width == 0) eventIcon = CCSprite::createWithSpriteFrameName("GJ_top100Btn_001.png");
         eventIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(eventIcon, this, menu_selector(InfoPopup::onOpenEvent)));
 
-     
+
         auto stIcon = CCSprite::create("st_progress.png"_spr);
         if (!stIcon) stIcon = ButtonSprite::create("St");
         else stIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(stIcon, this, menu_selector(InfoPopup::onOpenStProgress)));
 
-      
+
         auto levelProgIcon = CCSprite::create("level_progess_btn.png"_spr);
         if (!levelProgIcon) levelProgIcon = ButtonSprite::create("Lvls");
         else levelProgIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(levelProgIcon, this, menu_selector(InfoPopup::onOpenLevelProgress)));
 
-   
+
         auto topIcon = CCSprite::create("top_btn.png"_spr);
         if (!topIcon) topIcon = ButtonSprite::create("Top");
         else topIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(topIcon, this, menu_selector(InfoPopup::onOpenLeaderboard)));
- 
+
         auto msgIcon = CCSprite::create("msm.png"_spr);
         if (!msgIcon) msgIcon = CCSprite::createWithSpriteFrameName("GJ_chatBtn_001.png");
         msgIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(msgIcon, this, menu_selector(InfoPopup::onOpenMessages)));
 
-     
+
         auto redeemIcon = CCSprite::create("redemcode_btn.png"_spr);
         if (!redeemIcon) redeemIcon = ButtonSprite::create("Code");
         redeemIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(redeemIcon, this, menu_selector(InfoPopup::onRedeemCode)));
- 
+
         auto shopIcon = CCSprite::create("daily_shop.png"_spr);
         if (!shopIcon) shopIcon = ButtonSprite::create("Shop");
         else shopIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(shopIcon, this, menu_selector(InfoPopup::onOpenDailyShop)));
 
-     
+
         auto kofiIcon = CCSprite::create("ko-fi_btn.png"_spr);
         if (!kofiIcon) kofiIcon = ButtonSprite::create("Donate");
         else kofiIcon->setScale(0.7f);
@@ -527,12 +527,12 @@ protected:
             this,
             menu_selector(InfoPopup::onOpenAchievements)
         ));
-    
+
         auto trendIcon = CCSprite::create("tendencies_btn.png"_spr);
         if (!trendIcon) trendIcon = ButtonSprite::create("Trend");
         else trendIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(trendIcon, this, menu_selector(InfoPopup::onOpenTrending)));
- 
+
         int btnsPerPage = 5;
         int totalPages = std::ceil((float)allBottomBtns.size() / btnsPerPage);
 
@@ -548,23 +548,23 @@ protected:
             }
             pageMenu->alignItemsHorizontallyWithPadding(5.0f);
 
-            pageMenu->setVisible(i == 0);  
+            pageMenu->setVisible(i == 0);
             m_mainLayer->addChild(pageMenu, 10);
             m_bottomPages.push_back(pageMenu);
         }
 
-       
+
         auto arrowMenu = CCMenu::create();
         arrowMenu->setPosition({ 0, 0 });
         m_mainLayer->addChild(arrowMenu, 15);
 
-      
+
         auto leftSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
         leftSpr->setScale(0.5f);
         m_leftArrowBtn = CCMenuItemSpriteExtra::create(leftSpr, this, menu_selector(InfoPopup::onPrevPage));
         m_leftArrowBtn->setPosition({ 40.f, 25.f });
         arrowMenu->addChild(m_leftArrowBtn);
-         
+
         auto rightSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
         rightSpr->setFlipX(true);
         rightSpr->setScale(0.5f);
@@ -598,7 +598,7 @@ protected:
         return true;
     }
 
-    
+
     void onNextPage(CCObject*) {
         if (m_currentPage < m_bottomPages.size() - 1) {
             m_bottomPages[m_currentPage]->setVisible(false);
@@ -626,7 +626,7 @@ protected:
         }
     }
 
-    
+
     void onOpenTrending(CCObject*) {
         TrendLevelsPopup::create()->show();
     }

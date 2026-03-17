@@ -23,7 +23,7 @@ struct StreakData {
 
     struct ShopItem {
         std::string id;
-        bool isBadge;  
+        bool isBadge;
         int price;
         BadgeCategory rarity;
         std::string name;
@@ -98,8 +98,8 @@ struct StreakData {
     std::map<std::string, int> streakPointsHistory;
     std::set<int> claimedStreakGoals;
     int specialRank = 0;
-    long long seasonEndTime = 0; 
-    int pendingSeasonRank = 0;  
+    long long seasonEndTime = 0;
+    int pendingSeasonRank = 0;
     int dailyShopSeed = 0;
 
     std::string equippedNameAnimation = "None";
@@ -111,7 +111,7 @@ struct StreakData {
     bool isNameItemUnlocked(const std::string& item);
     void unlockNameItem(const std::string& item);
     int getNameItemPrice(const std::string& item);
-    
+
     std::chrono::steady_clock::time_point lastPointTime;
 
     int currentXP = 0;
@@ -149,7 +149,7 @@ struct StreakData {
 
     int getPinnedLevel(const std::string& badgeID) {
         if (pinnedLevels.count(badgeID)) return pinnedLevels[badgeID];
-        return 0;  
+        return 0;
     }
 
     void setPinnedLevel(const std::string& badgeID, int levelID) {
@@ -255,10 +255,10 @@ struct StreakData {
         {0, "memory_mastery.png"_spr, "Memory mastery Mastery", BadgeCategory::LEGENDARY, "memory_mastery_badge", true, "XJotaBeLikeX" },
         {0, "robot_mastery.png"_spr, "Robot mastery Mastery", BadgeCategory::LEGENDARY, "robot_mastery_badge", true, "XJotaBeLikeX" },
 
-         //achievements
-		{0, "achievement_1.png"_spr, "Achievement Badge", BadgeCategory::SPECIAL, "achievement_badge1", true, "XJotaBeLikeX"},
-		{0, "achievement_2.png"_spr, "Achievement Badge", BadgeCategory::LEGENDARY, "achievement_badge2", true, "XJotaBeLikeX" },
-		{0, "achievement_3.png"_spr, "Achievement Badge", BadgeCategory::MYTHIC, "achievement_badge3", true, "XJotaBeLikeX" }
+        //achievements
+       {0, "achievement_1.png"_spr, "Achievement Badge", BadgeCategory::SPECIAL, "achievement_badge1", true, "XJotaBeLikeX"},
+       {0, "achievement_2.png"_spr, "Achievement Badge", BadgeCategory::LEGENDARY, "achievement_badge2", true, "XJotaBeLikeX" },
+       {0, "achievement_3.png"_spr, "Achievement Badge", BadgeCategory::MYTHIC, "achievement_badge3", true, "XJotaBeLikeX" }
 
     };
 
@@ -318,7 +318,7 @@ struct StreakData {
             {"banner_52", "banner52.png"_spr, "Archievement 2", BadgeCategory::LEGENDARY, "XJotaBeLikeX"},
             {"banner_53", "banner53.png"_spr, "Archievement 3", BadgeCategory::MYTHIC, "XJotaBeLikeX"}
 
-            
+
     };
 
 

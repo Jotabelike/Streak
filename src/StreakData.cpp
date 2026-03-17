@@ -1,4 +1,4 @@
-#include "StreakData.h"
+﻿#include "StreakData.h"
 #include "FirebaseManager.h"
 #include <Geode/utils/cocos.hpp> 
 #include <sstream>
@@ -12,8 +12,6 @@
 #include "RewardNotification.h"
 #include <random>
 #include <set>
-
-
 
 extern void completeLevelInFirebase(int stars);
 
@@ -115,7 +113,10 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     starTickets = safeInt(data, "star_tickets", 0);
     lastRouletteIndex = safeInt(data, "last_roulette_index", 0);
     totalSpins = safeInt(data, "total_spins", 0);
-    lastDay = data["last_day"].as<std::string>().unwrapOr(std::string(""));
+    lastDay = data["lastDay"].as<std::string>().unwrapOr(std::string(""));
+    if (lastDay.empty() && data.contains("last_day")) {
+        lastDay = data["last_day"].as<std::string>().unwrapOr(std::string(""));
+    }
     streakPointsToday = safeInt(data, "streakPointsToday", 0);
     gems = safeInt(data, "gems", 0);
     gemRouletteSpinCount = safeInt(data, "gem_roulette_spin_count", 0);
@@ -627,14 +628,14 @@ std::vector<StreakData::ShopItem> StreakData::getDailyShopSelection() {
         "banner_5", "banner_15", "banner_21", "banner_22", "banner_23",
         "banner_33", "banner_40", "banner_41", "banner_44", "banner_45",
         "banner_19", "banner_26", "banner_32", "banner_16", "banner_29",
-		"banner_42", "banner_51", "banner_52", "banner_53", 
+        "banner_42", "banner_51", "banner_52", "banner_53",
         "badge_5", "badge_10", "badge_30", "badge_50", "badge_70",
         "badge_100", "badge_150", "badge_300", "badge_365",
         "moderator_badge", "creator_badge", "vip_badge", "stellar_badge",
         "cube_mastery_badge", "ship_mastery_badge", "ufo_mastery_badge",
         "ball_mastery_badge", "spider_mastery_badge", "wave_mastery_badge",
         "robot_mastery_badge", "memory_mastery_badge", "swingcopter_mastery_badge",
-		"xl_mastery_badge", "dual_mastery_badge", "achievement_badge3", "archievement_badge2",
+        "xl_mastery_badge", "dual_mastery_badge", "achievement_badge3", "archievement_badge2",
          "archievement_badge1"
     };
 
@@ -707,9 +708,10 @@ std::vector<StreakData::ConsumableItem> StreakData::getDailyConsumableSelection(
         seed = static_cast<unsigned int>(std::stoi(dateStr.substr(0, 4) + dateStr.substr(5, 2) + dateStr.substr(8, 2)));
     }
 
-  
+    // Offset seed so consumables differ from cosmetics
     std::mt19937 gen(seed + 77777);
- 
+
+    // ---- All consumable options by rarity ----
     std::vector<ConsumableItem> pool = {
         // Common Star Tickets
         { true, 100,  5, BadgeCategory::COMMON },
@@ -745,14 +747,14 @@ std::vector<StreakData::ConsumableItem> StreakData::getDailyConsumableSelection(
         { false, 300, 120, BadgeCategory::LEGENDARY },
     };
 
- 
+    // Shuffle pool
     for (int i = pool.size() - 1; i > 0; i--) {
         std::uniform_int_distribution<> dist(0, i);
         int j = dist(gen);
         std::swap(pool[i], pool[j]);
     }
 
- 
+    // Weighted selection of 3 consumables
     for (int i = 0; i < 3; i++) {
         if (pool.empty()) break;
 
@@ -812,7 +814,6 @@ void StreakData::addPoints(int count) {
 
     dailyUpdate();
 
-
     streakPointsToday += count;
     totalStreakPoints += count;
 
@@ -828,10 +829,8 @@ void StreakData::addPoints(int count) {
     else starsToSend = 1;
 
     completeLevelInFirebase(starsToSend);
-
-
+   
 }
-
 
 void StreakData::addXP(int amount) {
     if (amount <= 0) return;
