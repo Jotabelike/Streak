@@ -91,6 +91,7 @@ void updatePlayerDataInFirebase() {
     playerData.set("current_level", g_streakData.currentLevel);
     playerData.set("current_xp", g_streakData.currentXP);
     playerData.set("lastDay", g_streakData.lastDay);
+    playerData.set("streakPointsToday", g_streakData.streakPointsToday);
 
     matjson::Value history_obj = matjson::Value::object();
     for (const auto& pair : g_streakData.streakPointsHistory) {

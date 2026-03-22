@@ -708,7 +708,7 @@ std::vector<StreakData::ConsumableItem> StreakData::getDailyConsumableSelection(
         seed = static_cast<unsigned int>(std::stoi(dateStr.substr(0, 4) + dateStr.substr(5, 2) + dateStr.substr(8, 2)));
     }
 
-    // Offset seed so consumables differ from cosmetics
+ 
     std::mt19937 gen(seed + 77777);
 
     // ---- All consumable options by rarity ----

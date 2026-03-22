@@ -1,5 +1,10 @@
 # Streak!
 
+# 1.10.36 Beta 5
+- improvements in progression
+- new styles for names
+
+
 # 1.10.34 Alpha 2
 - Fix Streak Progress bar
 
