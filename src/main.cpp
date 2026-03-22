@@ -387,29 +387,27 @@ class $modify(MyCommentCell, CommentCell) {
 class $modify(MyPauseLayer, PauseLayer) {
     void customSetup() {
         PauseLayer::customSetup();
-
         int mode = geode::Mod::get()->getSavedValue<int>("pause_hud_mode", 0);
-        if (mode == 1) return;
+        if (mode == 1) 
+        return;
 
         auto winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
-
         double posX = Mod::get()->getSavedValue<double>("pause-pos-x", 0.10);
         double posY = Mod::get()->getSavedValue<double>("pause-pos-y", 0.90);
         double scale = Mod::get()->getSavedValue<double>("pause-scale", 0.80);
 
         if (scale < 0.5) scale = 0.5;
         if (scale > 10.0) scale = 10.0;
-
         int pointsToday = g_streakData.streakPointsToday;
         int requiredPoints = g_streakData.getRequiredPoints();
         int streakDays = g_streakData.currentStreak;
-
         auto streakNode = CCNode::create();
+
         streakNode->setID("streak-hud-node"_spr);
         streakNode->setScale(static_cast<float>(scale));
-
         std::string spriteName = g_streakData.getRachaSprite();
         CCSprite* streakIcon = nullptr;
+
 
         if (!spriteName.empty()) {
             streakIcon = CCSprite::create(spriteName.c_str());
@@ -417,35 +415,31 @@ class $modify(MyPauseLayer, PauseLayer) {
         if (!streakIcon) {
             streakIcon = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
         }
-
         if (streakIcon) {
             streakIcon->setScale(0.2f);
             streakNode->addChild(streakIcon);
         }
-
         auto daysLabel = CCLabelBMFont::create(
             CCString::createWithFormat("Day %d", streakDays)->getCString(), "goldFont.fnt"
         );
         daysLabel->setScale(0.35f);
         daysLabel->setPosition({ 0, -22 });
         streakNode->addChild(daysLabel);
-
         auto pointCounterNode = CCNode::create();
         pointCounterNode->setPosition({ 0, -37 });
         streakNode->addChild(pointCounterNode);
-
         auto pointLabel = CCLabelBMFont::create(
             CCString::createWithFormat("%d / %d", pointsToday, requiredPoints)->getCString(), "bigFont.fnt"
         );
+
+
         pointLabel->setScale(0.35f);
         pointCounterNode->addChild(pointLabel);
-
         auto pointIcon = CCSprite::create("streak_point.png"_spr);
         if (!pointIcon) pointIcon = CCSprite::createWithSpriteFrameName("starSmall_001.png");
 
         pointIcon->setScale(0.12f);
         pointCounterNode->addChild(pointIcon);
-
         pointCounterNode->setContentSize({
             pointLabel->getScaledContentSize().width + pointIcon->getScaledContentSize().width + 5,
             pointLabel->getScaledContentSize().height
@@ -453,7 +447,6 @@ class $modify(MyPauseLayer, PauseLayer) {
 
         pointLabel->setPosition({ -pointIcon->getScaledContentSize().width / 2, 0 });
         pointIcon->setPosition({ pointLabel->getScaledContentSize().width / 2 + 5, 0 });
-
         streakNode->setPosition({
             winSize.width * static_cast<float>(posX),
             winSize.height * static_cast<float>(posY)
