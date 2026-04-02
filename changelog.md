@@ -1,9 +1,20 @@
 # Streak!
+# 1.10.37
+- New logo 
+- The percentage bug has been fixed
+- Banners have been added to level comments (this option can be disabled in the settings)
+- The mod settings design was improved
+- The rewards for the gem rule have been changed.
+- Some textures were updated
+- New badges have been added to the store
+- New country badges were added
+- Some errors in the textures were corrected
+- The design of the system notifications was changed slightly, making them a little more transparent.
+- The animation of the streak in the InfoPopup was slightly modified
 
 # 1.10.36 Beta 5
 - improvements in progression
 - new styles for names
-
 
 # 1.10.34 Alpha 2
 - Fix Streak Progress bar

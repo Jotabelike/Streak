@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "StreakCommon.h"
 #include "../StreakData.h"
 #include <Geode/ui/Popup.hpp>
@@ -83,22 +83,22 @@ protected:
         );
 
         if (tier == 1) {
-            addRewardRow(list, "super_star.png"_spr, "120 Super Stars");
+            addRewardRow(list, "super_star.png"_spr, "400 Super Stars");
             addRewardRow(list, "star_tiket.png"_spr, "20k Tickets");
-            addRewardRow(list, "gem.png"_spr, "50 Gems");
+            addRewardRow(list, "gem.png"_spr, "200 Gems");
             addRewardRow(list, "banner19.png"_spr, "BANNER");
         }
         else if (tier == 2) {
-            addRewardRow(list, "super_star.png"_spr, "300 Super Stars");
+            addRewardRow(list, "super_star.png"_spr, "800 Super Stars");
             addRewardRow(list, "star_tiket.png"_spr, "45K Tickets");
-            addRewardRow(list, "gem.png"_spr, "100 Gems");
+            addRewardRow(list, "gem.png"_spr, "500 Gems");
             addRewardRow(list, "banner26.png"_spr, "BANNER");
             addRewardRow(list, "banner41.png"_spr, "BANNER");
         }
         else if (tier == 3) {
-            addRewardRow(list, "super_star.png"_spr, "500 Super Stars");
-            addRewardRow(list, "star_tiket.png"_spr, "85K Tickets");
-            addRewardRow(list, "gem.png"_spr, "200 Gems");
+            addRewardRow(list, "super_star.png"_spr, "1200 Super Stars");
+            addRewardRow(list, "star_tiket.png"_spr, "100K Tickets");
+            addRewardRow(list, "gem.png"_spr, "1000 Gems");
             addRewardRow(list, "banner16.png"_spr, "BANNER");
             addRewardRow(list, "banner32.png"_spr, "BANNER");
             addRewardRow(list, "banner40.png"_spr, "BANNER");
@@ -114,11 +114,12 @@ protected:
         auto row = CCNode::create();
         row->setContentSize({ 200.f, 30.f });
 
-        auto bg = cocos2d::extension::CCScale9Sprite::create("square02b_001.png");
-        bg->setColor({ 0, 0, 0 });
-        bg->setOpacity(75);
+       
+        auto bg = CCLayerColor::create({ 0, 0, 0, 75 });
         bg->setContentSize({ 200.f, 30.f });
-        bg->setPosition({ 100.f, 15.f });
+
+        
+        bg->setPosition({ 0.f, 0.f });
         row->addChild(bg);
 
         bool isBanner = (text == "BANNER");
@@ -143,11 +144,13 @@ protected:
         icon->setPosition({ iconX, 15.f });
         row->addChild(icon, 1);
 
-        auto label = CCLabelBMFont::create(text.c_str(), "bigFont.fnt");
-        label->setScale(0.4f);
-        label->setAnchorPoint({ 0.f, 0.5f });
-        label->setPosition({ 55.f, 15.f });
-        row->addChild(label, 10);
+        if (!isBanner) {
+            auto label = CCLabelBMFont::create(text.c_str(), "bigFont.fnt");
+            label->setScale(0.4f);
+            label->setAnchorPoint({ 0.f, 0.5f });
+            label->setPosition({ 55.f, 15.f });
+            row->addChild(label, 10);
+        }
 
         parent->addChild(row);
     }

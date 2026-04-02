@@ -762,7 +762,7 @@ protected:
 
             g_streakData.save();
 
-            // Calculamos el centro de la pantalla para pasarle la posición a la animación
+           
             auto winSize = CCDirector::sharedDirector()->getWinSize();
             CCPoint spawnPos = winSize / 2;
 

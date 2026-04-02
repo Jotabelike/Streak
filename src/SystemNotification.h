@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <cocos2d.h>
 #include <Geode/Geode.hpp>
 #include <vector>
@@ -47,21 +47,11 @@ private:
     static void createAndShow(const std::string& title, const std::string& message,
         const std::string& iconName, float iconScale) {
 
-        auto scene = CCDirector::sharedDirector()->getRunningScene();
-        if (!scene) return;
-
-        int highestZ = 0;
-    
-        for (auto node : CCArrayExt<CCNode*>(scene->getChildren())) {
-            if (node->getZOrder() > highestZ && node->getZOrder() < 10000000) {
-                highestZ = node->getZOrder();
-            }
-        }
-
         auto node = SystemNotification::create(title, message, iconName, iconScale);
-        s_activeNotification = node;
+        if (!node) return;
 
-        scene->addChild(node, highestZ + 100);
+        s_activeNotification = node;
+        geode::OverlayManager::get()->addChild(node);
     }
 
     static void processQueue() {
@@ -143,10 +133,13 @@ protected:
         this->setContentSize(fullSize);
         this->setAnchorPoint({ 0.5f, 0.5f });
 
-        m_bg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
+        m_bg = cocos2d::extension::CCScale9Sprite::create("square02b_001.png");  
+        m_bg->setCapInsets({ 10.f, 10.f, 60.f, 60.f });
+        
+
         m_bg->setContentSize(fullSize);
         m_bg->setPosition(fullSize / 2);
-        m_bg->setOpacity(235);
+        m_bg->setOpacity(150);
         m_bg->setColor({ 0, 0, 0 });
         this->addChild(m_bg);
 

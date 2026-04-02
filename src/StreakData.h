@@ -134,6 +134,19 @@ struct StreakData {
     std::vector<MailMessage> inbox;
     std::set<int> completedLevelMissions;
 
+    std::map<int, std::string> userBannerCache;
+
+    void cacheUserBanner(int accountID, const std::string& bannerID) {
+        userBannerCache[accountID] = bannerID;
+    }
+
+    std::string getCachedBanner(int accountID) {
+        if (userBannerCache.count(accountID)) {
+            return userBannerCache[accountID];
+        }
+        return ""; 
+    }
+
     std::map<std::string, std::string> taskStatuses;
 
     std::string getTaskStatus(const std::string& taskID) {
@@ -189,6 +202,7 @@ struct StreakData {
         {0, "moon_badge.png"_spr, "Moon", BadgeCategory::EPIC, "moon_badge", true, "XJotaBeLikeX"},
         {0, "marshmello_badge.png"_spr, "Marshmello", BadgeCategory::SPECIAL, "marshmello_badge", true, "XJotaBeLikeX"},
         {0, "alan_walker_badge.png"_spr, "Alan Walker", BadgeCategory::LEGENDARY, "alan_walker_badge", true, "XJotaBeLikeX"},
+       { 0, "teto_badge.png"_spr, "Red Miku", BadgeCategory::COMMON, "teto_badge", true, "idk" },
 
         //misiones
         {0, "shiver_badge.png"_spr, "Shiver!", BadgeCategory::SPECIAL, "shiver_badge", true, "XJotaBeLikeX"},
@@ -258,7 +272,24 @@ struct StreakData {
         //achievements
        {0, "achievement_1.png"_spr, "Achievement Badge", BadgeCategory::SPECIAL, "achievement_badge1", true, "XJotaBeLikeX"},
        {0, "achievement_2.png"_spr, "Achievement Badge", BadgeCategory::LEGENDARY, "achievement_badge2", true, "XJotaBeLikeX" },
-       {0, "achievement_3.png"_spr, "Achievement Badge", BadgeCategory::MYTHIC, "achievement_badge3", true, "XJotaBeLikeX" }
+       {0, "achievement_3.png"_spr, "Achievement Badge", BadgeCategory::MYTHIC, "achievement_badge3", true, "XJotaBeLikeX" },
+
+       //banderas
+       { 0, "col.png"_spr, "Colombia", BadgeCategory::COMMON, "colombia_badge", true, "XJotaBeLikeX" },
+       { 0, "usa.png"_spr, "United States", BadgeCategory::COMMON, "usa_badge", true, "XJotaBeLikeX" },
+       { 0, "ven.png"_spr, "Venezuela", BadgeCategory::COMMON, "venezuela_badge", true, "XJotaBeLikeX" },
+       { 0, "par.png"_spr, "Paraguay", BadgeCategory::COMMON, "paraguay_badge", true, "XJotaBeLikeX" },
+       { 0, "phi.png"_spr, "Filipinas", BadgeCategory::COMMON, "filipinas_badge", true, "XJotaBeLikeX" },
+       { 0, "mex.png"_spr, "Mexico", BadgeCategory::COMMON, "mexico_badge", true, "XJotaBeLikeX" },
+       { 0, "esp.png"_spr, "Spain", BadgeCategory::COMMON, "spain_badge", true, "XJotaBeLikeX" },
+       { 0, "arg.png"_spr, "Argentina", BadgeCategory::COMMON, "arg_badge", true, "XJotaBeLikeX" },
+       { 0, "nzl.png"_spr, "New Zealand", BadgeCategory::COMMON, "nzl_badge", true, "XJotaBeLikeX" },
+       { 0, "bra.png"_spr, "brazil", BadgeCategory::COMMON, "bra_badge", true, "XJotaBeLikeX" },
+       { 0, "eng.png"_spr, "England", BadgeCategory::COMMON, "eng_badge", true, "XJotaBeLikeX" },
+       { 0, "per.png"_spr, "Peru", BadgeCategory::COMMON, "peru_badge", true, "XJotaBeLikeX" },
+       { 0, "fra.png"_spr, "Francia", BadgeCategory::COMMON, "fra_badge", true, "XJotaBeLikeX" },
+       { 0, "rus.png"_spr, "Rusia", BadgeCategory::COMMON, "rus_badge", true, "XJotaBeLikeX" }
+
 
     };
 
@@ -316,7 +347,8 @@ struct StreakData {
             {"banner_50", "banner50.png"_spr, "Oshi No Ko", BadgeCategory::EPIC, "XJotaBeLikeX"},
             {"banner_51", "banner51.png"_spr, "Archievement 1", BadgeCategory::COMMON, "XJotaBeLikeX"},
             {"banner_52", "banner52.png"_spr, "Archievement 2", BadgeCategory::LEGENDARY, "XJotaBeLikeX"},
-            {"banner_53", "banner53.png"_spr, "Archievement 3", BadgeCategory::MYTHIC, "XJotaBeLikeX"}
+            {"banner_53", "banner53.png"_spr, "Archievement 3", BadgeCategory::MYTHIC, "XJotaBeLikeX"},
+            {"banner_54", "banner54.png"_spr, "Space", BadgeCategory::MYTHIC, "XJotaBeLikeX"}
 
 
     };

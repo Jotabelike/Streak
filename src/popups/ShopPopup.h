@@ -146,22 +146,49 @@ protected:
         GameManager::sharedState()->fadeInMusic("Streak_shop_loop.mp3"_spr);
 
         m_shopItems = {
-            {"diamante_mc_badge", 550}, {"platino_streak_badge", 30},
-            {"diamante_gd_badge", 40}, {"hounter_badge", 60},
-            {"money_badge", 100}, {"gd_badge", 130},
-            {"Steampunk_Dash_badge",150}, {"dark_streak_badge", 500},
-            {"gold_streak_badge", 1200}, {"bh_badge_1", 29990},
-            {"bh_badge_2", 1300}, {"bh_badge_3", 520},
-            {"bh_badge_4", 990}, {"bh_badge_5", 11990},
-            {"bh_badge_6", 1190}, {"bh_badge_7", 45990},
-            {"mc_badge_1", 3999}, {"mc_badge_2", 1699},
-            {"mc_badge_3", 199}, {"mai_badge", 1200}
+            {"diamante_mc_badge", 550},
+            {"platino_streak_badge", 320},
+            {"diamante_gd_badge", 700},
+            {"hounter_badge", 600},
+            {"money_badge", 500},
+            {"gd_badge", 200},
+            {"Steampunk_Dash_badge",150},
+            {"dark_streak_badge", 500},
+            {"gold_streak_badge", 1200},
+            {"bh_badge_1", 29990},
+            {"bh_badge_2", 1300},
+            {"bh_badge_3", 520},
+            {"bh_badge_4", 990},
+            {"bh_badge_5", 11990},
+            {"bh_badge_6", 1190},
+            {"bh_badge_7", 45990},
+            {"mc_badge_1", 3999},
+            {"mc_badge_2", 1699},
+            {"mc_badge_3", 199},
+            {"mai_badge", 1200},
+            {"colombia_badge", 1400},
+            {"usa_badge", 1400},
+            {"venezuela_badge", 1400},
+            {"paraguay_badge", 1400},
+            {"filipinas_badge", 1400},
+            {"mexico_badge", 1400},
+            {"spain_badge", 1400},
+            {"arg_badge", 1400},
+            {"nzl_badge", 1400},
+            {"bra_badge", 1400},
+            {"eng_badge", 1400},
+            {"peru_badge", 1400},
+            {"fra_badge", 1400 },
+            {"rus_badge", 1400 }
         };
 
         m_bannerItems = {
-            {"banner_1", 5600}, {"banner_2", 8000},
-            {"banner_9", 29500}, {"banner_22",120500},
-            {"banner_7", 67500}, {"banner_11", 72300}
+            {"banner_1", 5600},
+            {"banner_2", 8000},
+            {"banner_9", 29500},
+            {"banner_22",120500},
+            {"banner_7", 67500},
+            {"banner_11", 72300}
         };
 
         auto bg = CCSprite::create("shopBG_001.png"_spr);

@@ -24,4 +24,8 @@ add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
 setup_geode_mod(${PROJECT_NAME})
 
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    DISABLE_PRECOMPILE_HEADERS ON
+)
+
 

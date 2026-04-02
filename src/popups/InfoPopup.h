@@ -26,6 +26,7 @@
 #include "MilestonesPopup.h"
 #include "TrendLevelsPopup.h"  
 #include "AchievementsPopup.h"
+#include "StreakAnimations.h"
 
 class InfoPopup : public Popup {
 protected:
@@ -173,7 +174,7 @@ protected:
 
                 if (currentNewCount > 0 && currentNewCount > s_lastNewMsgCount) {
                     SystemNotification::show(
-                        "Nuevos Anuncios",
+                        "New Announcement",
                         fmt::format("There are {} new messages", currentNewCount),
                         "msm.png"_spr,
                         0.6f
@@ -254,11 +255,8 @@ protected:
             menuRacha->setPosition({ winSize.width / 2, contentCenterY });
             m_mainLayer->addChild(menuRacha, 3);
 
-            rachaSprite->runAction(CCRepeatForever::create(CCSequence::create(
-                CCMoveBy::create(1.5f, { 0, 6 }),
-                CCMoveBy::create(1.5f, { 0, -6 }),
-                nullptr
-            )));
+            
+            StreakAnimations::applyPremiumHover(rachaSprite);
         }
 
         m_streakLabel = CCLabelBMFont::create("Daily streak: ?", "goldFont.fnt");

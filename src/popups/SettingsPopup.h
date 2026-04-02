@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
 #include <Geode/utils/cocos.hpp>
@@ -9,7 +9,7 @@
 
 using namespace geode::prelude;
 
- 
+
 class CreditsPopup : public Popup {
 protected:
     bool init() override {
@@ -19,56 +19,56 @@ protected:
         auto winSize = m_mainLayer->getContentSize();
         CCPoint center = winSize / 2;
 
-        
+
         auto nameLabel = CCLabelBMFont::create("XJotaBeLikeX", "goldFont.fnt");
         nameLabel->setPosition({ center.x, center.y + 45.f });
         nameLabel->setScale(0.8f);
         m_mainLayer->addChild(nameLabel);
 
-         
+
         auto roleLabel = CCLabelBMFont::create("Creator & Developer", "chatFont.fnt");
         roleLabel->setPosition({ center.x, center.y + 25.f });
         roleLabel->setScale(0.5f);
         roleLabel->setColor({ 200, 200, 200 });
         m_mainLayer->addChild(roleLabel);
 
-         
+
         auto cubeSpr = CCSprite::create("jotabelike_cube.png"_spr);
         if (!cubeSpr) cubeSpr = CCSprite::create("jotabelike_cube.png");
 
         if (cubeSpr) {
-            cubeSpr->setPosition({ center.x, center.y - 5.f });  
+            cubeSpr->setPosition({ center.x, center.y - 5.f });
             if (cubeSpr->getContentSize().height > 50.f) {
                 cubeSpr->setScale(50.f / cubeSpr->getContentSize().height);
             }
             m_mainLayer->addChild(cubeSpr);
         }
 
-       
+
         auto separator = CCSprite::createWithSpriteFrameName("edit_vLine_001.png");
         if (separator) {
             separator->setPosition({ center.x, center.y - 22.f });
-            separator->setRotation(90.f); 
-            separator->setScaleY(0.7f);    
-            separator->setOpacity(150);   
+            separator->setRotation(90.f);
+            separator->setScaleY(0.7f);
+            separator->setOpacity(150);
             m_mainLayer->addChild(separator);
         }
 
-      
+
         auto socialsMenu = CCMenu::create();
         socialsMenu->setContentSize({ 200.f, 40.f });
         socialsMenu->setPosition({ center.x, center.y - 65.f });
 
-         
-      
-        auto xSpr = CCSprite::createWithSpriteFrameName("gj_twIcon_001.png"); 
+
+
+        auto xSpr = CCSprite::createWithSpriteFrameName("gj_twIcon_001.png");
         if (xSpr) {
             xSpr->setScale(0.8f);
             auto xBtn = CCMenuItemSpriteExtra::create(xSpr, this, menu_selector(CreditsPopup::onTwitter));
             socialsMenu->addChild(xBtn);
         }
 
-        
+
         auto ytSpr = CCSprite::createWithSpriteFrameName("gj_ytIcon_001.png");
         if (ytSpr) {
             ytSpr->setScale(0.8f);
@@ -76,7 +76,7 @@ protected:
             socialsMenu->addChild(ytBtn);
         }
 
-         
+
         auto instaSpr = CCSprite::createWithSpriteFrameName("gj_instaIcon_001.png");
         if (!instaSpr) instaSpr = CCSprite::create("gj_instaIcon_001.png"_spr);
         if (instaSpr) {
@@ -85,7 +85,7 @@ protected:
             socialsMenu->addChild(instaBtn);
         }
 
-       
+
         auto tiktokSpr = CCSprite::createWithSpriteFrameName("gj_tiktokIcon_001.png");
         if (!tiktokSpr) tiktokSpr = CCSprite::create("gj_tiktokIcon_001.png"_spr);
         if (tiktokSpr) {
@@ -94,14 +94,14 @@ protected:
             socialsMenu->addChild(tiktokBtn);
         }
 
-       
+
         socialsMenu->setLayout(RowLayout::create()->setGap(15.f));
         m_mainLayer->addChild(socialsMenu);
 
         return true;
     }
 
-    
+
     void onTwitter(CCObject*) {
         geode::utils::web::openLinkInBrowser("https://x.com/Jotabelike");
     }
@@ -130,29 +130,41 @@ public:
     }
 };
 
- 
+
 class SettingsPopup : public Popup {
 protected:
     ScrollLayer* m_scrollLayer = nullptr;
     float m_listWidth = 230.0f;
     CCNode* m_posContainer = nullptr;
-    TextInput* m_inputX = nullptr;
-    TextInput* m_inputY = nullptr;
-    TextInput* m_inputScale = nullptr;
+
+    Slider* m_sliderX = nullptr;
+    Slider* m_sliderY = nullptr;
+    Slider* m_sliderScale = nullptr;
+    CCLabelBMFont* m_sliderXLabel = nullptr;
+    CCLabelBMFont* m_sliderYLabel = nullptr;
+    CCLabelBMFont* m_sliderScaleLabel = nullptr;
 
     std::vector<std::string> m_listOptions = { "10", "50" };
     std::vector<std::string> m_pauseModes = { "On", "Off" };
 
+    
     CCNode* createBaseCell(float height = 40.f) {
         auto cell = CCNode::create();
         cell->setContentSize({ m_listWidth, height });
 
-        auto cellBg = CCScale9Sprite::create("geode.loader/GE_square03.png");
-        cellBg->setContentSize({ m_listWidth, height });
-        cellBg->setOpacity(75);
+        auto cellBg = CCLayerColor::create({ 0, 0, 0, 80 }, m_listWidth, height);
+        cellBg->ignoreAnchorPointForPosition(false);
+        cellBg->setAnchorPoint({ 0.5f, 0.5f });
         cellBg->setPosition(cell->getContentSize() / 2);
-
         cell->addChild(cellBg);
+
+         
+        auto separator = CCLayerColor::create({ 255, 255, 255, 20 }, m_listWidth, 1.f);
+        separator->ignoreAnchorPointForPosition(false);
+        separator->setAnchorPoint({ 0.5f, 0.f });
+        separator->setPosition({ m_listWidth / 2.f, 0.f });
+        cell->addChild(separator);
+
         return cell;
     }
 
@@ -175,7 +187,11 @@ protected:
         menu->addChild(infoBtn);
     }
 
-    void addButtonSetting(const std::string& name, const std::string& btnText, SEL_MenuHandler callback, const std::string& infoText) {
+    void addButtonSetting(const std::string& name,
+        const std::string& btnText, 
+        SEL_MenuHandler callback, 
+        const std::string& infoText) {
+
         auto cell = createBaseCell();
         auto menu = CCMenu::create();
         menu->setPosition(0, 0);
@@ -362,6 +378,7 @@ protected:
         m_scrollLayer->m_contentLayer->addChild(cell);
     }
 
+     
     void addVersionSetting(const std::string& name, const std::string& versionText) {
         auto cell = createBaseCell();
 
@@ -371,7 +388,9 @@ protected:
         nameLabel->setScale(0.5f);
         cell->addChild(nameLabel);
 
-        auto verLabel = CCLabelBMFont::create(versionText.c_str(), "bigFont.fnt");
+        std::string versionStr = versionText;
+
+        auto verLabel = CCLabelBMFont::create(versionStr.c_str(), "bigFont.fnt");
         verLabel->setColor({ 0, 255, 100 });
         verLabel->setAnchorPoint({ 1.0f, 0.5f });
         verLabel->setPosition({ m_listWidth - 15.f, 20.f });
@@ -381,15 +400,16 @@ protected:
         m_scrollLayer->m_contentLayer->addChild(cell);
     }
 
+     
     void addPauseModeSetting(const std::string& name, const std::string& saveKey, const std::string& infoText) {
-        float cellHeight = 90.0f;
+        float cellHeight = 130.0f;
         auto cell = createBaseCell(cellHeight);
 
         auto menu = CCMenu::create();
         menu->setPosition(0, 0);
         cell->addChild(menu);
 
-        float topRowY = 65.0f;
+        float topRowY = cellHeight - 25.0f;
 
         auto nameLabel = CCLabelBMFont::create(name.c_str(), "goldFont.fnt");
         nameLabel->setAnchorPoint({ 0.0f, 0.5f });
@@ -428,82 +448,87 @@ protected:
         btnR->setUserData(valLabel);
         menu->addChild(btnR);
 
+    
         m_posContainer = CCNode::create();
-        m_posContainer->setContentSize({ m_listWidth, 40.f });
+        m_posContainer->setContentSize({ m_listWidth, 80.f });
         m_posContainer->setPosition({ 0, 0 });
         m_posContainer->setVisible(true);
         cell->addChild(m_posContainer);
 
-        float bottomRowY = 25.0f;
+        float sliderWidth = 90.f;
+        float sliderLeftX = 40.f;
+        float sliderRightX = sliderLeftX + sliderWidth;
 
-        float startX = 15.0f;
-        float gap = 55.0f;
-        float inputOff = 22.0f;
-
-        float xPos = startX;
-        auto labelX = CCLabelBMFont::create("X:", "chatFont.fnt");
-        labelX->setPosition({ xPos, bottomRowY });
+       
+        float row1Y = 65.f;
+        auto labelX = CCLabelBMFont::create("X:", "goldFont.fnt");
+        labelX->setAnchorPoint({ 1.0f, 0.5f });
+        labelX->setPosition({ sliderLeftX - 20.f, row1Y });
         labelX->setScale(0.5f);
         m_posContainer->addChild(labelX);
 
-        m_inputX = TextInput::create(35.f, "0.10", "chatFont.fnt");
-        m_inputX->setFilter("0123456789.");
-        m_inputX->setPosition({ xPos + inputOff, bottomRowY });
-        m_inputX->setScale(0.6f);
         double savedX = Mod::get()->getSavedValue<double>("pause-pos-x", 0.10);
-        m_inputX->setString(fmt::format("{:.2f}", savedX));
-        m_inputX->setCallback([this](const std::string& val) {
-            try { Mod::get()->setSavedValue<double>("pause-pos-x", std::stod(val)); }
-            catch (...) {}
-            });
-        m_posContainer->addChild(m_inputX);
+        m_sliderX = Slider::create(this, menu_selector(SettingsPopup::onSliderX), 0.6f);
+        m_sliderX->setPosition({ sliderLeftX + sliderWidth / 2.f, row1Y });
+        m_sliderX->setValue(static_cast<float>(savedX));
+        m_sliderX->setBarVisibility(true);
+        m_posContainer->addChild(m_sliderX);
 
-        float yPos = startX + gap;
-        auto labelY = CCLabelBMFont::create("Y:", "chatFont.fnt");
-        labelY->setPosition({ yPos, bottomRowY });
+        m_sliderXLabel = CCLabelBMFont::create(fmt::format("{:.2f}", savedX).c_str(), "bigFont.fnt");
+        m_sliderXLabel->setAnchorPoint({ 0.0f, 0.5f });
+        m_sliderXLabel->setPosition({ sliderRightX + 20.f, row1Y });
+        m_sliderXLabel->setScale(0.35f);
+        m_sliderXLabel->setColor({ 255, 255, 0 });
+        m_posContainer->addChild(m_sliderXLabel);
+
+       
+        float row2Y = 40.f;
+        auto labelY = CCLabelBMFont::create("Y:", "goldFont.fnt");
+        labelY->setAnchorPoint({ 1.0f, 0.5f });
+        labelY->setPosition({ sliderLeftX - 20.f, row2Y });
         labelY->setScale(0.5f);
         m_posContainer->addChild(labelY);
 
-        m_inputY = TextInput::create(35.f, "0.90", "chatFont.fnt");
-        m_inputY->setFilter("0123456789.");
-        m_inputY->setPosition({ yPos + inputOff, bottomRowY });
-        m_inputY->setScale(0.6f);
         double savedY = Mod::get()->getSavedValue<double>("pause-pos-y", 0.90);
-        m_inputY->setString(fmt::format("{:.2f}", savedY));
-        m_inputY->setCallback([this](const std::string& val) {
-            try { Mod::get()->setSavedValue<double>("pause-pos-y", std::stod(val)); }
-            catch (...) {}
-            });
-        m_posContainer->addChild(m_inputY);
+        m_sliderY = Slider::create(this, menu_selector(SettingsPopup::onSliderY), 0.6f);
+        m_sliderY->setPosition({ sliderLeftX + sliderWidth / 2.f, row2Y });
+        m_sliderY->setValue(static_cast<float>(savedY));
+        m_sliderY->setBarVisibility(true);
+        m_posContainer->addChild(m_sliderY);
 
-        float sPos = startX + (gap * 2);
-        auto labelS = CCLabelBMFont::create("S:", "chatFont.fnt");
-        labelS->setPosition({ sPos, bottomRowY });
+        m_sliderYLabel = CCLabelBMFont::create(fmt::format("{:.2f}", savedY).c_str(), "bigFont.fnt");
+        m_sliderYLabel->setAnchorPoint({ 0.0f, 0.5f });
+        m_sliderYLabel->setPosition({ sliderRightX + 20.f, row2Y });
+        m_sliderYLabel->setScale(0.35f);
+        m_sliderYLabel->setColor({ 255, 255, 0 });
+        m_posContainer->addChild(m_sliderYLabel);
+
+        
+        float row3Y = 15.f;
+        auto labelS = CCLabelBMFont::create("S:", "goldFont.fnt");
+        labelS->setAnchorPoint({ 1.0f, 0.5f });
+        labelS->setPosition({ sliderLeftX - 20.f, row3Y });
         labelS->setScale(0.5f);
         m_posContainer->addChild(labelS);
 
-        m_inputScale = TextInput::create(35.f, "0.80", "chatFont.fnt");
-        m_inputScale->setFilter("0123456789.");
-        m_inputScale->setPosition({ sPos + inputOff, bottomRowY });
-        m_inputScale->setScale(0.6f);
         double savedScale = Mod::get()->getSavedValue<double>("pause-scale", 0.80);
-        m_inputScale->setString(fmt::format("{:.2f}", savedScale));
-        m_inputScale->setCallback([this](const std::string& val) {
-            try {
-                double d = std::stod(val);
-                if (d < 0.5) d = 0.5;
-                if (d > 10.0) d = 10.0;
-                Mod::get()->setSavedValue<double>("pause-scale", d);
-            }
-            catch (...) {}
-            });
-        m_posContainer->addChild(m_inputScale);
+        m_sliderScale = Slider::create(this, menu_selector(SettingsPopup::onSliderScale), 0.6f);
+        m_sliderScale->setPosition({ sliderLeftX + sliderWidth / 2.f, row3Y });
+        m_sliderScale->setValue(static_cast<float>((savedScale - 0.5) / 9.5));
+        m_sliderScale->setBarVisibility(true);
+        m_posContainer->addChild(m_sliderScale);
 
-        float resetPos = startX + (gap * 3) + 5.0f;
+        m_sliderScaleLabel = CCLabelBMFont::create(fmt::format("{:.2f}", savedScale).c_str(), "bigFont.fnt");
+        m_sliderScaleLabel->setAnchorPoint({ 0.0f, 0.5f });
+        m_sliderScaleLabel->setPosition({ sliderRightX + 20.f, row3Y });
+        m_sliderScaleLabel->setScale(0.35f);
+        m_sliderScaleLabel->setColor({ 255, 255, 0 });
+        m_posContainer->addChild(m_sliderScaleLabel);
+
         auto resetSpr = CCSprite::createWithSpriteFrameName("GJ_updateBtn_001.png");
         resetSpr->setScale(0.4f);
         auto resetBtn = CCMenuItemSpriteExtra::create(resetSpr, this, menu_selector(SettingsPopup::onResetPausePos));
-        resetBtn->setPosition({ resetPos, bottomRowY });
+        resetBtn->setPosition({ m_listWidth - 20.f, row3Y });
 
         auto controlsMenu = CCMenu::create();
         controlsMenu->setPosition(0, 0);
@@ -511,6 +536,33 @@ protected:
         m_posContainer->addChild(controlsMenu);
 
         m_scrollLayer->m_contentLayer->addChild(cell);
+    }
+
+     
+    void onSliderX(CCObject* sender) {
+        auto slider = static_cast<SliderThumb*>(sender);
+        float val = slider->getValue();  
+        double clamped = std::clamp(static_cast<double>(val), 0.0, 1.0);
+        Mod::get()->setSavedValue<double>("pause-pos-x", clamped);
+        if (m_sliderXLabel) m_sliderXLabel->setString(fmt::format("{:.2f}", clamped).c_str());
+    }
+
+    void onSliderY(CCObject* sender) {
+        auto slider = static_cast<SliderThumb*>(sender);
+        float val = slider->getValue();
+        double clamped = std::clamp(static_cast<double>(val), 0.0, 1.0);
+        Mod::get()->setSavedValue<double>("pause-pos-y", clamped);
+        if (m_sliderYLabel) m_sliderYLabel->setString(fmt::format("{:.2f}", clamped).c_str());
+    }
+
+    void onSliderScale(CCObject* sender) {
+        auto slider = static_cast<SliderThumb*>(sender);
+        float val = slider->getValue();  
+         
+        double mapped = 0.5 + static_cast<double>(val) * 9.5;
+        mapped = std::clamp(mapped, 0.5, 10.0);
+        Mod::get()->setSavedValue<double>("pause-scale", mapped);
+        if (m_sliderScaleLabel) m_sliderScaleLabel->setString(fmt::format("{:.2f}", mapped).c_str());
     }
 
     void onResetPausePos(CCObject*) {
@@ -522,9 +574,13 @@ protected:
         Mod::get()->setSavedValue<double>("pause-pos-y", defY);
         Mod::get()->setSavedValue<double>("pause-scale", defScale);
 
-        if (m_inputX) m_inputX->setString("0.10");
-        if (m_inputY) m_inputY->setString("0.90");
-        if (m_inputScale) m_inputScale->setString("0.80");
+        if (m_sliderX) m_sliderX->setValue(static_cast<float>(defX));
+        if (m_sliderY) m_sliderY->setValue(static_cast<float>(defY));
+        if (m_sliderScale) m_sliderScale->setValue(static_cast<float>((defScale - 0.5) / 9.5));
+
+        if (m_sliderXLabel) m_sliderXLabel->setString("0.10");
+        if (m_sliderYLabel) m_sliderYLabel->setString("0.90");
+        if (m_sliderScaleLabel) m_sliderScaleLabel->setString("0.80");
 
         Notification::create("Layout Reset", NotificationIcon::Success)->show();
     }
@@ -570,28 +626,41 @@ protected:
         auto winSize = m_mainLayer->getContentSize();
 
         CCSize scrollSize = { m_listWidth, 150.f };
-        m_scrollLayer = ScrollLayer::create(scrollSize);
-        m_scrollLayer->setPosition(
-            (winSize.width - scrollSize.width) / 2,
-            40.f
-        );
+        float scrollX = (winSize.width - scrollSize.width) / 2;
+        float scrollY = 40.f;
 
+       
         auto bg = CCScale9Sprite::create("square02b_001.png");
         bg->setColor({ 0, 0, 0 });
         bg->setOpacity(100);
         bg->setContentSize(scrollSize);
         bg->setPosition(
             winSize.width / 2,
-            m_scrollLayer->getPositionY() + scrollSize.height / 2
+            scrollY + scrollSize.height / 2
         );
         m_mainLayer->addChild(bg);
+
+        
+        auto stencil = CCScale9Sprite::create("square02b_001.png");
+        stencil->setContentSize(scrollSize);
+        stencil->setAnchorPoint({ 0.f, 0.f });
+
+        auto clipNode = CCClippingNode::create(stencil);
+        clipNode->setAlphaThreshold(0.05f);
+        clipNode->setContentSize(scrollSize);
+        clipNode->setPosition({ scrollX, scrollY });
+        m_mainLayer->addChild(clipNode);
+
+        m_scrollLayer = ScrollLayer::create(scrollSize);
+        m_scrollLayer->setPosition(0.f, 0.f);
+        clipNode->addChild(m_scrollLayer);
 
         auto content = m_scrollLayer->m_contentLayer;
 
         content->setLayout(
             ColumnLayout::create()
             ->setAxisReverse(false)
-            ->setGap(5.f)
+            ->setGap(0.f)
             ->setAxisAlignment(AxisAlignment::Start)
             ->setAutoGrowAxis(scrollSize.height)
         );
@@ -630,32 +699,37 @@ protected:
         );
 
         addToggleSetting(
-            "Streak Bar ",
+            "Streak Bar",
             "enable_streak_bar",
             "Show the Streak progress bar you complete levels."
         );
 
         addToggleSetting(
-            "Welcome Noti",
+            "Welcome Notification",
             "enable_welcome_notif",
             "Toggle the welcome message on startup"
         );
 
         addToggleSetting(
-            "Streak Ani",
+            "Streak Animation",
             "enable_streak_anim",
             "Disables the Streak animation"
         );
 
-        addVersionSetting("Mod Version", "1.10.36-beta.3");
+        addToggleSetting(
+            "Bannes in Comments",
+            "enable_comment_banners",
+            "Show player banners in level comments."
+        );
+
+        addVersionSetting("Mod Version", fmt::format("{}", Mod::get()->getVersion()));
 
         content->updateLayout();
-        m_mainLayer->addChild(m_scrollLayer);
         m_scrollLayer->scrollToTop();
 
-        
+
         auto creditsSpr = CCSprite::createWithSpriteFrameName("communityCreditsBtn_001.png");
-   
+
 
         if (creditsSpr) {
             creditsSpr->setScale(0.8f);
@@ -669,7 +743,7 @@ protected:
             cornerMenu->addChild(creditsBtn);
 
             float paddingX = 18.f;
-            float paddingY = 8.f;  
+            float paddingY = 8.f;
             cornerMenu->setPosition({
                 winSize.width - (creditsSpr->getScaledContentSize().width / 2) - paddingX,
                 (creditsSpr->getScaledContentSize().height / 2) + paddingY

@@ -964,8 +964,7 @@ protected:
             if (m_pendingTotalTickets > 0) {
                 int startAmount = g_streakData.starTickets - m_pendingTotalTickets;
                 auto winSize = CCDirector::sharedDirector()->getWinSize();
-
-                // Salen desde el centro de la pantalla
+ 
                 RewardNotification::show("star_tiket.png"_spr, startAmount, m_pendingTotalTickets, winSize / 2);
             }
             updateButtons();
@@ -1079,7 +1078,7 @@ protected:
         }
 
         if (!isMythicAnimation) {
-            // Calculamos la posición real de la casilla para que salgan de ahí
+         
             CCPoint spawnPos = m_orderedSlots[m_currentSelectorIndex]->convertToWorldSpaceAR(CCPointZero);
 
             if (showBadgeNotify) BadgeNotification::show(prize.id);
@@ -1091,7 +1090,7 @@ protected:
                 RewardNotification::show("super_star.png"_spr, g_streakData.superStars - pendingStars, pendingStars, spawnPos);
             }
         }
-    } // ¡Esta era la llave que faltaba!
+    }  
 
     void updateAllCheckmarks() {
         if (m_currentMode == RouletteMode::Gem) return;

@@ -197,7 +197,7 @@ class $modify(MyMenuLayer, MenuLayer) {
             icon->setScale(0.8f);
         }
         else {
-            icon->setScale(0.5f);
+            icon->setScale(0.8f);
         }
 
         auto circle = CircleButtonSprite::create(icon, color, CircleBaseSize::Medium);

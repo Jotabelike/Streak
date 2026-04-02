@@ -402,6 +402,45 @@ void StreakData::dailyUpdate() {
 
     if (lastDay == today) return;
 
+   
+    if (!lastDay.empty() && lastDay != today) {
+        
+        std::tm lastTm = {};
+        std::istringstream lastSS(lastDay);
+        lastSS >> std::get_time(&lastTm, "%Y-%m-%d");
+
+        std::tm todayTm = {};
+        std::istringstream todaySS(today);
+        todaySS >> std::get_time(&todayTm, "%Y-%m-%d");
+
+        if (!lastSS.fail() && !todaySS.fail()) {
+            std::time_t lastTime = std::mktime(&lastTm);
+            std::time_t todayTime = std::mktime(&todayTm);
+
+            if (lastTime != -1 && todayTime != -1) {
+                double diffSeconds = std::difftime(todayTime, lastTime);
+                int diffDays = static_cast<int>(diffSeconds / 86400.0);
+
+                 
+                if (diffDays > 1) {
+                    
+                    log::info("Streak broken! Last day: {}, Today: {}, Gap: {} days", lastDay, today, diffDays);
+                    currentStreak = 0;
+                    hasNewStreak = false;
+                }
+                else if (diffDays == 1) {
+                     
+                    int reqPoints = getRequiredPoints();
+                    if (streakPointsToday < reqPoints && reqPoints > 0) {
+                        log::info("Streak broken! Yesterday's points ({}) didn't reach required ({})", streakPointsToday, reqPoints);
+                        currentStreak = 0;
+                        hasNewStreak = false;
+                    }
+                }
+            }
+        }
+    }
+
     streakPointsToday = 0;
     dailyMsgCount = 0;
     lastDay = today;
@@ -708,7 +747,7 @@ std::vector<StreakData::ConsumableItem> StreakData::getDailyConsumableSelection(
         seed = static_cast<unsigned int>(std::stoi(dateStr.substr(0, 4) + dateStr.substr(5, 2) + dateStr.substr(8, 2)));
     }
 
- 
+
     std::mt19937 gen(seed + 77777);
 
     // ---- All consumable options by rarity ----
@@ -747,14 +786,14 @@ std::vector<StreakData::ConsumableItem> StreakData::getDailyConsumableSelection(
         { false, 300, 120, BadgeCategory::LEGENDARY },
     };
 
-    // Shuffle pool
+    
     for (int i = pool.size() - 1; i > 0; i--) {
         std::uniform_int_distribution<> dist(0, i);
         int j = dist(gen);
         std::swap(pool[i], pool[j]);
     }
 
-    // Weighted selection of 3 consumables
+    
     for (int i = 0; i < 3; i++) {
         if (pool.empty()) break;
 
@@ -829,7 +868,7 @@ void StreakData::addPoints(int count) {
     else starsToSend = 1;
 
     completeLevelInFirebase(starsToSend);
-   
+
 }
 
 void StreakData::addXP(int amount) {
