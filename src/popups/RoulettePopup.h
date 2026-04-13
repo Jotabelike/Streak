@@ -60,13 +60,16 @@ protected:
     int m_currentSelectorIndex = 0;
     int m_totalSteps = 0;
 
-    // Mythic Effects
-    std::vector<CCSprite*> m_mythicSprites;
-    std::vector<ccColor3B> m_mythicColors;
-    int m_colorIndex = 0;
-    float m_colorTransitionTime = 0.0f;
-    ccColor3B m_currentColor;
-    ccColor3B m_targetColor;
+    // Background Gradient
+    CCLayerGradient* m_bgGradient = nullptr;
+    std::vector<ccColor3B> m_gradientColors;
+    int m_gradColorIndex = 0;
+    float m_gradTransitionTime = 0.0f;
+    ccColor3B m_gradCurrentStart;
+    ccColor3B m_gradCurrentEnd;
+    ccColor3B m_gradTargetStart;
+    ccColor3B m_gradTargetEnd;
+
     float m_slotSize = 0.f;
 
     // Results
@@ -116,9 +119,15 @@ protected:
         if (m_shopMenu) m_shopMenu->setEnabled(enabled);
         if (m_infoMenu) m_infoMenu->setEnabled(enabled);
         if (m_skipToggle) m_skipToggle->setEnabled(enabled);
+        if (m_closeBtn) m_closeBtn->setEnabled(enabled);
 
         if (m_standardModeBtn) m_standardModeBtn->setEnabled(enabled && m_currentMode != RouletteMode::Standard);
         if (m_gemModeBtn) m_gemModeBtn->setEnabled(enabled && m_currentMode != RouletteMode::Gem);
+    }
+
+    void keyBackClicked() override {
+        if (m_isSpinning) return;
+        Popup::keyBackClicked();
     }
 
     void setupAdsCarousel() {
@@ -131,7 +140,7 @@ protected:
         m_adsContainer = CCNode::create();
         m_adsClipper->addChild(m_adsContainer);
 
-        std::vector<std::string> images = { "publi_1.png"_spr, "publi_2.png"_spr, "publi_3.png"_spr, "publi_4.png"_spr, "publi_5.png"_spr };
+        std::vector<std::string> images = { "publi_1.png"_spr, "publi_2.png"_spr };
         for (int i = 0; i < images.size(); i++) {
             auto spr = CCSprite::create(images[i].c_str());
             if (!spr) { spr = CCSprite::create("square02_001.png"); spr->setColor({ 255, 0, 0 }); }
@@ -173,18 +182,18 @@ protected:
         }
         else {
             m_roulettePrizes = {
-                { RewardType::Badge, "freddy_badge", 1, "", "Freddy", 1, StreakData::BadgeCategory::MYTHIC },
-                { RewardType::Badge, "past2_badge", 1, "", "Mythic Past Green", 3, StreakData::BadgeCategory::LEGENDARY },
-                { RewardType::Badge, "mc_badge_2", 1, "", "full farming", 5, StreakData::BadgeCategory::EPIC },
-                { RewardType::Badge, "bh_badge_3", 1, "", "Black hole Green", 10, StreakData::BadgeCategory::SPECIAL},
-                { RewardType::Badge, "mc_badge_3", 1, "", "break shields", 70, StreakData::BadgeCategory::COMMON },
-                { RewardType::Badge, "bh_badge_4", 1, "", "Black hole blue", 70, StreakData::BadgeCategory::COMMON },
-                { RewardType::StarTicket, "star_tiket_1", 1, "star_tiket.png"_spr, "1 star tiket", 70, StreakData::BadgeCategory::COMMON },
-                { RewardType::StarTicket, "star_tiket_3", 3, "star_tiket.png"_spr, "3 star tiket", 70, StreakData::BadgeCategory::COMMON },
-                { RewardType::StarTicket, "star_ticket_15", 15, "star_tiket.png"_spr, "15 Tickets", 70, StreakData::BadgeCategory::COMMON },
-                { RewardType::StarTicket, "star_ticket_30", 30, "star_tiket.png"_spr, "30 Tickets", 10, StreakData::BadgeCategory::SPECIAL },
-                { RewardType::StarTicket, "star_ticket_60", 60, "star_tiket.png"_spr, "60 Tickets", 5, StreakData::BadgeCategory::EPIC },
-                { RewardType::Badge, "mc_badge_1", 1, "mc_badge_1.png"_spr, "PVP Master", 3, StreakData::BadgeCategory::LEGENDARY }
+                { RewardType::Badge, "badge_pixel2", 1, "", "sakura flower", 1, StreakData::BadgeCategory::MYTHIC },
+                { RewardType::Badge, "badge_cherry", 1, "", "What can I say...", 3, StreakData::BadgeCategory::LEGENDARY },
+                { RewardType::Badge, "badge_cherry6", 1, "", "Ram", 5, StreakData::BadgeCategory::EPIC },
+                { RewardType::Badge, "badge_mc2", 1, "", "Minecraft Again again", 10, StreakData::BadgeCategory::SPECIAL},
+                { RewardType::Badge, "omega_badge", 1, "", "Omega", 70, StreakData::BadgeCategory::COMMON },
+                { RewardType::StarTicket, "star_tiket_0", 1, "tickets_pack.png"_spr, "1 star tiket", 70, StreakData::BadgeCategory::COMMON },
+                { RewardType::StarTicket, "star_tiket_1", 10, "tickets_pack.png"_spr, "10 star tiket", 70, StreakData::BadgeCategory::COMMON },
+                { RewardType::StarTicket, "star_tiket_3", 3, "tickets_pack.png"_spr, "3 star tiket", 70, StreakData::BadgeCategory::COMMON },
+                { RewardType::StarTicket, "star_ticket_15", 15, "tickets_pack.png"_spr, "15 Tickets", 70, StreakData::BadgeCategory::COMMON },
+                { RewardType::StarTicket, "star_ticket_30", 30, "tickets_pack.png"_spr, "30 Tickets", 10, StreakData::BadgeCategory::SPECIAL },
+                { RewardType::StarTicket, "star_ticket_600", 600, "tickets_pack.png"_spr, "60 Tickets", 5, StreakData::BadgeCategory::EPIC },
+                { RewardType::Badge, "badge_cherry10", 1, "", "I don't want to get up", 3, StreakData::BadgeCategory::LEGENDARY }
             };
         }
     }
@@ -192,8 +201,16 @@ protected:
     void reloadRouletteContent() {
         for (auto node : m_orderedSlots) node->removeFromParent();
         m_orderedSlots.clear();
-        m_mythicSprites.clear();
         if (m_selectorSprite) m_selectorSprite->removeFromParent();
+
+        
+        {
+            std::vector<CCNode*> toRemove;
+            for (auto* child : CCArrayExt<CCNode*>(m_rouletteNode->getChildren())) {
+                if (child->getTag() == 600) toRemove.push_back(child);
+            }
+            for (auto* n : toRemove) n->removeFromParent();
+        }
 
         if (m_mainPrizeSprite) {
             m_mainPrizeSprite->removeFromParent();
@@ -232,7 +249,7 @@ protected:
                     auto glow = CCSprite::createWithSpriteFrameName("shineBurst_001.png");
                     if (glow) {
                         glow->setColor({ 200, 0, 255 });
-                        glow->setOpacity(120);
+                        glow->setOpacity(180);
                         glow->setPosition(m_mainPrizeSprite->getContentSize() / 2);
                         glow->setScale(4.0f);
                         glow->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
@@ -283,8 +300,6 @@ protected:
             auto qualitySprite = CCSprite::create(getQualitySpriteName(currentPrize.category).c_str());
             qualitySprite->setScale((m_slotSize - 4.f) / qualitySprite->getContentSize().width);
             slotContainer->addChild(qualitySprite, 1);
-
-            if (currentPrize.category == StreakData::BadgeCategory::MYTHIC) m_mythicSprites.push_back(qualitySprite);
 
             bool isClaimedGem = false;
 
@@ -356,8 +371,9 @@ protected:
                 }
                 else {
                     auto quantityLabel = CCLabelBMFont::create(CCString::createWithFormat("x%d", currentPrize.quantity)->getCString(), "goldFont.fnt");
-                    quantityLabel->setScale(0.3f); quantityLabel->setPosition(0, -m_slotSize / 2 + 5);
-                    slotContainer->addChild(quantityLabel, 3);
+                    quantityLabel->setScale(0.3f); quantityLabel->setPosition(slotPositions[i].x, slotPositions[i].y - m_slotSize / 2 + 5);
+                    quantityLabel->setTag(600);
+                    m_rouletteNode->addChild(quantityLabel, 6);
                 }
             }
         }
@@ -385,10 +401,17 @@ protected:
 
         m_standardModeBtn->setEnabled(m_currentMode != RouletteMode::Standard);
         m_gemModeBtn->setEnabled(m_currentMode != RouletteMode::Gem);
+ 
+        m_spinMenu->removeChild(m_spinBtn, true);
+        m_spin10Btn->retain();
+        m_spinMenu->removeChild(m_spin10Btn, false);
 
         if (m_currentMode == RouletteMode::Standard) {
             m_adsClipper->setVisible(true);
-            m_spinBtn->setNormalImage(ButtonSprite::create("Spin"));
+            m_spinBtn = CCMenuItemSpriteExtra::create(ButtonSprite::create("Spin"), this, menu_selector(RoulettePopup::onSpin));
+            m_spinMenu->addChild(m_spinBtn);    
+            m_spinMenu->addChild(m_spin10Btn);  
+            m_spin10Btn->release();
             m_spin10Btn->setVisible(true);
             m_currencyLabel->setString(std::to_string(g_streakData.superStars).c_str());
             auto texture = CCSprite::create("super_star.png"_spr)->getTexture();
@@ -414,14 +437,18 @@ protected:
             }
 
             if (claimedCount >= 7) {
-                m_spinBtn->setNormalImage(ButtonSprite::create("Done", 0, 0, "goldFont.fnt", "GJ_button_02.png", 0, 0.8f));
+                m_spinBtn = CCMenuItemSpriteExtra::create(ButtonSprite::create("Done", 0, 0, "goldFont.fnt", "GJ_button_02.png", 0, 0.8f), this, menu_selector(RoulettePopup::onSpin));
+                m_spinMenu->addChild(m_spinBtn);
                 m_spinBtn->setEnabled(false);
             }
             else {
-                m_spinBtn->setNormalImage(ButtonSprite::create(std::to_string(cost).c_str()));
+                m_spinBtn = CCMenuItemSpriteExtra::create(ButtonSprite::create(std::to_string(cost).c_str()), this, menu_selector(RoulettePopup::onSpin));
+                m_spinMenu->addChild(m_spinBtn);
                 m_spinBtn->setEnabled(true);
             }
 
+            m_spinMenu->addChild(m_spin10Btn);
+            m_spin10Btn->release();
             m_spin10Btn->setVisible(false);
             m_currencyLabel->setString(std::to_string(g_streakData.gems).c_str());
             auto texture = CCSprite::create("gem.png"_spr)->getTexture();
@@ -457,7 +484,7 @@ protected:
     }
 
     bool init() override {
-        if (!Popup::init(260.f, 260.f, "geode.loader/GE_square01.png")) return false;
+        if (!Popup::init(260.f, 260.f, "GJ_square02.png")) return false;
 
         std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
@@ -478,24 +505,57 @@ protected:
             g_streakData.save();
         }
 
-        m_mythicColors = {
-            ccc3(255, 0, 0),
-            ccc3(255, 165, 0),
-            ccc3(255, 255, 0),
-            ccc3(0, 255, 0),
-            ccc3(0, 0, 255),
-            ccc3(75, 0, 130),
-            ccc3(238, 130, 238)
+        m_gradientColors = {
+        ccc3(255, 50, 50),    
+        ccc3(255, 150, 50),  
+        ccc3(255, 255, 50),  
+        ccc3(50, 255, 50),   
+        ccc3(50, 255, 255), 
+        ccc3(50, 100, 255),  
+        ccc3(150, 50, 255),  
+        ccc3(255, 50, 150)   
         };
-        m_currentColor = m_mythicColors[0]; m_targetColor = m_mythicColors[1];
+        m_gradCurrentStart = m_gradientColors[0];
+        m_gradCurrentEnd = m_gradientColors[5];
+        m_gradTargetStart = m_gradientColors[1];
+        m_gradTargetEnd = m_gradientColors[6];
 
         m_rouletteNode = CCNode::create();
         m_rouletteNode->setPosition({ winSize.width / 2, winSize.height / 2 + 15.f });
         m_mainLayer->addChild(m_rouletteNode);
+
+  
+        auto bgSize = m_bgSprite->getContentSize();
+        auto gradStencil = CCScale9Sprite::create("GJ_square02.png");
+        gradStencil->setContentSize(bgSize);
+        gradStencil->setPosition(bgSize / 2);
+
+        auto gradClipper = CCClippingNode::create(gradStencil);
+        gradClipper->setAlphaThreshold(0.05f);
+        gradClipper->setContentSize(bgSize);
+        gradClipper->setPosition({ 0, 0 });
+        gradClipper->ignoreAnchorPointForPosition(false);
+        gradClipper->setAnchorPoint({ 0, 0 });
+
+        m_bgGradient = CCLayerGradient::create(
+            ccc4(m_gradCurrentStart.r, m_gradCurrentStart.g, m_gradCurrentStart.b, 100), 
+            ccc4(m_gradCurrentEnd.r, m_gradCurrentEnd.g, m_gradCurrentEnd.b, 100)       
+        );
+        m_bgGradient->setContentSize(bgSize);
+        m_bgGradient->setPosition({ 0, 0 });
+        m_bgGradient->ignoreAnchorPointForPosition(false);
+        m_bgGradient->setAnchorPoint({ 0, 0 });
+
+        gradClipper->addChild(m_bgGradient);
+        m_bgSprite->addChild(gradClipper, 1);
+
         this->setupAdsCarousel();
 
         m_spinBtn = CCMenuItemSpriteExtra::create(ButtonSprite::create("Spin"), this, menu_selector(RoulettePopup::onSpin));
-        m_spin10Btn = CCMenuItemSpriteExtra::create(ButtonSprite::create("x10"), this, menu_selector(RoulettePopup::onSpinMultiple));
+        m_spin10Btn = CCMenuItemSpriteExtra::create(ButtonSprite::create("x10",
+            0, 0, "goldFont.fnt", "GJ_button_03.png",
+            0, 0.8f),
+            this, menu_selector(RoulettePopup::onSpinMultiple));
 
         m_spinMenu = CCMenu::create();
         m_spinMenu->addChild(m_spinBtn);
@@ -555,20 +615,32 @@ protected:
     }
 
     void update(float dt) override {
-        if (!m_mythicSprites.empty()) {
-            m_colorTransitionTime += dt;
-            if (m_colorTransitionTime >= 1.0f) {
-                m_colorTransitionTime = 0.0f;
-                m_colorIndex = (m_colorIndex + 1) % m_mythicColors.size();
-                m_currentColor = m_targetColor; m_targetColor = m_mythicColors[(m_colorIndex + 1) % m_mythicColors.size()];
+    
+        if (m_bgGradient && !m_gradientColors.empty()) {
+            m_gradTransitionTime += dt * 0.25f;
+            if (m_gradTransitionTime >= 1.0f) {
+                m_gradTransitionTime = 0.0f;
+                m_gradColorIndex = (m_gradColorIndex + 1) % m_gradientColors.size();
+                m_gradCurrentStart = m_gradTargetStart;
+                m_gradCurrentEnd = m_gradTargetEnd;
+                m_gradTargetStart = m_gradientColors[(m_gradColorIndex + 1) % m_gradientColors.size()];         
+                m_gradTargetEnd = m_gradientColors[(m_gradColorIndex + 2) % m_gradientColors.size()];
             }
-            float progress = m_colorTransitionTime / 1.0f;
-            ccColor3B interpolatedColor = {
-                static_cast<GLubyte>(m_currentColor.r + (m_targetColor.r - m_currentColor.r) * progress),
-                static_cast<GLubyte>(m_currentColor.g + (m_targetColor.g - m_currentColor.g) * progress),
-                static_cast<GLubyte>(m_currentColor.b + (m_targetColor.b - m_currentColor.b) * progress)
+            float p = m_gradTransitionTime;
+            ccColor3B startC = {
+                static_cast<GLubyte>(m_gradCurrentStart.r + (m_gradTargetStart.r - m_gradCurrentStart.r) * p),
+                static_cast<GLubyte>(m_gradCurrentStart.g + (m_gradTargetStart.g - m_gradCurrentStart.g) * p),
+                static_cast<GLubyte>(m_gradCurrentStart.b + (m_gradTargetStart.b - m_gradCurrentStart.b) * p)
             };
-            for (auto* sprite : m_mythicSprites) sprite->setColor(interpolatedColor);
+            ccColor3B endC = {
+                static_cast<GLubyte>(m_gradCurrentEnd.r + (m_gradTargetEnd.r - m_gradCurrentEnd.r) * p),
+                static_cast<GLubyte>(m_gradCurrentEnd.g + (m_gradTargetEnd.g - m_gradCurrentEnd.g) * p),
+                static_cast<GLubyte>(m_gradCurrentEnd.b + (m_gradTargetEnd.b - m_gradCurrentEnd.b) * p)
+            };
+            m_bgGradient->setStartColor(startC);
+            m_bgGradient->setEndColor(endC);
+            m_bgGradient->setStartOpacity(150); 
+            m_bgGradient->setEndOpacity(50);    
         }
         if (!m_isAdAnimating && !m_adSprites.empty() && m_currentMode == RouletteMode::Standard) {
             m_timeSinceLastAdSwitch += dt;
@@ -964,7 +1036,7 @@ protected:
             if (m_pendingTotalTickets > 0) {
                 int startAmount = g_streakData.starTickets - m_pendingTotalTickets;
                 auto winSize = CCDirector::sharedDirector()->getWinSize();
- 
+
                 RewardNotification::show("star_tiket.png"_spr, startAmount, m_pendingTotalTickets, winSize / 2);
             }
             updateButtons();
@@ -1078,7 +1150,7 @@ protected:
         }
 
         if (!isMythicAnimation) {
-         
+
             CCPoint spawnPos = m_orderedSlots[m_currentSelectorIndex]->convertToWorldSpaceAR(CCPointZero);
 
             if (showBadgeNotify) BadgeNotification::show(prize.id);
@@ -1090,7 +1162,7 @@ protected:
                 RewardNotification::show("super_star.png"_spr, g_streakData.superStars - pendingStars, pendingStars, spawnPos);
             }
         }
-    }  
+    }
 
     void updateAllCheckmarks() {
         if (m_currentMode == RouletteMode::Gem) return;
@@ -1114,13 +1186,13 @@ protected:
 
 
     void onOpenShop(CCObject*) {
-        
+
         auto shopScene = ShopLayer::scene([this]() {
             this->updateAllCheckmarks();
             this->updateButtons();
             });
 
-      
+
         auto transition = CCTransitionFade::create(0.5f, shopScene);
         CCDirector::sharedDirector()->pushScene(transition);
     }

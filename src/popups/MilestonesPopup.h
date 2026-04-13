@@ -114,7 +114,7 @@ std::vector<MasteryLevelDef> getLevelsForMastery(const std::string& masteryBadge
     else if (masteryBadgeID == "swingcopter_mastery_badge") {
         return {
             {130175757, 10,  "Roentgenium"},
-            {127118533, 7, "Minun"},
+            {128497590, 7, "Minun"},
             {116284755, 7,  "Out of Place"},
             {123617195, 10,  "ALLOY"},
             {116581248, 7, "Corrupt cityscapes"},

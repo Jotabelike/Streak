@@ -1,13 +1,15 @@
 #pragma once
 #include "StreakCommon.h"
 #include "../StreakData.h"
+#include "../NameModifiers.h"
+#include "../utils/ScrollbarUtils.h"
 #include <Geode/ui/Popup.hpp>
-#include <Geode/ui/ScrollLayer.hpp> 
+#include <Geode/ui/ScrollLayer.hpp>
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/async.hpp>
 #include <Geode/binding/GJAccountManager.hpp>
 #include <Geode/binding/ProfilePage.hpp>
-#include <Geode/binding/FLAlertLayer.hpp> 
+#include <Geode/binding/FLAlertLayer.hpp>
 #include <matjson.hpp>
 #include "../StatusSpinner.h"
 #include "../RewardNotification.h"
@@ -18,26 +20,14 @@ class LeaderboardCell : public CCLayer {
 protected:
     matjson::Value m_playerData;
     CCLabelBMFont* m_nameLabel = nullptr;
-    float m_time = 0.f;
-
-    void updateRainbow(float dt) {
-        if (!m_nameLabel) return;
-        m_time += dt;
-        float r = (sin(m_time * 0.7f) + 1.0f) / 2.0f;
-        float g = (sin(m_time * 0.7f + 2.0f * M_PI / 3.0f) + 1.0f) / 2.0f;
-        float b = (sin(m_time * 0.7f + 4.0f * M_PI / 3.0f) + 1.0f) / 2.0f;
-        m_nameLabel->setColor({
-            (GLubyte)(r * 255),
-            (GLubyte)(g * 255),
-            (GLubyte)(b * 255)
-            });
-    }
+    std::string m_nameAnimation;
+    std::string m_nameEffect;
 
     bool init(matjson::Value playerData, int rank, bool isLocalPlayer, bool showHighlight = true) {
         if (!CCLayer::init()) return false;
         this->m_playerData = playerData;
 
-        const float cellWidth = 300.f;
+        const float cellWidth = 340.f;
         const float cellHeight = 40.f;
         this->setContentSize({ cellWidth, cellHeight });
 
@@ -65,7 +55,6 @@ protected:
                 float scaleX = cellWidth / bannerSprite->getContentSize().width;
                 float targetHeight = cellHeight - 2.0f;
                 float scaleY = targetHeight / bannerSprite->getContentSize().height;
-
                 bannerSprite->setScaleX(scaleX);
                 bannerSprite->setScaleY(scaleY);
                 bannerSprite->setPosition({ cellWidth / 2, cellHeight / 2 });
@@ -113,7 +102,6 @@ protected:
         }
 
         std::string badgeID = playerData["equipped_badge_id"].as<std::string>().unwrapOr("");
-        bool isMythic = false;
 
         if (!badgeID.empty()) {
             if (auto badgeInfo = g_streakData.getBadgeInfo(badgeID)) {
@@ -123,16 +111,29 @@ protected:
                     badgeSprite->setPosition({ 60.f, cellHeight / 2 });
                     this->addChild(badgeSprite, 1);
                 }
-                if (badgeInfo->category == StreakData::BadgeCategory::MYTHIC) {
-                    isMythic = true;
-                }
             }
         }
 
         std::string username = playerData["username"].as<std::string>().unwrapOr("-");
+
+        std::string nameColor = playerData["equipped_name_color"].as<std::string>().unwrapOr("Default");
+        std::string nameFont = playerData["equipped_name_font"].as<std::string>().unwrapOr("Default");
+        m_nameEffect = playerData["equipped_name_effect"].as<std::string>().unwrapOr("None");
+        m_nameAnimation = playerData["equipped_name_animation"].as<std::string>().unwrapOr("None");
+
+        if (isLocalPlayer) {
+            nameColor = g_streakData.equippedNameColor;
+            nameFont = g_streakData.equippedNameFont;
+            m_nameEffect = g_streakData.equippedNameEffect;
+            m_nameAnimation = g_streakData.equippedNameAnimation;
+        }
+
         m_nameLabel = CCLabelBMFont::create(username.c_str(), "goldFont.fnt");
         m_nameLabel->limitLabelWidth(105.f, 0.6f, 0.1f);
         m_nameLabel->setColor({ 255, 255, 255 });
+
+        NameModifiers::applyColor(m_nameLabel, nameColor);
+        NameModifiers::applyFont(m_nameLabel, nameFont);
 
         auto usernameBtn = CCMenuItemSpriteExtra::create(
             m_nameLabel,
@@ -146,9 +147,8 @@ protected:
         menu->setPosition({ 0, 0 });
         this->addChild(menu, 1);
 
-        if (isMythic) {
-            this->schedule(schedule_selector(LeaderboardCell::updateRainbow));
-        }
+        NameModifiers::applyEffect(m_nameLabel, m_nameEffect);
+        NameModifiers::applyAnimation(m_nameLabel, m_nameAnimation);
 
         int playerLevel = playerData["current_level"].as<int>().unwrapOr(1);
         auto levelNode = CCNode::create();
@@ -257,7 +257,6 @@ protected:
 
         auto now = std::chrono::system_clock::now();
         auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-
         long long diff = this->m_fields.m_seasonEndTimestamp - now_ms;
 
         if (diff <= 0) {
@@ -289,8 +288,7 @@ protected:
         auto am = GJAccountManager::sharedState();
         if (!am || am->m_accountID == 0) return;
 
-     
-        CCPoint spawnPos = CCDirector::sharedDirector()->getWinSize() / 2;  
+        CCPoint spawnPos = CCDirector::sharedDirector()->getWinSize() / 2;
         if (auto btn = static_cast<CCNode*>(sender)) {
             spawnPos = btn->convertToWorldSpaceAR(CCPointZero);
         }
@@ -303,13 +301,12 @@ protected:
         body.set("accountID", am->m_accountID);
 
         auto req = web::WebRequest();
-       
+
         this->m_fields.m_claimListener.spawn(req.bodyJSON(body).post(url), [this, spawnPos](web::WebResponse res) {
             this->m_fields.m_spinner->setVisible(false);
             if (res.ok() && res.json().isOk()) {
                 auto data = res.json().unwrap();
                 if (data["success"].as<bool>().unwrapOr(false)) {
-
                     auto reward = data["reward"];
                     int gems = reward["gems"].as<int>().unwrapOr(0);
                     int stars = reward["super_stars"].as<int>().unwrapOr(0);
@@ -324,7 +321,6 @@ protected:
 
                     Notification::create(fmt::format("Season Reward Rank #{}", rank), NotificationIcon::Success)->show();
 
-                 
                     if (gems > 0) RewardNotification::show("gem.png"_spr, g_streakData.gems - gems, gems, spawnPos);
                     if (stars > 0) RewardNotification::show("super_star.png"_spr, g_streakData.superStars - stars, stars, spawnPos);
                     if (tickets > 0) RewardNotification::show("star_tiket.png"_spr, g_streakData.starTickets - tickets, tickets, spawnPos);
@@ -375,7 +371,6 @@ protected:
 
         int capacityIdx = Mod::get()->getSavedValue<int>("leaderboard_capacity_idx", 0);
         size_t limit = (capacityIdx == 0) ? 10 : 50;
-
         size_t countToShow = std::min(players.size(), limit);
 
         float cellHeight = 42.f;
@@ -384,7 +379,7 @@ protected:
             countToShow * cellHeight
         );
 
-        contentLayer->setContentSize({ 300.f, totalHeight });
+        contentLayer->setContentSize({ 340.f, totalHeight });
 
         int localAccountID = GJAccountManager::sharedState()->m_accountID;
 
@@ -415,6 +410,8 @@ protected:
         contentLayer->setPositionY(
             this->m_fields.m_scrollLayer->getContentSize().height - totalHeight
         );
+
+        addScrollbar(this->m_fields.m_scrollLayer, 8.f, this->m_mainLayer);
     }
 
     void updateMyRankUI(const std::vector<matjson::Value>& players) {
@@ -424,7 +421,6 @@ protected:
         if (localAccountID != 0) {
             for (size_t i = 0; i < players.size(); ++i) {
                 int playerID = 0;
-
                 if (players[i]["accountID"].isNumber()) {
                     playerID = players[i]["accountID"].as<int>().unwrapOr(0);
                 }
@@ -434,7 +430,6 @@ protected:
                     }
                     catch (...) {}
                 }
-
                 if (playerID == localAccountID) {
                     myRank = static_cast<int>(i) + 1;
                     break;
@@ -468,7 +463,7 @@ protected:
     }
 
     bool init() override {
-        if (!Popup::init(340.f, 280.f, "geode.loader/GE_square03.png")) return false;
+        if (!Popup::init(390.f, 280.f, "geode.loader/GE_square03.png")) return false;
 
         this->setTitle("Top Streaks (beta)");
         auto winSize = this->m_mainLayer->getContentSize();
@@ -500,7 +495,7 @@ protected:
         auto listBg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
         listBg->setColor({ 0, 0, 0 });
         listBg->setOpacity(120);
-        CCSize listSize = { 300.f, 190.f };
+        CCSize listSize = { 340.f, 190.f };
         listBg->setContentSize(listSize + CCSize{ 10.f, 10.f });
         listBg->setPosition({ winSize.width / 2, winSize.height / 2 - 15.f });
         this->m_mainLayer->addChild(listBg);

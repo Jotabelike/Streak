@@ -27,20 +27,17 @@
 #include "TrendLevelsPopup.h"  
 #include "AchievementsPopup.h"
 #include "StreakAnimations.h"
+#include "../utils/RoundedProgressBar.h"
 
 class InfoPopup : public Popup {
 protected:
     CCLabelBMFont* m_streakLabel = nullptr;
-    CCLayerGradient* m_barFg = nullptr;
+    RoundedProgressBar* m_streakBar = nullptr;
     CCLabelBMFont* m_barText = nullptr;
-    CCSprite* m_rachaIndicator = nullptr;
-    CCSprite* m_pointIcon = nullptr;
-    CCLayerGradient* m_xpBarFg = nullptr;
+    RoundedProgressBar* m_xpBar = nullptr;
     CCLabelBMFont* m_xpLabel = nullptr;
-    CCSprite* m_xpIndicator = nullptr;
     CCLabelBMFont* m_xpProgressLabel = nullptr;
     CCLabelBMFont* m_gemsLabel = nullptr;
-
 
     std::vector<CCMenu*> m_bottomPages;
     int m_currentPage = 0;
@@ -241,7 +238,7 @@ protected:
             m_mainLayer->addChild(m_gemsLabel, 10);
         }
 
-        float contentCenterY = winSize.height / 2 + 25.0f;
+        float contentCenterY = winSize.height / 2 + 30.0f;
 
         auto rachaSprite = CCSprite::create(g_streakData.getRachaSprite().c_str());
         if (rachaSprite) {
@@ -254,101 +251,46 @@ protected:
             auto menuRacha = CCMenu::createWithItem(rachaBtn);
             menuRacha->setPosition({ winSize.width / 2, contentCenterY });
             m_mainLayer->addChild(menuRacha, 3);
-
-            
             StreakAnimations::applyPremiumHover(rachaSprite);
         }
+
+        float barWidth = 140.0f;
+        float barHeight = 20.0f;   
+        float barY = contentCenterY - 78.0f; 
 
         m_streakLabel = CCLabelBMFont::create("Daily streak: ?", "goldFont.fnt");
         m_streakLabel->setScale(0.50f);
         m_streakLabel->setPosition({ winSize.width / 2, contentCenterY - 45 });
         m_mainLayer->addChild(m_streakLabel);
 
-        float barWidth = 140.0f;
-        float barHeight = 16.0f;
-        float barY = contentCenterY - 70;
-
-        auto barBg = CCLayerColor::create({ 45, 45, 45, 255 }, barWidth, barHeight);
-        barBg->setPosition({ winSize.width / 2 - barWidth / 2, barY });
-        m_mainLayer->addChild(barBg, 1);
-
-        m_barFg = CCLayerGradient::create({ 250, 225, 60, 255 }, { 255, 165, 0, 255 });
-        m_barFg->setContentSize({ 0, barHeight });
-        m_barFg->setPosition({ winSize.width / 2 - barWidth / 2, barY });
-        m_mainLayer->addChild(m_barFg, 2);
-
-        auto border = CCLayerColor::create(
-            { 255, 255, 255, 120 },
-            barWidth + 2,
-            barHeight + 2
-        );
-        border->setPosition({ winSize.width / 2 - barWidth / 2 - 1, barY - 1 });
-        m_mainLayer->addChild(border, 4);
-
-        auto outer = CCLayerColor::create(
-            { 0, 0, 0, 70 },
-            barWidth + 6,
-            barHeight + 6
-        );
-        outer->setPosition({ winSize.width / 2 - barWidth / 2 - 3, barY - 3 });
-        m_mainLayer->addChild(outer, 0);
-
-        m_pointIcon = CCSprite::create("streak_point.png"_spr);
-        m_pointIcon->setScale(0.14f);
-        m_pointIcon->setPosition({ winSize.width / 2 - barWidth / 2, barY + 8 });
-        m_mainLayer->addChild(m_pointIcon, 6);
+        m_streakBar = RoundedProgressBar::create(barWidth, barHeight);
+        m_streakBar->setPosition({ winSize.width / 2, barY + (barHeight / 2) }); 
+        m_streakBar->setGradientColors({ 250, 225, 60 }, { 255, 165, 0 });
+        m_streakBar->setBackgroundColor({ 45, 45, 45 });
+        m_mainLayer->addChild(m_streakBar, 1);
 
         m_barText = CCLabelBMFont::create("? / ?", "bigFont.fnt");
-        m_barText->setScale(0.45f);
-        m_barText->setPosition({ winSize.width / 2, barY + 8 });
+        m_barText->setScale(0.40f); 
+        m_barText->setPosition({ winSize.width / 2, barY + (barHeight / 2) });
         m_mainLayer->addChild(m_barText, 8);
 
-        m_rachaIndicator = CCSprite::create("racha0.png"_spr);
-        m_rachaIndicator->setScale(0.14f);
-        m_rachaIndicator->setPosition({ winSize.width / 2 + barWidth / 2, barY + 8 });
-        m_mainLayer->addChild(m_rachaIndicator, 7);
+        float xpBarHeight = 10.0f; 
+        float xpY = barY - 12.0f;  
 
-        float xpBarHeight = 6.0f;
-        float xpY = barY - 12.0f;
-
-        auto xpOuter = CCLayerColor::create(
-            { 0, 0, 0, 70 },
-            barWidth + 6,
-            xpBarHeight + 6
-        );
-        xpOuter->setPosition({ winSize.width / 2 - barWidth / 2 - 3, xpY - 3 });
-        m_mainLayer->addChild(xpOuter, 0);
-
-        auto xpBorder = CCLayerColor::create(
-            { 255, 255, 255, 120 },
-            barWidth + 2,
-            xpBarHeight + 2
-        );
-        xpBorder->setPosition({ winSize.width / 2 - barWidth / 2 - 1, xpY - 1 });
-        m_mainLayer->addChild(xpBorder, 1);
-
-        auto xpBg = CCLayerColor::create({ 20, 20, 40, 150 }, barWidth, xpBarHeight);
-        xpBg->setPosition({ winSize.width / 2 - barWidth / 2, xpY });
-        m_mainLayer->addChild(xpBg, 1);
-
-        m_xpBarFg = CCLayerGradient::create({ 0, 100, 255, 255 }, { 0, 255, 255, 255 });
-        m_xpBarFg->setContentSize({ 0, xpBarHeight });
-        m_xpBarFg->setPosition({ winSize.width / 2 - barWidth / 2, xpY });
-        m_mainLayer->addChild(m_xpBarFg, 2);
-
-        m_xpIndicator = CCSprite::create("xp.png"_spr);
-        m_xpIndicator->setScale(0.08f);
-        m_xpIndicator->setPosition({ winSize.width / 2 - barWidth / 2, xpY + 3 });
-        m_mainLayer->addChild(m_xpIndicator, 6);
+        m_xpBar = RoundedProgressBar::create(barWidth, xpBarHeight);
+        m_xpBar->setPosition({ winSize.width / 2, xpY + (xpBarHeight / 2) });
+        m_xpBar->setGradientColors({ 0, 255, 255 }, { 0, 100, 255 }); 
+        m_xpBar->setBackgroundColor({ 20, 20, 40 });
+        m_mainLayer->addChild(m_xpBar, 1);
 
         m_xpLabel = CCLabelBMFont::create("Lvl. ?", "goldFont.fnt");
         m_xpLabel->setScale(0.35f);
-        m_xpLabel->setPosition({ winSize.width / 2 - barWidth / 2 - 20, xpY + 3 });
+        m_xpLabel->setPosition({ winSize.width / 2 - barWidth / 2 - 20, xpY + (xpBarHeight / 2) });
         m_mainLayer->addChild(m_xpLabel);
 
         m_xpProgressLabel = CCLabelBMFont::create("0/0", "chatFont.fnt");
         m_xpProgressLabel->setScale(0.35f);
-        m_xpProgressLabel->setPosition({ winSize.width / 2, xpY + 3 });
+        m_xpProgressLabel->setPosition({ winSize.width / 2, xpY + (xpBarHeight / 2) });
         m_mainLayer->addChild(m_xpProgressLabel, 8);
 
         float sideBtnY = winSize.height / 2 + 30.0f;
@@ -442,7 +384,6 @@ protected:
             );
 
             rankBtn->setTag(g_streakData.specialRank);
-
             rankBtn->setPosition({ winSize.width - 80, winSize.height - 20 });
             cornerMenu->addChild(rankBtn);
         }
@@ -467,27 +408,22 @@ protected:
         settingsBtn->setPosition({ winSize.width - 20, winSize.height - 20 });
         cornerMenu->addChild(settingsBtn);
 
-
         std::vector<CCMenuItemSpriteExtra*> allBottomBtns;
-
 
         auto eventIcon = CCSprite::create("event_boton.png"_spr);
         if (!eventIcon || eventIcon->getContentSize().width == 0) eventIcon = CCSprite::createWithSpriteFrameName("GJ_top100Btn_001.png");
         eventIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(eventIcon, this, menu_selector(InfoPopup::onOpenEvent)));
 
-
         auto stIcon = CCSprite::create("st_progress.png"_spr);
         if (!stIcon) stIcon = ButtonSprite::create("St");
         else stIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(stIcon, this, menu_selector(InfoPopup::onOpenStProgress)));
 
-
         auto levelProgIcon = CCSprite::create("level_progess_btn.png"_spr);
         if (!levelProgIcon) levelProgIcon = ButtonSprite::create("Lvls");
         else levelProgIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(levelProgIcon, this, menu_selector(InfoPopup::onOpenLevelProgress)));
-
 
         auto topIcon = CCSprite::create("top_btn.png"_spr);
         if (!topIcon) topIcon = ButtonSprite::create("Top");
@@ -499,7 +435,6 @@ protected:
         msgIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(msgIcon, this, menu_selector(InfoPopup::onOpenMessages)));
 
-
         auto redeemIcon = CCSprite::create("redemcode_btn.png"_spr);
         if (!redeemIcon) redeemIcon = ButtonSprite::create("Code");
         redeemIcon->setScale(0.7f);
@@ -509,7 +444,6 @@ protected:
         if (!shopIcon) shopIcon = ButtonSprite::create("Shop");
         else shopIcon->setScale(0.7f);
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(shopIcon, this, menu_selector(InfoPopup::onOpenDailyShop)));
-
 
         auto kofiIcon = CCSprite::create("ko-fi_btn.png"_spr);
         if (!kofiIcon) kofiIcon = ButtonSprite::create("Donate");
@@ -551,11 +485,9 @@ protected:
             m_bottomPages.push_back(pageMenu);
         }
 
-
         auto arrowMenu = CCMenu::create();
         arrowMenu->setPosition({ 0, 0 });
         m_mainLayer->addChild(arrowMenu, 15);
-
 
         auto leftSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
         leftSpr->setScale(0.5f);
@@ -596,7 +528,6 @@ protected:
         return true;
     }
 
-
     void onNextPage(CCObject*) {
         if (m_currentPage < m_bottomPages.size() - 1) {
             m_bottomPages[m_currentPage]->setVisible(false);
@@ -624,13 +555,12 @@ protected:
         }
     }
 
-
     void onOpenTrending(CCObject*) {
         TrendLevelsPopup::create()->show();
     }
 
     void updateDisplay() {
-        if (!m_mainLayer || !m_streakLabel || !m_barFg || !m_barText || !m_rachaIndicator) {
+        if (!m_mainLayer || !m_streakLabel || !m_streakBar || !m_barText) {
             return;
         }
 
@@ -638,71 +568,34 @@ protected:
         int pointsToday = g_streakData.streakPointsToday;
         int requiredPoints = g_streakData.getRequiredPoints();
 
-
         float percent = 0.0f;
         if (requiredPoints > 0) {
             percent = static_cast<float>(pointsToday) / static_cast<float>(requiredPoints);
         }
-        else {
-            percent = 0.0f;
-        }
-
 
         if (percent > 1.0f) percent = 1.0f;
         if (percent < 0.0f) percent = 0.0f;
 
-        float barWidth = 140.0f;
-        float barHeight = 16.0f;
-
         m_streakLabel->setString(fmt::format("Daily streak: {}", currentStreak).c_str());
 
-        if (pointsToday <= 0) {
-            m_barFg->setContentSize({ 0.0f, barHeight });
-        }
-        else {
-            m_barFg->setContentSize({ barWidth * percent, barHeight });
+        if (m_streakBar) {
+            m_streakBar->setProgress(percent);
+            
+            if (percent >= 1.0f) {
+                m_streakBar->setRainbowMode(true);
+            } else {
+                m_streakBar->setRainbowMode(false);
+                m_streakBar->setGradientColors({ 250, 225, 60 }, { 255, 165, 0 });
+            }
         }
 
         m_barText->setString(fmt::format("{}/{}", pointsToday, requiredPoints).c_str());
-
-
-        if (m_pointIcon) {
-            float startX = (m_mainLayer->getContentSize().width / 2) - (barWidth / 2);
-
-            float effectivePercent = (pointsToday <= 0) ? 0.0f : percent;
-            float newX = startX + (barWidth * effectivePercent);
-            m_pointIcon->setPositionX(newX);
-        }
-
-
-        std::string indicatorSpriteName;
-        if (pointsToday >= requiredPoints) {
-            int visualStreak = (currentStreak > 0) ? currentStreak : 1;
-            indicatorSpriteName = g_streakData.getRachaSprite(visualStreak);
-        }
-        else {
-            indicatorSpriteName = "racha0.png"_spr;
-        }
-
-        if (auto newSprite = CCSprite::create(indicatorSpriteName.c_str())) {
-            if (auto newTexture = newSprite->getTexture()) {
-                m_rachaIndicator->setTexture(newTexture);
-                m_rachaIndicator->setTextureRect(
-                    newSprite->getTextureRect(),
-                    newSprite->isTextureRectRotated(),
-                    newSprite->getContentSize()
-                );
-            }
-        }
 
         if (m_gemsLabel) {
             m_gemsLabel->setString(std::to_string(g_streakData.gems).c_str());
         }
 
-
-        if (m_xpBarFg && m_xpLabel && m_xpProgressLabel) {
-            float xpBarWidth = 140.0f;
-            float xpBarHeight = 6.0f;
+        if (m_xpBar && m_xpLabel && m_xpProgressLabel) {
             float xpPercent = 0.0f;
 
             if (g_streakData.currentLevel >= 100) {
@@ -718,21 +611,11 @@ protected:
                 );
             }
 
-
-            if (xpPercent <= 0.0f) {
-                m_xpBarFg->setContentSize({ 0.0f, xpBarHeight });
-            }
-            else {
-                m_xpBarFg->setContentSize({ xpBarWidth * xpPercent, xpBarHeight });
+            if (m_xpBar) {
+                m_xpBar->setProgress(xpPercent);
             }
 
             m_xpLabel->setString(fmt::format("Lvl. {}", g_streakData.currentLevel).c_str());
-
-            if (m_xpIndicator) {
-                float xpStartX = (m_mainLayer->getContentSize().width / 2) - (xpBarWidth / 2);
-                float xpNewX = xpStartX + (xpBarWidth * xpPercent);
-                m_xpIndicator->setPositionX(xpNewX);
-            }
         }
     }
 
@@ -799,13 +682,10 @@ protected:
     }
 
     void onOpenLeaderboard(CCObject*) {
-
         if (g_streakData.currentLevel < 7) {
             LevelLockPopup::create()->show();
             return;
         }
-
-
         LeaderboardPopup::create()->show();
     }
 
@@ -836,6 +716,7 @@ protected:
     void onOpenAchievements(CCObject*) {
         AchievementsPopup::create()->show();
     }
+
     void onOpenRoulette(CCObject*) {
         if (g_streakData.currentStreak < 1) {
             FLAlertLayer::create(

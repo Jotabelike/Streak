@@ -112,6 +112,12 @@ protected:
                 isConsumable = true;
             }
 
+            else if (data.contains("gems")) {
+                amount = data["gems"].as<int>().unwrapOr(0);
+                icon = CCSprite::create("gem.png"_spr);
+                name = "Gems";
+                isConsumable = true;
+            }
             if (!icon) {
                 icon = CCSprite::createWithSpriteFrameName("GJ_questionMark_001.png");
             }
@@ -311,6 +317,10 @@ public:
                     amount = data["star_tickets"].as<int>().unwrapOr(0);
                     spr = CCSprite::create("star_tiket.png"_spr);
                 }
+                else if (data.contains("gems")) {
+                    amount = data["gems"].as<int>().unwrapOr(0);
+                    spr = CCSprite::create("gem.png"_spr);
+                }
 
                 if (!spr) spr = CCSprite::createWithSpriteFrameName("GJ_questionMark_001.png");
                 if (!spr) spr = CCSprite::createWithSpriteFrameName("edit_delBtn_001.png");
@@ -381,6 +391,7 @@ public:
             if (cost > 0) {
                 btnText = fmt::format("     {}", cost);
                 if (currency == "stars") currencySpr = "super_star.png"_spr;
+                else if (currency == "gems") currencySpr = "gem.png"_spr; 
                 else currencySpr = "star_tiket.png"_spr;
             }
 
@@ -519,6 +530,7 @@ protected:
 
     int m_tempStars = 0;
     int m_tempTickets = 0;
+    int m_tempGems = 0;
     std::string m_tempBadgeID = "";
     std::string m_tempBannerID = "";
     bool m_tempSuccess = false;
@@ -806,7 +818,12 @@ protected:
                 FLAlertLayer::create("Error", "You don't have enough Super Stars", "OK")->show();
                 return;
             }
-            if (m_spinCurrency != "stars" && g_streakData.starTickets < m_spinCost) {
+           
+            if (m_spinCurrency == "gems" && g_streakData.gems < m_spinCost) {
+                FLAlertLayer::create("Error", "You don't have enough Gems", "OK")->show();
+                return;
+            }
+            if (m_spinCurrency != "stars" && m_spinCurrency != "gems" && g_streakData.starTickets < m_spinCost) {
                 FLAlertLayer::create("Error", "You don't have enough Star Tickets", "OK")->show();
                 return;
             }
@@ -850,10 +867,10 @@ protected:
         if (m_tempSuccess) {
             if (m_spinCost > 0) {
                 if (m_spinCurrency == "stars") g_streakData.superStars -= m_spinCost;
+                else if (m_spinCurrency == "gems") g_streakData.gems -= m_spinCost;  
                 else g_streakData.starTickets -= m_spinCost;
                 this->updateLabels();
             }
-
             auto jsonRes = res.json().unwrapOr(matjson::Value::object());
             m_claimingID = jsonRes["rewardID"].as<std::string>().unwrapOr("");
 
@@ -887,6 +904,7 @@ protected:
     void parseRewardData(matjson::Value& rewardData) {
         m_tempStars = 0;
         m_tempTickets = 0;
+        m_tempGems = 0;
         m_tempBadgeID = "";
         m_tempBannerID = "";
 
@@ -895,6 +913,9 @@ protected:
         }
         if (rewardData.contains("star_tickets")) {
             m_tempTickets = rewardData["star_tickets"].as<int>().unwrapOr(0);
+        }
+        if (rewardData.contains("gems")) {
+            m_tempGems = rewardData["gems"].as<int>().unwrapOr(0);
         }
         if (rewardData.contains("badge")) {
             m_tempBadgeID = rewardData["badge"].as<std::string>().unwrapOr("");
@@ -908,9 +929,10 @@ protected:
         if (m_tempSuccess) {
             int starsStart = g_streakData.superStars;
             int ticketsStart = g_streakData.starTickets;
-
+            int gemsStart = g_streakData.gems;
             g_streakData.superStars += m_tempStars;
             g_streakData.starTickets += m_tempTickets;
+            g_streakData.gems += m_tempGems;
 
             bool isNewBadge = false;
             if (!m_tempBadgeID.empty()) {
@@ -938,12 +960,15 @@ protected:
                 spawnPos = m_rouletteLayer->convertToWorldSpace({ m_rouletteLayer->getContentSize().width / 2, 100.f });
             }
 
-            auto showConsumables = [this, starsStart, ticketsStart, spawnPos]() {
+            auto showConsumables = [this, starsStart, ticketsStart, gemsStart, spawnPos]() {
                 if (m_tempStars > 0) {
                     RewardNotification::show("super_star.png"_spr, starsStart, m_tempStars, spawnPos);
                 }
                 if (m_tempTickets > 0) {
                     RewardNotification::show("star_tiket.png"_spr, ticketsStart, m_tempTickets, spawnPos);
+                }
+                if (m_tempGems > 0) {
+                    RewardNotification::show("gem.png"_spr, gemsStart, m_tempGems, spawnPos);
                 }
                 };
 

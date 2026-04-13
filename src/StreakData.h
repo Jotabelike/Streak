@@ -202,7 +202,23 @@ struct StreakData {
         {0, "moon_badge.png"_spr, "Moon", BadgeCategory::EPIC, "moon_badge", true, "XJotaBeLikeX"},
         {0, "marshmello_badge.png"_spr, "Marshmello", BadgeCategory::SPECIAL, "marshmello_badge", true, "XJotaBeLikeX"},
         {0, "alan_walker_badge.png"_spr, "Alan Walker", BadgeCategory::LEGENDARY, "alan_walker_badge", true, "XJotaBeLikeX"},
-       { 0, "teto_badge.png"_spr, "Red Miku", BadgeCategory::COMMON, "teto_badge", true, "idk" },
+        {0, "teto_badge.png"_spr, "Red Miku", BadgeCategory::COMMON, "teto_badge", true, "idk" },
+        {0, "Bagde_destello1.png"_spr, "silver flash", BadgeCategory::EPIC, "bagde_destello1", true, "Cherry'wCode" },
+        {0, "Bagde_destello2.png"_spr, "meow meow", BadgeCategory::SPECIAL, "bagde_destello2", true, "Cherry'wCode" },
+        {0, "Bagde_mc1.png"_spr, "Minecraft Again", BadgeCategory::EPIC, "badge_mc1", true, "Cherry'wCode" },
+        {0, "Bagde_mc2.png"_spr, "Minecraft Again again", BadgeCategory::SPECIAL, "badge_mc2", true, "Cherry'wCode" },
+        {0, "Bagde_pixel1.png"_spr, "pixel eye", BadgeCategory::LEGENDARY, "badge_pixel1", true, "Cherry'wCode" },
+        {0, "Bagde_pixel2.png"_spr, "sakura flower", BadgeCategory::MYTHIC, "badge_pixel2", true, "Cherry'wCode" },
+        {0, "BagdeCherry.png"_spr, "What can I say...", BadgeCategory::LEGENDARY, "badge_cherry", true, "Cherry'wCode" },
+        {0, "BagdeCherry_03.png"_spr, "Mahiru", BadgeCategory::EPIC, "badge_cherry3", true, "Cherry'wCode" },
+        {0, "BagdeCherry_04.png"_spr, "Mahiru v2", BadgeCategory::LEGENDARY, "badge_cherry4", true, "Cherry'wCode" },
+        {0, "BagdeCherry_05.png"_spr, "Ram But pink...", BadgeCategory::SPECIAL, "badge_cherry5", true, "Cherry'wCode" },
+        {0, "BagdeCherry_06.png"_spr, "Ram", BadgeCategory::EPIC, "badge_cherry6", true, "Cherry'wCode" },
+        {0, "BagdeCherry_08.png"_spr, "Tsukasa vlove", BadgeCategory::LEGENDARY, "badge_cherry8", true, "Cherry'wCode" },
+        {0, "BagdeCherry_09.png"_spr, "What was he going to do? ", BadgeCategory::SPECIAL, "badge_cherry9", true, "Cherry'wCode" },
+        {0, "BagdeCherry_10.png"_spr, "I don't want to get up", BadgeCategory::LEGENDARY, "badge_cherry10", true, "Cherry'wCode" },
+        {0, "omega_badge.png"_spr, "Omega", BadgeCategory::COMMON, "omega_badge", true, "XJotaBeLikeX"},
+       
 
         //misiones
         {0, "shiver_badge.png"_spr, "Shiver!", BadgeCategory::SPECIAL, "shiver_badge", true, "XJotaBeLikeX"},
@@ -279,7 +295,7 @@ struct StreakData {
        { 0, "usa.png"_spr, "United States", BadgeCategory::COMMON, "usa_badge", true, "XJotaBeLikeX" },
        { 0, "ven.png"_spr, "Venezuela", BadgeCategory::COMMON, "venezuela_badge", true, "XJotaBeLikeX" },
        { 0, "par.png"_spr, "Paraguay", BadgeCategory::COMMON, "paraguay_badge", true, "XJotaBeLikeX" },
-       { 0, "phi.png"_spr, "Filipinas", BadgeCategory::COMMON, "filipinas_badge", true, "XJotaBeLikeX" },
+       { 0, "phi.png"_spr, "Philippines", BadgeCategory::COMMON, "filipinas_badge", true, "XJotaBeLikeX" },
        { 0, "mex.png"_spr, "Mexico", BadgeCategory::COMMON, "mexico_badge", true, "XJotaBeLikeX" },
        { 0, "esp.png"_spr, "Spain", BadgeCategory::COMMON, "spain_badge", true, "XJotaBeLikeX" },
        { 0, "arg.png"_spr, "Argentina", BadgeCategory::COMMON, "arg_badge", true, "XJotaBeLikeX" },
@@ -288,7 +304,9 @@ struct StreakData {
        { 0, "eng.png"_spr, "England", BadgeCategory::COMMON, "eng_badge", true, "XJotaBeLikeX" },
        { 0, "per.png"_spr, "Peru", BadgeCategory::COMMON, "peru_badge", true, "XJotaBeLikeX" },
        { 0, "fra.png"_spr, "Francia", BadgeCategory::COMMON, "fra_badge", true, "XJotaBeLikeX" },
-       { 0, "rus.png"_spr, "Rusia", BadgeCategory::COMMON, "rus_badge", true, "XJotaBeLikeX" }
+       { 0, "rus.png"_spr, "Russia", BadgeCategory::COMMON, "rus_badge", true, "XJotaBeLikeX" }
+
+       
 
 
     };

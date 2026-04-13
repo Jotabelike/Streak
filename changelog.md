@@ -1,4 +1,10 @@
 # Streak!
+# 1.10.38
+- updated star roulette
+- updated some progress bar layouts
+- New Badges
+- New Event
+
 # 1.10.37
 - New logo 
 - The percentage bug has been fixed
