@@ -28,6 +28,7 @@
 #include "AchievementsPopup.h"
 #include "StreakAnimations.h"
 #include "../utils/RoundedProgressBar.h"
+#include "DiscordGoalPopup.h"
 
 class InfoPopup : public Popup {
 protected:
@@ -318,6 +319,7 @@ protected:
         rewardsBtn->setPosition({ winSize.width - 22, sideBtnY - 22 });
         cornerMenu->addChild(rewardsBtn);
 
+   
         if (g_streakData.isTaskEnabled) {
             auto taskIcon = CCSprite::create("task_btn.png"_spr);
             taskIcon->setScale(0.7f);
@@ -326,8 +328,24 @@ protected:
                 this,
                 menu_selector(InfoPopup::onOpenTasks)
             );
+      
             taskBtn->setPosition({ winSize.width - 22, sideBtnY - 59 });
             cornerMenu->addChild(taskBtn);
+        } 
+        else if (g_streakData.isDiscordGoalEnabled) {
+       
+            auto dcIcon = CCSprite::create("discord_goal_btn.png"_spr); 
+            if (!dcIcon) dcIcon = CCSprite::createWithSpriteFrameName("GJ_chatBtn_001.png"); 
+            dcIcon->setScale(0.7f);
+            
+            auto dcBtn = CCMenuItemSpriteExtra::create(
+                dcIcon,
+                this,
+                menu_selector(InfoPopup::onOpenDiscordGoal)
+            );
+        
+            dcBtn->setPosition({ winSize.width - 22, sideBtnY - 59 });
+            cornerMenu->addChild(dcBtn);
         }
 
         auto missionsIcon = CCSprite::create("super_star_btn.png"_spr);
@@ -409,6 +427,8 @@ protected:
         cornerMenu->addChild(settingsBtn);
 
         std::vector<CCMenuItemSpriteExtra*> allBottomBtns;
+
+
 
         auto eventIcon = CCSprite::create("event_boton.png"_spr);
         if (!eventIcon || eventIcon->getContentSize().width == 0) eventIcon = CCSprite::createWithSpriteFrameName("GJ_top100Btn_001.png");
@@ -659,6 +679,10 @@ protected:
 
     void onOpenTasks(CCObject*) {
         TaskPopup::create()->show();
+    }
+
+    void onOpenDiscordGoal(CCObject*) {
+        DiscordGoalPopup::create()->show();
     }
 
     void onOpenSettings(CCObject*) {

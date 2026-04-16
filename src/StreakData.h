@@ -11,6 +11,17 @@
 
 using namespace geode::prelude;
 
+
+struct DiscordMilestone {
+    int requirement;
+    int tickets;
+    int stars;
+    int gems;
+    std::string spriteName;
+    bool isChest; 
+};
+
+
 struct StreakData {
 
     enum class BadgeCategory {
@@ -29,6 +40,7 @@ struct StreakData {
         std::string name;
         std::string sprite;
     };
+
 
     struct MailMessage {
         std::string id;
@@ -71,7 +83,7 @@ struct StreakData {
     };
 
     std::vector<ConsumableItem> getDailyConsumableSelection();
-
+    std::vector<DiscordMilestone> m_discordMilestones;
     std::vector<bool> gemRouletteState;
     std::map<int, std::string> userBadgeCache;
     int currentStreak;
@@ -79,6 +91,10 @@ struct StreakData {
     std::string gemRouletteHash = "";
     int totalStreakPoints;
     bool hasNewStreak;
+    bool isDiscordGoalEnabled;
+    int discordCount = 0;
+    int discordGoalMax = 1000;
+    std::set<int> claimedDiscordMilestones;
     bool isTaskEnabled;
     std::string lastDay;
     std::string equippedBadge;

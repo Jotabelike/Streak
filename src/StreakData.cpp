@@ -51,6 +51,7 @@ void StreakData::resetToDefault() {
     gemRouletteSpinCount = 0;
     gemRouletteState.assign(7, false);
     currentLevel = 1;
+    isDiscordGoalEnabled = false;
     isTaskEnabled = false;
     taskStatuses.clear();
     streakCompletedLevels.clear();
@@ -61,6 +62,7 @@ void StreakData::resetToDefault() {
     pointMission4Claimed = false;
     pointMission5Claimed = false;
     pointMission6Claimed = false;
+
 
     if (unlockedBadges.size() != badges.size()) {
         unlockedBadges.assign(badges.size(), false);
@@ -112,7 +114,18 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     superStars = safeInt(data, "super_stars", 0);
     starTickets = safeInt(data, "star_tickets", 0);
     lastRouletteIndex = safeInt(data, "last_roulette_index", 0);
+    discordCount = safeInt(data, "discord_count", 0);
+    discordGoalMax = safeInt(data, "discord_goal_max", 1000);
     totalSpins = safeInt(data, "total_spins", 0);
+    
+    if (data.contains("claimed_discord_milestones")) {
+        auto goalsResult = data["claimed_discord_milestones"].as<std::vector<int>>();
+        if (goalsResult.isOk()) {
+            for (int g : goalsResult.unwrap()) {
+                claimedDiscordMilestones.insert(g);
+            }
+        }
+    }
     lastDay = data["lastDay"].as<std::string>().unwrapOr(std::string(""));
     if (lastDay.empty() && data.contains("last_day")) {
         lastDay = data["last_day"].as<std::string>().unwrapOr(std::string(""));
@@ -164,6 +177,30 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     }
     else {
         isTaskEnabled = false;
+    }
+
+    if (data.contains("discord_goal_enabled")) {
+        isDiscordGoalEnabled = data["discord_goal_enabled"].as<bool>().unwrapOr(false);
+    }
+    else {
+        isDiscordGoalEnabled = false;
+    }
+
+    m_discordMilestones.clear();
+    if (data.contains("discord_milestones")) {
+        auto list = data["discord_milestones"].as<std::vector<matjson::Value>>();
+        if (list.isOk()) {
+            for (auto& item : list.unwrap()) {
+                m_discordMilestones.push_back({
+                    item["req"].as<int>().unwrapOr(0),
+                    item["tickets"].as<int>().unwrapOr(0),
+                    item["stars"].as<int>().unwrapOr(0),
+                    item["gems"].as<int>().unwrapOr(0),
+                    item["spr"].as<std::string>().unwrapOr(""),
+                    item["isChest"].as<bool>().unwrapOr(false)  
+                    });
+            }
+        }
     }
 
     taskStatuses.clear();

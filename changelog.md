@@ -1,4 +1,9 @@
-# Streak!
+## Streak!
+# 1.10.39
+- Added Discord Community Goal Popup: A new interactive menu to track Discord server member milestones and unlock rewards.
+
+- Chest Reward Integration: Added randomized chest drops alongside fixed major rewards (gems, stars, and tickets).
+
 # 1.10.38
 - updated star roulette
 - updated some progress bar layouts

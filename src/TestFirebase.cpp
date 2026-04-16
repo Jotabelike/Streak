@@ -166,6 +166,13 @@ void updatePlayerDataInFirebase() {
     }
     playerData.set("claimed_streak_goals", goalsArray);
 
+
+    std::vector<int> discordGoalsArray;
+    for (int req : g_streakData.claimedDiscordMilestones) {
+        discordGoalsArray.push_back(req);
+    }
+    playerData.set("claimed_discord_milestones", discordGoalsArray);
+
     std::vector<std::string> unlocked_names_vec;
     for (const auto& item : g_streakData.unlockedNameItems) {
         unlocked_names_vec.push_back(item);
