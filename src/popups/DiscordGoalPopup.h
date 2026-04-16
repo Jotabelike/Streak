@@ -7,7 +7,7 @@
 #include "../utils/RoundedProgressBar.h"
 #include "../RewardNotification.h"
 #include "ChestRewardHelper.h" 
-#include "StatusSpinner.h" 
+#include "../StatusSpinner.h" 
 
 using namespace geode::prelude;
 
