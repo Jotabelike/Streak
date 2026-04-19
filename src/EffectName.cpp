@@ -202,7 +202,7 @@ namespace NameModifiers {
             particles->setBlendAdditive(false);
         }
         else if (effectID == "Electric") {
-            particles = CCParticleFireworks::create();
+            particles = CCParticleFire::create();
             particles->setTotalParticles(100);
             particles->setLife(0.6f);
             particles->setEmissionRate(100.f / 0.6f);
@@ -220,7 +220,7 @@ namespace NameModifiers {
             particles->setBlendAdditive(true);
         }
         else if (effectID == "Ice") {
-            particles = CCParticleSpiral::create();
+            particles = CCParticleSnow::create();
             particles->setTotalParticles(80);
             particles->setLife(1.0f);
             particles->setEmissionRate(80.f / 1.0f);
@@ -238,7 +238,7 @@ namespace NameModifiers {
             particles->setBlendAdditive(true);
         }
         else if (effectID == "Galaxy") {
-            particles = CCParticleMeteor::create();
+            particles = CCParticleFire::create();
             particles->setTotalParticles(140);
             particles->setLife(0.9f);
             particles->setEmissionRate(140.f / 0.9f);
@@ -257,7 +257,7 @@ namespace NameModifiers {
             particles->setBlendAdditive(true);
         }
         else if (effectID == "Lava") {
-            particles = CCParticleSun::create();
+            particles = CCParticleFire::create();
             particles->setTotalParticles(130);
             particles->setLife(0.7f);
             particles->setEmissionRate(130.f / 0.7f);
