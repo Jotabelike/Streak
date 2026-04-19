@@ -18,10 +18,14 @@
 #include <Geode/modify/OptionsLayer.hpp>
 #include <Geode/ui/Notification.hpp> 
 #include "WelcomeNotification.h"
+#include "RewardNotification.h"
 
 class $modify(MyPlayLayer, PlayLayer) {
-    void levelComplete() {
+    struct Fields {
+        int m_pointsGained = 0; // Guardamos los puntos aquí para que EndLevelLayer los lea
+    };
 
+    void levelComplete() {
         int percentBefore = this->m_level->m_normalPercent;
 
         PlayLayer::levelComplete();
@@ -38,7 +42,7 @@ class $modify(MyPlayLayer, PlayLayer) {
 
         if (stars > 0) {
             int points = 0;
-            if (stars <= 3) points = 1;       // auto -easy - normal
+            if (stars <= 3) points = 1;       // auto - easy - normal
             else if (stars <= 5) points = 3;  // hard
             else if (stars <= 7) points = 4;  // harder
             else if (stars <= 9) points = 5;  // insane
@@ -52,9 +56,8 @@ class $modify(MyPlayLayer, PlayLayer) {
                 g_streakData.addPoints(points);
 
                 if (geode::Mod::get()->getSavedValue<bool>("enable_streak_bar", true)) {
-                    if (auto scene = CCDirector::sharedDirector()->getRunningScene()) {
-                        scene->addChild(StreakProgressBar::create(points, before, required), 100);
-                    }
+                    // GUARDAMOS LOS PUNTOS EN EL PUENTE GLOBAL
+                    StreakDataBridge::pointsGained = points;
                 }
             }
         }

@@ -28,6 +28,7 @@ void StreakData::resetToDefault() {
     unlockedNameItems.clear();
     currentStreak = 0;
     streakPointsToday = 0;
+    isGDPS = false;
     pinnedLevels.clear();
     totalStreakPoints = 0;
     hasNewStreak = false;
@@ -349,6 +350,21 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
                 }
             }
         }
+    }
+
+    bool isModOrAdmin = (userRole >= 1);
+    for (size_t i = 0; i < badges.size(); ++i) {
+        if (badges[i].badgeID == "moderator_badge") {
+            if (i < unlockedBadges.size()) {
+                unlockedBadges[i] = isModOrAdmin;
+            }
+            break;
+        }
+    }
+
+ 
+    if (!isModOrAdmin && equippedBadge == "moderator_badge") {
+        equippedBadge = "";
     }
 
     this->checkRewards();

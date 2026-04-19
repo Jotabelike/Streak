@@ -8,7 +8,7 @@
 #include <Geode/utils/async.hpp>
 #include <Geode/loader/Event.hpp>
 #include <matjson.hpp>
-
+#include "NameModifiers.h"
 using namespace geode::prelude;
 
 class $modify(MyColoredCommentCell, CommentCell) {
@@ -70,15 +70,14 @@ class $modify(MyColoredCommentCell, CommentCell) {
         if (!bg) return;
 
         
-        auto bannerSprite = CCSprite::create(spriteName.c_str());
-
-      
+        auto bannerSprite = CCSprite::create(spriteName.c_str());  
         if (!bannerSprite) {
             bannerSprite = CCSprite::createWithSpriteFrameName(spriteName.c_str());
         }
 
         if (bannerSprite) {
-            bannerSprite->setOpacity(120);
+            double opacityMult = Mod::get()->getSavedValue<double>("banner_opacity", 1.0);
+            bannerSprite->setOpacity(static_cast<GLubyte>(255 * opacityMult)); 
 
            
             auto bgSize = bg->getContentSize();
@@ -103,12 +102,61 @@ class $modify(MyColoredCommentCell, CommentCell) {
         }
     }
 
-    void loadFromComment(GJComment * comment) {
+    void applyNameModifiers(const std::string& color, 
+        const std::string& font,
+        const std::string& effect, 
+        const std::string& anim)
+    {
+       
+        bool showNameEffects = Mod::get()->getSavedValue<bool>("enable_name_effects", true);
+
+        CCLabelBMFont* usernameLabel = nullptr;
+
+        if (auto menu = this->m_mainLayer->getChildByIDRecursive("username-menu")) {
+            if (auto btn = menu->getChildByID("username-button")) {
+                if (btn->getChildrenCount() > 0) {
+                    usernameLabel = typeinfo_cast<CCLabelBMFont*>(btn->getChildren()->objectAtIndex(0));
+                }
+            }
+        }
+
+        if (!usernameLabel) {
+            usernameLabel = typeinfo_cast<CCLabelBMFont*>(this->m_mainLayer->getChildByIDRecursive("username-label"));
+        }
+
+        if (usernameLabel) {
+            usernameLabel->stopAllActions();
+            usernameLabel->setRotation(0.f);
+
+           
+            if (!showNameEffects) {
+                usernameLabel->setFntFile("goldFont.fnt");
+                return;
+            }
+ 
+            if (font == "Default" || font == "None" || font.empty()) {
+                usernameLabel->setFntFile("goldFont.fnt");
+            }
+            else {
+                NameModifiers::applyFont(usernameLabel, font);
+            }
+            if (color != "Default" && color != "None" && !color.empty()) {
+                NameModifiers::applyColor(usernameLabel, color);
+            }
+            if (anim != "Default" && anim != "None" && !anim.empty()) {
+                NameModifiers::applyAnimation(usernameLabel, anim);
+            }
+            if (effect != "Default" && effect != "None" && !effect.empty()) {
+                NameModifiers::applyEffect(usernameLabel, effect);
+            }
+        }
+    }
+
+    void loadFromComment(GJComment* comment) {
         CommentCell::loadFromComment(comment);
 
         this->unschedule(schedule_selector(MyColoredCommentCell::updateRainbowEffect));
 
-       
         CCNode* bg = this->getChildByID("background");
         if (!bg && this->getChildrenCount() > 0) {
             bg = typeinfo_cast<CCNode*>(this->getChildren()->objectAtIndex(0));
@@ -123,10 +171,9 @@ class $modify(MyColoredCommentCell, CommentCell) {
         int accountID = comment->m_accountID;
         if (accountID <= 0) return;
 
-       
         bool showBanners = Mod::get()->getSavedValue<bool>("enable_comment_banners", true);
 
-       
+   
         if (accountID == GJAccountManager::sharedState()->m_accountID) {
             if (auto* equippedBadge = g_streakData.getEquippedBadge()) {
                 if (equippedBadge->category == StreakData::BadgeCategory::MYTHIC) {
@@ -139,40 +186,59 @@ class $modify(MyColoredCommentCell, CommentCell) {
                     this->addBannerSprite(equippedBanner->spriteName);
                 }
             }
+
+         
+            this->applyNameModifiers(g_streakData.equippedNameColor,
+                g_streakData.equippedNameFont,
+                g_streakData.equippedNameEffect,
+                g_streakData.equippedNameAnimation);
             return;
         }
 
-        
+     
         std::string cachedBadge = g_streakData.getCachedBadge(accountID);
         std::string cachedBanner = g_streakData.getCachedBanner(accountID);
 
-        if (!cachedBadge.empty() && !cachedBanner.empty()) {
+      
+        if (!cachedBadge.empty() && !cachedBanner.empty() && cachedBadge != "pending") {
             if (isBadgeMythic(cachedBadge)) {
                 this->schedule(schedule_selector(MyColoredCommentCell::updateRainbowEffect));
             }
-            if (showBanners && cachedBanner != "none" && cachedBanner != "pending") {
+            if (showBanners && cachedBanner != "none") {
                 if (auto bannerInfo = g_streakData.getBannerInfo(cachedBanner)) {
                     this->addBannerSprite(bannerInfo->spriteName);
                 }
             }
+
+        
+            auto cachedNames = g_streakData.getCachedNameCosmetics(accountID);
+            this->applyNameModifiers(cachedNames.color, cachedNames.font, cachedNames.effect, cachedNames.animation);
             return;
         }
 
-         
+      
         g_streakData.cacheUserBadge(accountID, "pending");
         g_streakData.cacheUserBanner(accountID, "pending");
-        std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
 
+      
+        this->applyNameModifiers("Default", "Default", "None", "None");
+        std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
         auto req = web::WebRequest();
+
         m_fields->m_cosmeticsCheckListener.spawn(req.get(url), [this, accountID, showBanners](web::WebResponse res) {
             if (res.ok() && res.json().isOk()) {
                 auto playerData = res.json().unwrap();
 
                 std::string badgeId = playerData["equipped_badge_id"].as<std::string>().unwrapOr("");
                 std::string bannerId = playerData["equipped_banner_id"].as<std::string>().unwrapOr("");
+                std::string nameColor = playerData["equipped_name_color"].as<std::string>().unwrapOr("Default");
+                std::string nameFont = playerData["equipped_name_font"].as<std::string>().unwrapOr("Default");
+                std::string nameEffect = playerData["equipped_name_effect"].as<std::string>().unwrapOr("None");
+                std::string nameAnim = playerData["equipped_name_animation"].as<std::string>().unwrapOr("None");
 
                 g_streakData.cacheUserBadge(accountID, badgeId.empty() ? "none" : badgeId);
                 g_streakData.cacheUserBanner(accountID, bannerId.empty() ? "none" : bannerId);
+                g_streakData.cacheUserNameCosmetics(accountID, nameColor, nameFont, nameEffect, nameAnim);
 
                 if (this->isBadgeMythic(badgeId)) {
                     this->schedule(schedule_selector(MyColoredCommentCell::updateRainbowEffect));
@@ -183,12 +249,16 @@ class $modify(MyColoredCommentCell, CommentCell) {
                         this->addBannerSprite(bannerInfo->spriteName);
                     }
                 }
+
+                this->applyNameModifiers(nameColor, nameFont, nameEffect, nameAnim);
             }
             else if (res.code() == 404) {
                 g_streakData.cacheUserBadge(accountID, "none");
                 g_streakData.cacheUserBanner(accountID, "none");
+                g_streakData.cacheUserNameCosmetics(accountID, "Default", "Default", "None", "None");
+                this->applyNameModifiers("Default", "Default", "None", "None");
             }
-            });
+        });
     }
 
     static void onModify(auto& self) {

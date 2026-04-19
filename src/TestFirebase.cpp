@@ -26,6 +26,7 @@ void loadPlayerDataFromServer() {
         g_streakData.m_initialized = true;
         return;
     }
+ 
 
     int accountID = am->m_accountID;
     std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
@@ -72,7 +73,7 @@ void updatePlayerDataInFirebase() {
     playerData.set("username", std::string(accountManager->m_username));
     playerData.set("accountID", accountID);
     playerData.set("userID", userID);
-
+    playerData.set("isGDPS", g_streakData.isGDPS);
     
     playerData.set("equipped_badge_id", g_streakData.equippedBadge);
     playerData.set("equipped_banner_id", g_streakData.equippedBanner);

@@ -6,6 +6,8 @@
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
 #include "QualityNode.h"
+#include "../utils/ScrollbarUtils.h"
+
 
 using namespace geode::prelude;
 
@@ -16,6 +18,7 @@ public:
 protected:
     std::string m_badgeID;
     bool m_isCurrentlyEquipped;
+     
 
     void onCredits(CCObject*) {
         auto badgeInfo = g_streakData.getBadgeInfo(m_badgeID);
@@ -24,6 +27,7 @@ protected:
             FLAlertLayer::create("Credits", text.c_str(), "OK")->show();
         }
     }
+
 
     bool init(std::string badgeID) {
         if (!Popup::init(250.f, 200.f, "geode.loader/GE_square03.png")) return false;
@@ -323,42 +327,58 @@ protected:
     int m_currentCategory = 0;
     int m_currentPage = 0;
     int m_totalPages = 0;
-
-    
     QualityNode* m_qualityNode = nullptr;
     CCLabelBMFont* m_categoryLabel = nullptr;  
-   
-
     CCMenu* m_badgeMenu = nullptr;
     CCNode* m_decorationNode = nullptr;
     CCNode* m_namesContainer = nullptr;
     CCLabelBMFont* m_namePreviewLabel = nullptr;
-
     CCMenu* m_catArrowMenu = nullptr;
     CCMenu* m_pageArrowMenu = nullptr;
     cocos2d::extension::CCScale9Sprite* m_background = nullptr;
-
     CCMenuItemSpriteExtra* m_pageLeftArrow = nullptr;
     CCMenuItemSpriteExtra* m_pageRightArrow = nullptr;
-
     CCLabelBMFont* m_counterText = nullptr;
     CCLabelBMFont* m_totalStatsLabel = nullptr;
-
-    const float POPUP_WIDTH = 360.f;
+    const float POPUP_WIDTH = 410.f;  
     const float POPUP_HEIGHT = 280.f;
-    const float CENTER_X = 180.f;
+    const float CENTER_X = 205.f;    
     const float CENTER_Y = 140.f;
-
     std::string m_previewEffect;
     std::string m_previewAnimation;
     std::string m_previewColor;
     std::string m_previewFont;
-
+    std::map<std::string, cocos2d::CCLayerColor*> m_cellBackgrounds;
     std::string m_selectedLockedItem;
     int m_selectedLockedTag = 0;
     CCMenuItemSpriteExtra* m_buyNameBtn = nullptr;
     CCLabelBMFont* m_buyPriceLabel = nullptr;
     CCMenuItemSpriteExtra* m_selectedLockedBtn = nullptr;
+
+    void updateCellHighlights() {
+        
+        for (auto const& [key, bg] : m_cellBackgrounds) {
+            if (bg) {
+                bg->setColor({ 0, 0, 0 });
+                bg->setOpacity(40);
+            }
+        }
+
+        
+        auto highlight = [this](int tag, const std::string& item) {
+            std::string key = fmt::format("{}_{}", tag, item);
+            if (m_cellBackgrounds.count(key) && m_cellBackgrounds[key]) {
+                m_cellBackgrounds[key]->setColor({ 255, 255, 255 });
+                m_cellBackgrounds[key]->setOpacity(60);  
+            }
+            };
+
+     
+        highlight(1, m_previewEffect);
+        highlight(2, m_previewAnimation);
+        highlight(3, m_previewColor);
+        highlight(4, m_previewFont);
+    }
 
     void onCopyrightInfo(CCObject*) {
         std::string title = "Asset Design Disclaimer";
@@ -380,6 +400,7 @@ protected:
         else if (tag == 4) m_previewFont = id;
 
         updateNamePreview();
+        updateCellHighlights();
 
         if (g_streakData.isNameItemUnlocked(id)) {
             if (tag == 1) g_streakData.equippedNameEffect = id;
@@ -444,7 +465,10 @@ protected:
 
     void updateNamePreview() {
         if (!m_namePreviewLabel) return;
-        m_namePreviewLabel->setString("PlayerName");
+        std::string playerName = GJAccountManager::sharedState()->m_username;
+        if (playerName.empty()) playerName = "Player"; 
+
+        m_namePreviewLabel->setString(playerName.c_str());
         m_namePreviewLabel->stopAllActions();
         m_namePreviewLabel->setScale(0.8f);
         m_namePreviewLabel->setRotation(0.f);
@@ -465,21 +489,21 @@ protected:
         if (!badgeBtnSpr) badgeBtnSpr = ButtonSprite::create("Badges");
         badgeBtnSpr->setScale(0.25f);
         auto badgeBtn = CCMenuItemSpriteExtra::create(badgeBtnSpr,
-            this, 
+            this,
             menu_selector(RewardsPopup::onSwitchToBadges));
 
         auto bannerBtnSpr = CCSprite::create("banners_btn_c.png"_spr);
         if (!bannerBtnSpr) bannerBtnSpr = ButtonSprite::create("Banners");
         bannerBtnSpr->setScale(0.25f);
         auto bannerBtn = CCMenuItemSpriteExtra::create(bannerBtnSpr,
-            this, 
+            this,
             menu_selector(RewardsPopup::onSwitchToBanners));
 
         auto nameBtnSpr = CCSprite::create("name_btn_c.png"_spr);
         if (!nameBtnSpr) nameBtnSpr = ButtonSprite::create("Name");
         nameBtnSpr->setScale(0.25f);
         auto nameBtn = CCMenuItemSpriteExtra::create(nameBtnSpr,
-            this, 
+            this,
             menu_selector(RewardsPopup::onSwitchToNames));
 
         auto leftMenu = CCMenu::create();
@@ -493,36 +517,32 @@ protected:
         m_background = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
         m_background->setColor({ 0, 0, 0 });
         m_background->setOpacity(120);
-        m_background->setContentSize({ 320.f, 130.f });
+        m_background->setContentSize({ 375.f, 130.f });
         m_background->setPosition({ CENTER_X, CENTER_Y - 25.f });
         m_mainLayer->addChild(m_background);
 
         float categoryY = POPUP_HEIGHT - 70.f;
         auto catLeftArrow = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
-        auto catLeftBtn = CCMenuItemSpriteExtra::create(catLeftArrow, 
+        auto catLeftBtn = CCMenuItemSpriteExtra::create(catLeftArrow,
             this,
             menu_selector(RewardsPopup::onPreviousCategory));
-        catLeftBtn->setPosition(-110.f, 0);
+        catLeftBtn->setPosition(-140.f, 0);
 
         auto catRightArrow = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
         catRightArrow->setFlipX(true);
-        auto catRightBtn = CCMenuItemSpriteExtra::create(catRightArrow, 
+        auto catRightBtn = CCMenuItemSpriteExtra::create(catRightArrow,
             this,
             menu_selector(RewardsPopup::onNextCategory));
-        catRightBtn->setPosition(110.f, 0);
+        catRightBtn->setPosition(140.f, 0); 
 
         m_catArrowMenu = CCMenu::create();
         m_catArrowMenu->addChild(catLeftBtn);
         m_catArrowMenu->addChild(catRightBtn);
         m_catArrowMenu->setPosition({ CENTER_X, categoryY });
         m_mainLayer->addChild(m_catArrowMenu);
-
-       
         m_qualityNode = QualityNode::create();
         m_qualityNode->setPosition({ CENTER_X, categoryY });
         m_mainLayer->addChild(m_qualityNode, 9);
-
-        
         m_categoryLabel = CCLabelBMFont::create("", "goldFont.fnt");
         m_categoryLabel->setScale(0.6f);
         m_categoryLabel->setPosition({ CENTER_X, categoryY });
@@ -537,8 +557,8 @@ protected:
 
         auto pageRightArrowSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
         pageRightArrowSprite->setFlipX(true);
-        m_pageRightArrow = CCMenuItemSpriteExtra::create(pageRightArrowSprite, 
-            this, 
+        m_pageRightArrow = CCMenuItemSpriteExtra::create(pageRightArrowSprite,
+            this,
             menu_selector(RewardsPopup::onNextBadgePage));
         m_pageRightArrow->setPosition(m_background->getContentSize().width / 2 + 15.f, 0);
 
@@ -561,9 +581,9 @@ protected:
         m_counterText->setPosition({ CENTER_X, 25.f });
         m_mainLayer->addChild(m_counterText);
 
-        auto infoSpr = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
-        infoSpr->setScale(0.7f);
-        auto infoBtn = CCMenuItemSpriteExtra::create(infoSpr, 
+        auto infoSpr = CCSprite::create("info_btn.png"_spr);
+        infoSpr->setScale(0.25f);
+        auto infoBtn = CCMenuItemSpriteExtra::create(infoSpr,
             this,
             menu_selector(RewardsPopup::onCopyrightInfo));
         auto infoMenu = CCMenu::createWithItem(infoBtn);
@@ -577,66 +597,127 @@ protected:
         m_mainLayer->addChild(m_totalStatsLabel);
 
         m_namesContainer = CCNode::create();
-        m_namesContainer->setPosition(m_background->getPosition());
+        m_namesContainer->setPosition({ -9999.f, -9999.f });
         m_namesContainer->setVisible(false);
-        m_mainLayer->addChild(m_namesContainer, 10);
+        m_mainLayer->addChild(m_namesContainer, 5);
+        m_badgeMenu->setZOrder(15);
+        m_decorationNode->setZOrder(16);  
+        m_pageArrowMenu->setZOrder(15);
+        m_catArrowMenu->setZOrder(15);
 
         m_previewEffect = g_streakData.equippedNameEffect;
         m_previewAnimation = g_streakData.equippedNameAnimation;
         m_previewColor = g_streakData.equippedNameColor;
         m_previewFont = g_streakData.equippedNameFont;
 
-        float colOffsets[4] = { -125.f, -42.f, 42.f, 125.f };
+        float colOffsets[4] = { -132.f, -44.f, 44.f, 132.f };
 
         auto effectsTitle = CCLabelBMFont::create("Effects", "goldFont.fnt");
-        effectsTitle->setScale(0.5f);
-        effectsTitle->setPosition({ colOffsets[0], 50.f });
+        effectsTitle->setScale(0.45f);
+        effectsTitle->setPosition({ colOffsets[0], 52.f });
         m_namesContainer->addChild(effectsTitle);
 
         auto animsTitle = CCLabelBMFont::create("Anims", "goldFont.fnt");
-        animsTitle->setScale(0.5f);
-        animsTitle->setPosition({ colOffsets[1], 50.f });
+        animsTitle->setScale(0.45f);
+        animsTitle->setPosition({ colOffsets[1], 52.f });
         m_namesContainer->addChild(animsTitle);
 
         auto colorsTitle = CCLabelBMFont::create("Colors", "goldFont.fnt");
-        colorsTitle->setScale(0.5f);
-        colorsTitle->setPosition({ colOffsets[2], 50.f });
+        colorsTitle->setScale(0.45f);
+        colorsTitle->setPosition({ colOffsets[2], 52.f });
         m_namesContainer->addChild(colorsTitle);
 
         auto fontsTitle = CCLabelBMFont::create("Fonts", "goldFont.fnt");
-        fontsTitle->setScale(0.5f);
-        fontsTitle->setPosition({ colOffsets[3], 50.f });
+        fontsTitle->setScale(0.45f);
+        fontsTitle->setPosition({ colOffsets[3], 52.f });
         m_namesContainer->addChild(fontsTitle);
 
-        std::vector<std::string> effects = { "None", "Sparkle", "Fire", "Snow", "Poison", "Stars", "Void", "Rain", "Blood", "Holy", "Toxic", "Multy3D" };
-        std::vector<std::string> animations = { "None", "Dynamic jump", "Wave", "Pulse", "Bounce", "Swing", "Glitch", "Shake", "Spin", "Jelly", "Heartbeat", "Float","DVD","Domino" };
-        std::vector<std::string> colors = { "Default", "Rainbow", "Red", "Blue", "Green", "Yellow", "Purple", "Orange", "Black", "Cyan", "Pink", "Lime", "Magenta" };
-        std::vector<std::string> fonts = { "Default", "Pusab", "Gold", "Chat", "Serigrafia", "Pixel", "Blocky", "Mecano", "Monster", "Tech" };
+        std::vector<std::string> effects = {
+       "None", "Blood", "Confetti", "Electric", "Fire", "Galaxy", "Holy",
+       "Ice", "Lava", "Poison", "Rain", "Snow", "Sparkle", "Stars",
+       "Toxic", "Void"
+        };
 
+        std::vector<std::string> animations = {
+            "None", "Bounce", "Domino", "DVD", "Dynamic Jump", "Float",
+            "Glitch", "Heartbeat", "Jelly", "Pulse", "Shake", "Spin",
+            "Swing", "Wave"
+        };
+
+        std::vector<std::string> colors = {
+            "Default", "Black", "Blue", "Brown", "Cyan", "Gold", "Green",
+            "Lime", "Magenta", "Maroon", "Mint", "Navy", "Orange",
+            "Peach", "Pink", "Purple", "Red", "Silver", "Teal", "Yellow",
+            "Cyberpunk Wave", "Fire Wave", "Ice Wave", "Ocean Wave",
+            "Rainbow", "Rainbow Wave", "Royal Wave", "Sunset Wave", "Toxic Wave",
+            "Static Blood", "Static Deep Sea", "Static Golden",
+            "Static Toxic", "Static Vaporwave"
+        };
+
+        std::vector<std::string> fonts = {
+            "Default", "Chat", "Gold", "Pusab",
+            "Font1", "Font2", "Font3", "Font4", "Font5", "Font6",
+            "Font7", "Font8", "Font9", "Font10",
+            "Font11", "Font12", "Font13", "Font14", "Font15", "Font16",
+            "Font17", "Font18", "Font19", "Font20", "Font21", "Font22",
+            "Font23", "Font24", "Font25", "Font26", "Font27", "Font28",
+            "Font29", "Font30", "Font31", "Font32", "Font33", "Font34",
+            "Font35", "Font36", "Font37", "Font38", "Font39", "Font40",
+            "Font41", "Font42", "Font43", "Font44", "Font45", "Font46",
+            "Font47", "Font48", "Font49", "Font50", "Font51", "Font52",
+            "Font53", "Font54", "Font55", "Font56", "Font57", "Font58",
+            "Font59"
+        };
         auto createColumn = [this](const std::vector<std::string>& items, float xOffset, int tag) {
-            float listWidth = 80.f;
-            float listHeight = 100.f;
-            float itemHeight = 24.f;
+            float listWidth = 72.f;
+            float listHeight = 92.f;
+            float itemHeight = 30.f;
             float totalHeight = items.size() * itemHeight;
             if (totalHeight < listHeight) totalHeight = listHeight;
 
+            float columnCenterY = -14.f;
+
+             
+            auto listBg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
+            listBg->setContentSize({ listWidth, listHeight });
+            listBg->setPosition({ xOffset, columnCenterY });
+            listBg->setColor({ 0, 0, 0 });
+            listBg->setOpacity(80);
+            m_namesContainer->addChild(listBg);
+
+           
+            auto stencil = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
+            stencil->setContentSize({ listWidth, listHeight });
+            stencil->setPosition({ xOffset, columnCenterY });
+
+            auto clipper = CCClippingNode::create();
+            clipper->setStencil(stencil);
+            clipper->setAlphaThreshold(0.05f);
+            clipper->setPosition({ 0, 0 });  
+            m_namesContainer->addChild(clipper);
+
+        
             auto scrollLayer = geode::ScrollLayer::create({ listWidth, listHeight });
-            scrollLayer->setPosition({ xOffset - listWidth / 2.f, -55.f });
+            scrollLayer->setPosition({ xOffset - listWidth / 2.f, columnCenterY - listHeight / 2.f });
 
             auto menu = CCMenu::create();
             menu->setContentSize({ listWidth, totalHeight });
             menu->setPosition({ 0, 0 });
 
             float currentY = totalHeight - (itemHeight / 2.f);
-
             for (const auto& item : items) {
+                auto cellBg = CCLayerColor::create({ 0, 0, 0, 40 }, listWidth, itemHeight - 2.f);
+                cellBg->setPosition({ 0.f, currentY - (itemHeight - 2.f) / 2.f });
+                scrollLayer->m_contentLayer->addChild(cellBg);
+                m_cellBackgrounds[fmt::format("{}_{}", tag, item)] = cellBg;
+
                 auto label = CCLabelBMFont::create(item.c_str(), "chatFont.fnt");
-                label->setScale(0.5f);
+                label->setScale(0.55f);
 
                 if (tag == 3) NameModifiers::applyColor(label, item);
                 if (tag == 4) NameModifiers::applyFont(label, item);
 
-                float maxLabelWidth = listWidth - 5.f;
+                float maxLabelWidth = listWidth - 6.f;
                 if (label->getContentSize().width * label->getScale() > maxLabelWidth) {
                     label->setScale(maxLabelWidth / label->getContentSize().width);
                 }
@@ -645,12 +726,12 @@ protected:
                     label->setColor({ 150, 150, 150 });
                     auto lockIcon = CCSprite::createWithSpriteFrameName("GJ_lock_001.png");
                     lockIcon->setScale(0.5f);
-                    lockIcon->setPosition({ -8.f, label->getContentSize().height / 2.f });
+                    lockIcon->setPosition({ -10.f, label->getContentSize().height / 2.f });
                     lockIcon->setTag(888);
                     label->addChild(lockIcon);
                 }
 
-                auto btn = CCMenuItemSpriteExtra::create(label, 
+                auto btn = CCMenuItemSpriteExtra::create(label,
                     this,
                     menu_selector(RewardsPopup::onNameOptionClicked));
                 btn->setUserObject(CCString::create(item));
@@ -667,22 +748,20 @@ protected:
             scrollLayer->m_contentLayer->addChild(menu);
             scrollLayer->m_contentLayer->setContentSize({ listWidth, totalHeight });
             scrollLayer->scrollToTop();
-
-            m_namesContainer->addChild(scrollLayer);
+            clipper->addChild(scrollLayer);
+            addScrollbar(scrollLayer, 4.f, m_namesContainer);
             };
 
         createColumn(effects, colOffsets[0], 1);
         createColumn(animations, colOffsets[1], 2);
         createColumn(colors, colOffsets[2], 3);
-        createColumn(fonts, colOffsets[3], 4);
-
-        m_namePreviewLabel = CCLabelBMFont::create("PlayerName", "bigFont.fnt");
-        m_namePreviewLabel->setPosition({ -50.f, -90.f });
+        createColumn(fonts, colOffsets[3], 4); 
+        updateCellHighlights();
+        m_namePreviewLabel = CCLabelBMFont::create("Player", "bigFont.fnt");
+        m_namePreviewLabel->setPosition({ 0.f, 95.f });
         m_namePreviewLabel->setScale(0.8f);
         m_namesContainer->addChild(m_namePreviewLabel);
-
         auto buyBtnSprite = ButtonSprite::create("        ", 0, false, "bigFont.fnt", "GJ_button_01.png", 25.f, 0.6f);
-
         m_buyPriceLabel = CCLabelBMFont::create("100", "bigFont.fnt");
         m_buyPriceLabel->setScale(0.6f);
         m_buyPriceLabel->setPosition({ buyBtnSprite->getContentSize().width / 2.f - 12.f, buyBtnSprite->getContentSize().height / 2.f });
@@ -694,23 +773,31 @@ protected:
         gemIcon->setPosition({ buyBtnSprite->getContentSize().width / 2.f + 18.f, buyBtnSprite->getContentSize().height / 2.f });
         buyBtnSprite->addChild(gemIcon);
 
-        m_buyNameBtn = CCMenuItemSpriteExtra::create(buyBtnSprite, 
-            this, 
+        m_buyNameBtn = CCMenuItemSpriteExtra::create(buyBtnSprite,
+            this,
             menu_selector(RewardsPopup::onBuyNameItem));
         m_buyNameBtn->setVisible(false);
 
         auto buyMenu = CCMenu::create();
         buyMenu->addChild(m_buyNameBtn);
-        buyMenu->setPosition({ 100.f, -90.f });
+        buyMenu->setPosition({ 0.f, -95.f });
         m_namesContainer->addChild(buyMenu);
-
-        updateNamePreview();
         updateCategoryDisplay();
+        this->updateNamePreview();
+        this->updateCellHighlights();
         return true;
     }
 
     void toggleUIVisibility(bool isNames) {
         m_namesContainer->setVisible(isNames);
+ 
+        if (isNames) {
+            m_namesContainer->setPosition(m_background->getPosition());
+        }
+        else {
+            m_namesContainer->setPosition({ -9999.f, -9999.f });
+        }
+
         m_badgeMenu->setVisible(!isNames);
         m_decorationNode->setVisible(!isNames);
         m_catArrowMenu->setVisible(!isNames);
@@ -718,14 +805,12 @@ protected:
         m_counterText->setVisible(!isNames);
         m_totalStatsLabel->setVisible(!isNames);
 
-        
         if (m_qualityNode) {
             m_qualityNode->setCategory(m_currentCategory, isNames);
         }
 
         if (m_categoryLabel) {
-            m_categoryLabel->setVisible(isNames);
-            if (isNames) m_categoryLabel->setString("Name Customization");
+            m_categoryLabel->setVisible(false);
         }
     }
 

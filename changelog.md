@@ -1,16 +1,27 @@
-## Streak!
-# 1.10.39
-- Added Discord Community Goal Popup: A new interactive menu to track Discord server member milestones and unlock rewards.
+# Streak!
+## 1.10.40
+- New cosmetics added
+- New Banners
+- The name personalization interface was revamped
+- Now the cosmetics names can be seen in the comments
+- New configurations were added
+- about.md was updated
+- The terms and conditions were updated along with a new interface
+- A category for GDPS players was added
+- The streak point bar upon completing a level was removed and replaced with RobTop's reward animation.
+- The design of the rarities was changed
 
+## 1.10.39
+- Added Discord Community Goal Popup: A new interactive menu to track Discord server member milestones and unlock rewards.
 - Chest Reward Integration: Added randomized chest drops alongside fixed major rewards (gems, stars, and tickets).
 
-# 1.10.38
+## 1.10.38
 - updated star roulette
 - updated some progress bar layouts
 - New Badges
 - New Event
 
-# 1.10.37
+## 1.10.37
 - New logo 
 - The percentage bug has been fixed
 - Banners have been added to level comments (this option can be disabled in the settings)
@@ -23,7 +34,7 @@
 - The design of the system notifications was changed slightly, making them a little more transparent.
 - The animation of the streak in the InfoPopup was slightly modified
 
-# 1.10.36 Beta 5
+## 1.10.36 Beta 5
 - improvements in progression
 - new styles for names
 

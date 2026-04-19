@@ -1,21 +1,16 @@
 #pragma once
 #include "StreakCommon.h"
 #include <Geode/Geode.hpp>
+#include <cmath>
 
 using namespace geode::prelude;
 
 class QualityNode : public CCNode {
 protected:
-    CCSprite* m_sprite = nullptr;
+    CCLabelBMFont* m_label = nullptr;
     CCParticleSystemQuad* m_particles = nullptr;
     int m_currentCategory = 0;
-
- 
-    float m_colorTransitionTime = 0.0f;
-    int m_colorIndex = 0;
-    std::vector<ccColor3B> m_mythicColors;
-    ccColor3B m_currentColor;
-    ccColor3B m_targetColor;
+    float m_time = 0.0f;
 
 public:
     static QualityNode* create() {
@@ -30,29 +25,14 @@ public:
 
     bool init() {
         if (!CCNode::init()) return false;
-
-     
-        m_mythicColors = {
-            ccc3(255, 200, 200),
-            ccc3(255, 225, 190),
-            ccc3(255, 255, 200),
-            ccc3(200, 255, 200),
-            ccc3(200, 240, 255),
-            ccc3(220, 200, 255),
-            ccc3(255, 200, 255)
-        };
-        m_currentColor = m_mythicColors[0];
-        m_targetColor = m_mythicColors[1];
  
-        m_sprite = CCSprite::create("common.png"_spr);
-        if (!m_sprite) m_sprite = CCSprite::createWithSpriteFrameName("GJ_button_01.png");
-        m_sprite->setScale(0.8f);
-        this->addChild(m_sprite, 2);
+        m_label = CCLabelBMFont::create("Common", "bigFont.fnt");
+        m_label->setScale(0.55f);
+        this->addChild(m_label, 2);
 
- 
+      
         m_particles = static_cast<CCParticleSystemQuad*>(CCParticleFire::create());
         if (m_particles) {
-         
             m_particles->setTotalParticles(80);
             m_particles->setDuration(-1);
             m_particles->setEmissionRate(0.f);
@@ -77,12 +57,9 @@ public:
             m_particles->setEndSpinVar(180.f);
 
             m_particles->setBlendAdditive(true);
+            m_particles->setPosition({ 0.f, 0.f });  
 
-            auto spriteSize = m_sprite->getContentSize();
-            m_particles->setPosition({ spriteSize.width / 2.f, spriteSize.height / 2.f });
-            m_particles->setPosVar({ 40.f, 15.f });
- 
-            m_sprite->addChild(m_particles, 1);
+            this->addChild(m_particles, 1);
         }
 
         this->scheduleUpdate();
@@ -90,24 +67,53 @@ public:
     }
 
     void update(float dt) override {
-        if (m_currentCategory == 4 && m_particles) {
-            m_colorTransitionTime += dt;
-            if (m_colorTransitionTime >= 1.0f) {
-                m_colorTransitionTime = 0.0f;
-                m_colorIndex = (m_colorIndex + 1) % m_mythicColors.size();
-                m_currentColor = m_targetColor;
-                m_targetColor = m_mythicColors[(m_colorIndex + 1) % m_mythicColors.size()];
+     
+        if (m_currentCategory < 2 || !m_label) return;
+
+        m_time += dt * 2.0f;
+        auto children = m_label->getChildren();
+        if (!children) return;
+
+        int count = children->count();
+        for (int i = 0; i < count; i++) {
+            auto letter = static_cast<CCSprite*>(children->objectAtIndex(i));
+            if (!letter) continue;
+            float phase = m_time + i * 0.3f;
+            float wave = sinf(phase) * 0.5f + 0.5f;
+            GLubyte r = 255, g = 255, b = 255;    
+            if (m_currentCategory == 2) {
+                r = 255 - wave * (255 - 170);  
+                g = 255 - wave * 255;          
+                b = 255;                     
             }
-            float progress = m_colorTransitionTime;
+           
+            else if (m_currentCategory == 3) {
+                if (wave < 0.5f) {
+                    float w = wave * 2.0f;
+                    r = 255;
+                    g = 255;
+                    b = 255 - (w * 255);  
+                }
+                else {
+                    float w = (wave - 0.5f) * 2.0f;
+                    r = 255;
+                    g = 255 - (w * 105);  
+                    b = 0;
+                }
+            }
+          
+            else if (m_currentCategory == 4) {
+                r = wave * 255;
+                g = (sinf(phase + 2.094f) * 0.5f + 0.5f) * 255;
+                b = (sinf(phase + 4.188f) * 0.5f + 0.5f) * 255;
 
-            ccColor3B topColor = {
-                static_cast<GLubyte>(m_currentColor.r + (m_targetColor.r - m_currentColor.r) * progress),
-                static_cast<GLubyte>(m_currentColor.g + (m_targetColor.g - m_currentColor.g) * progress),
-                static_cast<GLubyte>(m_currentColor.b + (m_targetColor.b - m_currentColor.b) * progress)
-            };
+            
+                if (i == count / 2 && m_particles) {
+                    m_particles->setStartColor({ r / 255.f, g / 255.f, b / 255.f, 1.0f });
+                }
+            }
 
-            m_sprite->setColor(topColor);
-            m_particles->setStartColor({ topColor.r / 255.f, topColor.g / 255.f, topColor.b / 255.f, 1.0f });
+            letter->setColor({ r, g, b });
         }
     }
 
@@ -115,30 +121,50 @@ public:
         m_currentCategory = category;
 
         if (isHidden) {
-            m_sprite->setVisible(false);
+            m_label->setVisible(false);
             if (m_particles) m_particles->setVisible(false);
             return;
         }
 
-        m_sprite->setVisible(true);
-        std::string sprName = "common.png"_spr;
-        if (category == 0) sprName = "common.png"_spr;
-        else if (category == 1) sprName = "special.png"_spr;
-        else if (category == 2) sprName = "epic.png"_spr;
-        else if (category == 3) sprName = "legendary.png"_spr;
-        else if (category == 4) sprName = "mythic.png"_spr;
+        m_label->setVisible(true);
 
-        if (auto newSprite = CCSprite::create(sprName.c_str())) {
-            if (auto tex = newSprite->getTexture()) {
-                m_sprite->setTexture(tex);
-                m_sprite->setTextureRect(newSprite->getTextureRect());
+       
+        std::string text = "Common";
+        if (category == 1) text = "Special";
+        else if (category == 2) text = "Epic";
+        else if (category == 3) text = "Legendary";
+        else if (category == 4) text = "Mythic";
+
+        m_label->setString(text.c_str());
+
+       
+        m_label->setCascadeColorEnabled(false);
+        auto children = m_label->getChildren();
+ 
+        if (category == 0) { 
+            if (children) {
+                for (int i = 0; i < children->count(); i++) {
+                    if (auto letter = static_cast<CCSprite*>(children->objectAtIndex(i))) {
+                        letter->setColor({ 255, 255, 255 });
+                    }
+                }
             }
         }
-
-        if (category != 4) {
-            m_sprite->setColor({ 255, 255, 255 });
+        else if (category == 1) {  
+            if (children) {
+                int count = children->count();
+                for (int i = 0; i < count; i++) {
+                    if (auto letter = static_cast<CCSprite*>(children->objectAtIndex(i))) {
+                        float factor = (count > 1) ? static_cast<float>(i) / (count - 1) : 0.0f;
+                        GLubyte r = 255 - (factor * 255);  
+                        GLubyte g = 255;                 
+                        GLubyte b = 255 - (factor * 255);  
+                        letter->setColor({ r, g, b });
+                    }
+                }
+            }
         }
-
+ 
         if (!m_particles) return;
 
         if (category == 0) {
@@ -148,43 +174,41 @@ public:
         else {
             m_particles->setVisible(true);
 
+        
+            auto labelSize = m_label->getContentSize();
+            m_particles->setPosVar({ (labelSize.width * m_label->getScale()) / 2.f, 8.f });
+
             ccColor4F startColor = { 1.f, 1.f, 1.f, 1.f };
             ccColor4F endColor = { 1.f, 1.f, 1.f, 0.f };
 
-           
             float emissionRate = 35.f;
             float startSize = 14.f;
             float life = 2.0f;
 
-            if (category == 1) {  
+            if (category == 1) { 
                 startColor = { 0.0f, 1.0f, 0.47f, 1.0f };
                 endColor = { 0.0f, 0.39f, 1.0f, 0.0f };
-                emissionRate = 15.f;  
+                emissionRate = 15.f;
                 startSize = 10.f;
             }
             else if (category == 2) {  
                 startColor = { 0.7f, 0.0f, 1.0f, 1.0f };
                 endColor = { 0.0f, 0.39f, 1.0f, 0.0f };
-                emissionRate = 25.f;  
+                emissionRate = 25.f;
                 startSize = 12.f;
             }
-            else if (category == 3) {  
+            else if (category == 3) { 
                 startColor = { 1.0f, 0.8f, 0.2f, 1.0f };
                 endColor = { 1.0f, 0.2f, 0.0f, 0.0f };
-                emissionRate = 35.f;  
+                emissionRate = 35.f;
                 startSize = 14.f;
             }
-            else if (category == 4) {  
-                startColor = { 1.0f, 0.2f, 0.5f, 1.0f };
+            else if (category == 4) { 
+             
                 endColor = { 0.8f, 0.0f, 1.0f, 0.0f };
-                emissionRate = 50.f;  
+                emissionRate = 50.f;
                 startSize = 16.f;
                 life = 2.2f;
-
-                m_colorTransitionTime = 0.0f;
-                m_colorIndex = 0;
-                m_currentColor = m_mythicColors[0];
-                m_targetColor = m_mythicColors[1];
             }
 
             m_particles->setEmissionRate(emissionRate);
@@ -192,7 +216,7 @@ public:
             m_particles->setStartSizeVar(startSize * 0.3f);
             m_particles->setLife(life);
             m_particles->setLifeVar(life * 0.3f);
-            m_particles->setStartColor(startColor);
+            if (category != 4) m_particles->setStartColor(startColor);
             m_particles->setStartColorVar({ 0.1f, 0.1f, 0.1f, 0.0f });
             m_particles->setEndColor(endColor);
             m_particles->setEndColorVar({ 0.0f, 0.0f, 0.0f, 0.0f });

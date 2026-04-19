@@ -3,10 +3,16 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/CurrencyRewardLayer.hpp>
 
-
-
 using namespace cocos2d;
 using namespace geode::prelude;
+
+// Puente de datos para sincronizarnos con EndLevelLayer
+namespace StreakDataBridge {
+    inline bool shouldReward = false;
+    inline int pointsGained = 0;
+    inline int currentTotal = 0;
+    inline cocos2d::CCPoint spawnPos = cocos2d::CCPointZero;
+}
 
 class $modify(ProCurrencyRewardLayer, CurrencyRewardLayer) {
     struct Fields {
@@ -18,6 +24,23 @@ class $modify(ProCurrencyRewardLayer, CurrencyRewardLayer) {
         std::vector<int> m_types;
         bool m_isExiting = false;
     };
+
+    bool init(int p0, int p1, int p2, int p3, CurrencySpriteType p4, int p5, CurrencySpriteType p6, int p7, cocos2d::CCPoint p8, CurrencyRewardType p9, float p10, float p11) {
+        // Primero dejamos que la capa nativa se inicialice con sus elementos
+        if (!CurrencyRewardLayer::init(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11)) return false;
+
+        // Si EndLevelLayer activó la bandera, nos inyectamos en esta misma capa
+        if (StreakDataBridge::shouldReward) {
+            int typeID = std::hash<std::string>{}("streak_point.png");
+            int startAmount = StreakDataBridge::currentTotal - StreakDataBridge::pointsGained;
+            if (startAmount < 0) startAmount = 0;
+
+            // Llamamos a nuestro addObjects nativo, que calculará la posición correcta
+            this->addObjects(typeID, StreakDataBridge::pointsGained, startAmount, StreakDataBridge::spawnPos, "streak_point.png"_spr);
+        }
+
+        return true;
+    }
 
     bool isDying() {
         return !m_objects || m_objects->count() == 0;
@@ -42,7 +65,7 @@ class $modify(ProCurrencyRewardLayer, CurrencyRewardLayer) {
             f->m_spriteCounts[type] = count;
         }
 
-    
+
         if (m_objects->count() == 0 && !f->m_isExiting) {
             f->m_isExiting = true;
 
@@ -81,7 +104,7 @@ class $modify(ProCurrencyRewardLayer, CurrencyRewardLayer) {
         curSprite->m_remaining = GameToolbox::fast_rand_0_1() * 0.2f + m_time * 0.1f + 1.4f;
 
         if (curSprite->m_burstSprite) {
-   
+
             curSprite->m_burstSprite->setPosition(position);
 
             curSprite->m_burstSprite->setScale(curSprite->m_burstSprite->getScale() * 0.60f);
@@ -189,7 +212,7 @@ class RewardNotification {
 public:
     static void show(const std::string& spriteName,
         int startAmount,
-        int addedAmount, 
+        int addedAmount,
         CCPoint spawnPosition = CCPointZero) {
         auto overlay = OverlayManager::get();
         if (!overlay) return;
@@ -209,7 +232,7 @@ public:
         if (!activeLayer) {
             auto newLayer = CurrencyRewardLayer::create(0, 0, 0, 0, CurrencySpriteType::Icon, 0,
                 CurrencySpriteType::Icon, 0,
-                spawnPosition, 
+                spawnPosition,
                 CurrencyRewardType::Default, 0.f, 0.9f);
             if (auto bg = typeinfo_cast<CCLayerColor*>(newLayer->getChildren()->objectAtIndex(0))) bg->setOpacity(0);
             newLayer->setTag(LAYER_TAG);

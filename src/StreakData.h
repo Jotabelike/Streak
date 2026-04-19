@@ -82,6 +82,13 @@ struct StreakData {
         BadgeCategory rarity;
     };
 
+    struct NameCosmeticsCache {
+        std::string color = "Default";
+        std::string font = "Default";
+        std::string effect = "None";
+        std::string animation = "None";
+    };
+
     std::vector<ConsumableItem> getDailyConsumableSelection();
     std::vector<DiscordMilestone> m_discordMilestones;
     std::vector<bool> gemRouletteState;
@@ -103,6 +110,7 @@ struct StreakData {
     int lastRouletteIndex;
     int totalSpins;
     bool needsRegistration = false;
+    bool isGDPS = false;
     int lastStreakAnimated = 0;
     bool isBanned = false;
     std::string banReason = "";
@@ -170,6 +178,19 @@ struct StreakData {
         return "";
     }
 
+    std::map<int, NameCosmeticsCache> userNameCosmeticsCache;
+
+    NameCosmeticsCache getCachedNameCosmetics(int accountID) {
+        if (userNameCosmeticsCache.count(accountID)) {
+            return userNameCosmeticsCache[accountID];
+        }
+        return { "Default", "Default", "None", "None" };
+    }
+
+    void cacheUserNameCosmetics(int accountID, const std::string& color, const std::string& font, const std::string& effect, const std::string& anim) {
+        userNameCosmeticsCache[accountID] = { color, font, effect, anim };
+    }
+
     void setTaskStatus(const std::string& taskID, const std::string& status) {
         taskStatuses[taskID] = status;
     }
@@ -218,7 +239,7 @@ struct StreakData {
         {0, "moon_badge.png"_spr, "Moon", BadgeCategory::EPIC, "moon_badge", true, "XJotaBeLikeX"},
         {0, "marshmello_badge.png"_spr, "Marshmello", BadgeCategory::SPECIAL, "marshmello_badge", true, "XJotaBeLikeX"},
         {0, "alan_walker_badge.png"_spr, "Alan Walker", BadgeCategory::LEGENDARY, "alan_walker_badge", true, "XJotaBeLikeX"},
-        {0, "teto_badge.png"_spr, "Red Miku", BadgeCategory::COMMON, "teto_badge", true, "idk" },
+        {0, "teto_badge.png"_spr, "Red Miku", BadgeCategory::EPIC, "teto_badge", true, "idk" },
         {0, "Bagde_destello1.png"_spr, "silver flash", BadgeCategory::EPIC, "bagde_destello1", true, "Cherry'wCode" },
         {0, "Bagde_destello2.png"_spr, "meow meow", BadgeCategory::SPECIAL, "bagde_destello2", true, "Cherry'wCode" },
         {0, "Bagde_mc1.png"_spr, "Minecraft Again", BadgeCategory::EPIC, "badge_mc1", true, "Cherry'wCode" },
@@ -228,8 +249,8 @@ struct StreakData {
         {0, "BagdeCherry.png"_spr, "What can I say...", BadgeCategory::LEGENDARY, "badge_cherry", true, "Cherry'wCode" },
         {0, "BagdeCherry_03.png"_spr, "Mahiru", BadgeCategory::EPIC, "badge_cherry3", true, "Cherry'wCode" },
         {0, "BagdeCherry_04.png"_spr, "Mahiru v2", BadgeCategory::LEGENDARY, "badge_cherry4", true, "Cherry'wCode" },
-        {0, "BagdeCherry_05.png"_spr, "Ram But pink...", BadgeCategory::SPECIAL, "badge_cherry5", true, "Cherry'wCode" },
-        {0, "BagdeCherry_06.png"_spr, "Ram", BadgeCategory::EPIC, "badge_cherry6", true, "Cherry'wCode" },
+        {0, "BagdeCherry_05.png"_spr, "Rem But pink...", BadgeCategory::EPIC, "badge_cherry5", true, "Cherry'wCode" },
+        {0, "BagdeCherry_06.png"_spr, "Rem", BadgeCategory::EPIC, "badge_cherry6", true, "Cherry'wCode"},
         {0, "BagdeCherry_08.png"_spr, "Tsukasa vlove", BadgeCategory::LEGENDARY, "badge_cherry8", true, "Cherry'wCode" },
         {0, "BagdeCherry_09.png"_spr, "What was he going to do? ", BadgeCategory::SPECIAL, "badge_cherry9", true, "Cherry'wCode" },
         {0, "BagdeCherry_10.png"_spr, "I don't want to get up", BadgeCategory::LEGENDARY, "badge_cherry10", true, "Cherry'wCode" },
@@ -382,7 +403,13 @@ struct StreakData {
             {"banner_51", "banner51.png"_spr, "Archievement 1", BadgeCategory::COMMON, "XJotaBeLikeX"},
             {"banner_52", "banner52.png"_spr, "Archievement 2", BadgeCategory::LEGENDARY, "XJotaBeLikeX"},
             {"banner_53", "banner53.png"_spr, "Archievement 3", BadgeCategory::MYTHIC, "XJotaBeLikeX"},
-            {"banner_54", "banner54.png"_spr, "Space", BadgeCategory::MYTHIC, "XJotaBeLikeX"}
+            {"banner_54", "banner54.png"_spr, "Space", BadgeCategory::MYTHIC, "XJotaBeLikeX"},
+
+            {"banner_55", "banner55.png"_spr, "Dark", BadgeCategory::LEGENDARY, ""},
+            {"banner_56", "banner56.png"_spr, "Pink Again", BadgeCategory::SPECIAL, ""},
+            {"banner_57", "banner57.png"_spr, "what is this?", BadgeCategory::COMMON, ""},
+            {"banner_58", "banner58.png"_spr, "RamRem", BadgeCategory::MYTHIC, ""}
+           
 
 
     };

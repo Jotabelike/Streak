@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "StreakCommon.h"
 #include "../StreakData.h"
 #include "../FirebaseManager.h"
@@ -16,7 +16,7 @@
 #include "RoulettePopup.h"
 #include "SendMessagePopup.h"
 #include "../SystemNotification.h"
-#include "XPPopup.h" 
+#include "XPPopup.h"
 #include "SettingsPopup.h"
 #include "ProfileCardPopup.h"
 #include "TaskPopup.h"
@@ -24,11 +24,12 @@
 #include "LevelLockPopup.h"
 #include "DailyShopPopup.h"
 #include "MilestonesPopup.h"
-#include "TrendLevelsPopup.h"  
+#include "TrendLevelsPopup.h"
 #include "AchievementsPopup.h"
 #include "StreakAnimations.h"
 #include "../utils/RoundedProgressBar.h"
 #include "DiscordGoalPopup.h"
+#include "RegisterPopup.h"
 
 class InfoPopup : public Popup {
 protected:
@@ -50,30 +51,16 @@ protected:
     static int s_lastPendingLevelCount;
     static int s_lastPendingDailyCount;
     static int s_lastNewMsgCount;
+ 
 
     void refreshTimer(float dt) {
         this->updateDisplay();
     }
-
-    void onCreateProfile(CCObject*) {
-        auto am = GJAccountManager::sharedState();
-        if (!am || am->m_accountID == 0) {
-            FLAlertLayer::create(
-                "Error",
-                "Invalid account data. Please log in again.",
-                "OK"
-            )->show();
-            return;
-        }
-        g_streakData.resetToDefault();
-        g_streakData.needsRegistration = false;
-        g_streakData.dailyUpdate();
-        updatePlayerDataInFirebase();
-        this->onClose(nullptr);
-    }
+ 
 
     void checkAllNotifications() {
         int currentPendingLevel = 0;
+
         for (const auto& mission : g_levelMissions) {
             if (g_streakData.isLevelMissionClaimed(mission.levelID)) {
                 continue;
@@ -83,6 +70,7 @@ protected:
                 currentPendingLevel++;
             }
         }
+
         if (currentPendingLevel > 0 && currentPendingLevel > s_lastPendingLevelCount) {
             SystemNotification::show(
                 "Level Challenges",
@@ -115,10 +103,48 @@ protected:
 
     void checkNewMessages() {
         auto req = web::WebRequest();
-        m_msgCheckListener.spawn(req.get("https://streak-servidor.onrender.com/messages"), [this](web::WebResponse res) {
-            this->onMessagesChecked(std::move(res));
-            });
+        m_msgCheckListener.spawn(
+            req.get("https://streak-servidor.onrender.com/messages"),
+            [this](web::WebResponse res) {
+                this->onMessagesChecked(std::move(res));
+            }
+        );
     }
+
+    void onMessagesChecked(web::WebResponse res) {
+        if (!res.ok() || !res.json().isOk()) {
+            return;
+        }
+
+        auto data = res.json().unwrap();
+        if (!data.isArray()) {
+            return;
+        }
+
+        auto messages = data.as<std::vector<matjson::Value>>().unwrap();
+        double savedTime = Mod::get()->getSavedValue<double>("streak_last_chat_time", 0.0);
+        long long lastSeenTime = (long long)savedTime;
+        int currentNewCount = 0;
+
+        for (const auto& msg : messages) {
+            long long timestamp = msg["timestamp"].as<long long>().unwrapOr(0);
+            if (timestamp > lastSeenTime) {
+                currentNewCount++;
+            }
+        }
+
+        if (currentNewCount > 0 && currentNewCount > s_lastNewMsgCount) {
+            SystemNotification::show(
+                "New Announcement",
+                fmt::format("There are {} new messages", currentNewCount),
+                "msm.png"_spr,
+                0.6f
+            );
+        }
+        s_lastNewMsgCount = currentNewCount;
+    }
+
+ 
 
     void onRankClick(CCObject* sender) {
         int rank = sender->getTag();
@@ -147,50 +173,31 @@ protected:
             break;
         }
 
-        FLAlertLayer::create(
-            title.c_str(),
-            desc.c_str(),
-            "OK"
-        )->show();
+        FLAlertLayer::create(title.c_str(), desc.c_str(), "OK")->show();
     }
 
-    void onMessagesChecked(web::WebResponse res) {
-        if (res.ok() && res.json().isOk()) {
-            auto data = res.json().unwrap();
-            if (data.isArray()) {
-                auto messages = data.as<std::vector<matjson::Value>>().unwrap();
-                double savedTime = Mod::get()->getSavedValue<double>("streak_last_chat_time", 0.0);
-                long long lastSeenTime = (long long)savedTime;
-                int currentNewCount = 0;
+  
 
-                for (const auto& msg : messages) {
-                    long long timestamp = msg["timestamp"].as<long long>().unwrapOr(0);
-                    if (timestamp > lastSeenTime) {
-                        currentNewCount++;
-                    }
-                }
-
-                if (currentNewCount > 0 && currentNewCount > s_lastNewMsgCount) {
-                    SystemNotification::show(
-                        "New Announcement",
-                        fmt::format("There are {} new messages", currentNewCount),
-                        "msm.png"_spr,
-                        0.6f
-                    );
-                }
-                s_lastNewMsgCount = currentNewCount;
-            }
+    void applyGDPSDisable(CCMenuItemSpriteExtra* btn) {
+        if (!g_streakData.isGDPS) {
+            return;
         }
+        btn->setEnabled(false);
+        btn->setOpacity(60);
+        btn->setColor({ 120, 120, 120 });
     }
 
     bool init() override {
-        if (!Popup::init(280.f, 220.f, "geode.loader/GE_square03.png")) return false;
+        if (!Popup::init(280.f, 220.f, "geode.loader/GE_square03.png")) {
+            return false;
+        }
 
         auto am = GJAccountManager::sharedState();
         auto winSize = m_mainLayer->getContentSize();
 
         if (!am || am->m_accountID == 0) {
             this->setTitle("Error");
+
             auto errorLabel = CCLabelBMFont::create(
                 "Please log in to\nGeometry Dash first!",
                 "bigFont.fnt"
@@ -203,29 +210,9 @@ protected:
             return true;
         }
 
-        if (g_streakData.needsRegistration) {
-            this->setTitle("Welcome!");
-            auto infoLabel = CCLabelBMFont::create("Join the Streak Mod!", "goldFont.fnt");
-            infoLabel->setPosition({ winSize.width / 2, winSize.height / 2 + 25.f });
-            infoLabel->setScale(0.7f);
-            m_mainLayer->addChild(infoLabel);
-
-            auto btnSpr = ButtonSprite::create(
-                "Create Profile", 0, 0, "goldFont.fnt", "GJ_button_01.png", 0, 1.0f
-            );
-            auto createBtn = CCMenuItemSpriteExtra::create(
-                btnSpr,
-                this,
-                menu_selector(InfoPopup::onCreateProfile)
-            );
-            auto menu = CCMenu::createWithItem(createBtn);
-            menu->setPosition({ winSize.width / 2, winSize.height / 2 - 35.f });
-            m_mainLayer->addChild(menu);
-            return true;
-        }
-
         this->setTitle("Streak");
 
+      
         auto gemSprite = CCSprite::create("gem.png"_spr);
         if (gemSprite) {
             gemSprite->setScale(0.2f);
@@ -241,9 +228,11 @@ protected:
 
         float contentCenterY = winSize.height / 2 + 30.0f;
 
+     
         auto rachaSprite = CCSprite::create(g_streakData.getRachaSprite().c_str());
         if (rachaSprite) {
             rachaSprite->setScale(0.35f);
+
             auto rachaBtn = CCMenuItemSpriteExtra::create(
                 rachaSprite,
                 this,
@@ -252,12 +241,13 @@ protected:
             auto menuRacha = CCMenu::createWithItem(rachaBtn);
             menuRacha->setPosition({ winSize.width / 2, contentCenterY });
             m_mainLayer->addChild(menuRacha, 3);
+
             StreakAnimations::applyPremiumHover(rachaSprite);
         }
-
+ 
         float barWidth = 140.0f;
-        float barHeight = 20.0f;   
-        float barY = contentCenterY - 78.0f; 
+        float barHeight = 20.0f;
+        float barY = contentCenterY - 78.0f;
 
         m_streakLabel = CCLabelBMFont::create("Daily streak: ?", "goldFont.fnt");
         m_streakLabel->setScale(0.50f);
@@ -265,22 +255,23 @@ protected:
         m_mainLayer->addChild(m_streakLabel);
 
         m_streakBar = RoundedProgressBar::create(barWidth, barHeight);
-        m_streakBar->setPosition({ winSize.width / 2, barY + (barHeight / 2) }); 
+        m_streakBar->setPosition({ winSize.width / 2, barY + (barHeight / 2) });
         m_streakBar->setGradientColors({ 250, 225, 60 }, { 255, 165, 0 });
         m_streakBar->setBackgroundColor({ 45, 45, 45 });
         m_mainLayer->addChild(m_streakBar, 1);
 
         m_barText = CCLabelBMFont::create("? / ?", "bigFont.fnt");
-        m_barText->setScale(0.40f); 
+        m_barText->setScale(0.40f);
         m_barText->setPosition({ winSize.width / 2, barY + (barHeight / 2) });
         m_mainLayer->addChild(m_barText, 8);
 
-        float xpBarHeight = 10.0f; 
-        float xpY = barY - 12.0f;  
+      
+        float xpBarHeight = 10.0f;
+        float xpY = barY - 12.0f;
 
         m_xpBar = RoundedProgressBar::create(barWidth, xpBarHeight);
         m_xpBar->setPosition({ winSize.width / 2, xpY + (xpBarHeight / 2) });
-        m_xpBar->setGradientColors({ 0, 255, 255 }, { 0, 100, 255 }); 
+        m_xpBar->setGradientColors({ 0, 255, 255 }, { 0, 100, 255 });
         m_xpBar->setBackgroundColor({ 20, 20, 40 });
         m_mainLayer->addChild(m_xpBar, 1);
 
@@ -294,6 +285,7 @@ protected:
         m_xpProgressLabel->setPosition({ winSize.width / 2, xpY + (xpBarHeight / 2) });
         m_mainLayer->addChild(m_xpProgressLabel, 8);
 
+       
         float sideBtnY = winSize.height / 2 + 30.0f;
         auto cornerMenu = CCMenu::create();
         cornerMenu->setPosition(0, 0);
@@ -302,48 +294,38 @@ protected:
         auto statsIcon = CCSprite::create("BtnStats.png"_spr);
         statsIcon->setScale(0.7f);
         auto statsBtn = CCMenuItemSpriteExtra::create(
-            statsIcon,
-            this,
-            menu_selector(InfoPopup::onOpenStats)
+            statsIcon, this, menu_selector(InfoPopup::onOpenStats)
         );
         statsBtn->setPosition({ winSize.width - 22, sideBtnY + 15 });
+        applyGDPSDisable(statsBtn);
         cornerMenu->addChild(statsBtn);
 
         auto rewardsIcon = CCSprite::create("RewardsBtn.png"_spr);
         rewardsIcon->setScale(0.7f);
         auto rewardsBtn = CCMenuItemSpriteExtra::create(
-            rewardsIcon,
-            this,
-            menu_selector(InfoPopup::onOpenRewards)
+            rewardsIcon, this, menu_selector(InfoPopup::onOpenRewards)
         );
         rewardsBtn->setPosition({ winSize.width - 22, sideBtnY - 22 });
         cornerMenu->addChild(rewardsBtn);
 
-   
         if (g_streakData.isTaskEnabled) {
             auto taskIcon = CCSprite::create("task_btn.png"_spr);
             taskIcon->setScale(0.7f);
             auto taskBtn = CCMenuItemSpriteExtra::create(
-                taskIcon,
-                this,
-                menu_selector(InfoPopup::onOpenTasks)
+                taskIcon, this, menu_selector(InfoPopup::onOpenTasks)
             );
-      
             taskBtn->setPosition({ winSize.width - 22, sideBtnY - 59 });
             cornerMenu->addChild(taskBtn);
-        } 
+        }
         else if (g_streakData.isDiscordGoalEnabled) {
-       
-            auto dcIcon = CCSprite::create("discord_goal_btn.png"_spr); 
-            if (!dcIcon) dcIcon = CCSprite::createWithSpriteFrameName("GJ_chatBtn_001.png"); 
+            auto dcIcon = CCSprite::create("discord_goal_btn.png"_spr);
+            if (!dcIcon) {
+                dcIcon = CCSprite::createWithSpriteFrameName("GJ_chatBtn_001.png");
+            }
             dcIcon->setScale(0.7f);
-            
             auto dcBtn = CCMenuItemSpriteExtra::create(
-                dcIcon,
-                this,
-                menu_selector(InfoPopup::onOpenDiscordGoal)
+                dcIcon, this, menu_selector(InfoPopup::onOpenDiscordGoal)
             );
-        
             dcBtn->setPosition({ winSize.width - 22, sideBtnY - 59 });
             cornerMenu->addChild(dcBtn);
         }
@@ -351,9 +333,7 @@ protected:
         auto missionsIcon = CCSprite::create("super_star_btn.png"_spr);
         missionsIcon->setScale(0.7f);
         auto missionsBtn = CCMenuItemSpriteExtra::create(
-            missionsIcon,
-            this,
-            menu_selector(InfoPopup::onOpenMissions)
+            missionsIcon, this, menu_selector(InfoPopup::onOpenMissions)
         );
         missionsBtn->setPosition({ 22, sideBtnY + 15 });
         cornerMenu->addChild(missionsBtn);
@@ -361,9 +341,7 @@ protected:
         auto rouletteIcon = CCSprite::create("boton_ruleta.png"_spr);
         rouletteIcon->setScale(0.7f);
         auto rouletteBtn = CCMenuItemSpriteExtra::create(
-            rouletteIcon,
-            this,
-            menu_selector(InfoPopup::onOpenRoulette)
+            rouletteIcon, this, menu_selector(InfoPopup::onOpenRoulette)
         );
         rouletteBtn->setPosition({ 22, sideBtnY - 22 });
         cornerMenu->addChild(rouletteBtn);
@@ -371,22 +349,20 @@ protected:
         auto xpBtnIcon = CCSprite::create("xp_btn.png"_spr);
         xpBtnIcon->setScale(0.7f);
         auto xpBtn = CCMenuItemSpriteExtra::create(
-            xpBtnIcon,
-            this,
-            menu_selector(InfoPopup::onOpenXP)
+            xpBtnIcon, this, menu_selector(InfoPopup::onOpenXP)
         );
         xpBtn->setPosition({ 22, sideBtnY - 59 });
         cornerMenu->addChild(xpBtn);
-
+ 
         if (g_streakData.specialRank > 0) {
             std::string badgeSpriteName = "";
 
             switch (g_streakData.specialRank) {
             case 1: badgeSpriteName = "moderator_badge.png"_spr; break;
-            case 2: badgeSpriteName = "creator_badge.png"_spr; break;
-            case 3: badgeSpriteName = "vip_badge.png"_spr; break;
-            case 4: badgeSpriteName = "stellar_badge.png"_spr; break;
-            default: badgeSpriteName = "reward5.png"_spr; break;
+            case 2: badgeSpriteName = "creator_badge.png"_spr;  break;
+            case 3: badgeSpriteName = "vip_badge.png"_spr;      break;
+            case 4: badgeSpriteName = "stellar_badge.png"_spr;  break;
+            default: badgeSpriteName = "reward5.png"_spr;       break;
             }
 
             auto rankSprite = CCSprite::create(badgeSpriteName.c_str());
@@ -396,11 +372,8 @@ protected:
             rankSprite->setScale(0.2f);
 
             auto rankBtn = CCMenuItemSpriteExtra::create(
-                rankSprite,
-                this,
-                menu_selector(InfoPopup::onRankClick)
+                rankSprite, this, menu_selector(InfoPopup::onRankClick)
             );
-
             rankBtn->setTag(g_streakData.specialRank);
             rankBtn->setPosition({ winSize.width - 80, winSize.height - 20 });
             cornerMenu->addChild(rankBtn);
@@ -409,9 +382,7 @@ protected:
         auto accountIcon = CCSprite::create("account_btn.png"_spr);
         accountIcon->setScale(0.56f);
         auto accountBtn = CCMenuItemSpriteExtra::create(
-            accountIcon,
-            this,
-            menu_selector(InfoPopup::onOpenAccount)
+            accountIcon, this, menu_selector(InfoPopup::onOpenAccount)
         );
         accountBtn->setPosition({ winSize.width - 50, winSize.height - 20 });
         cornerMenu->addChild(accountBtn);
@@ -419,71 +390,123 @@ protected:
         auto settingsIcon = CCSprite::createWithSpriteFrameName("accountBtn_settings_001.png");
         settingsIcon->setScale(0.6f);
         auto settingsBtn = CCMenuItemSpriteExtra::create(
-            settingsIcon,
-            this,
-            menu_selector(InfoPopup::onOpenSettings)
+            settingsIcon, this, menu_selector(InfoPopup::onOpenSettings)
         );
         settingsBtn->setPosition({ winSize.width - 20, winSize.height - 20 });
         cornerMenu->addChild(settingsBtn);
 
+     
         std::vector<CCMenuItemSpriteExtra*> allBottomBtns;
 
-
-
         auto eventIcon = CCSprite::create("event_boton.png"_spr);
-        if (!eventIcon || eventIcon->getContentSize().width == 0) eventIcon = CCSprite::createWithSpriteFrameName("GJ_top100Btn_001.png");
+        if (!eventIcon || eventIcon->getContentSize().width == 0) {
+            eventIcon = CCSprite::createWithSpriteFrameName("GJ_top100Btn_001.png");
+        }
         eventIcon->setScale(0.7f);
-        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(eventIcon, this, menu_selector(InfoPopup::onOpenEvent)));
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(
+            eventIcon, this, menu_selector(InfoPopup::onOpenEvent)
+        ));
 
         auto stIcon = CCSprite::create("st_progress.png"_spr);
-        if (!stIcon) stIcon = ButtonSprite::create("St");
-        else stIcon->setScale(0.7f);
-        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(stIcon, this, menu_selector(InfoPopup::onOpenStProgress)));
+        if (!stIcon) {
+            stIcon = ButtonSprite::create("St");
+        }
+        else {
+            stIcon->setScale(0.7f);
+        }
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(
+            stIcon, this, menu_selector(InfoPopup::onOpenStProgress)
+        ));
 
         auto levelProgIcon = CCSprite::create("level_progess_btn.png"_spr);
-        if (!levelProgIcon) levelProgIcon = ButtonSprite::create("Lvls");
-        else levelProgIcon->setScale(0.7f);
-        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(levelProgIcon, this, menu_selector(InfoPopup::onOpenLevelProgress)));
+        if (!levelProgIcon) {
+            levelProgIcon = ButtonSprite::create("Lvls");
+        }
+        else {
+            levelProgIcon->setScale(0.7f);
+        }
+        auto levelProgBtn = CCMenuItemSpriteExtra::create(
+            levelProgIcon, this, menu_selector(InfoPopup::onOpenLevelProgress)
+        );
+        applyGDPSDisable(levelProgBtn);
+        allBottomBtns.push_back(levelProgBtn);
 
         auto topIcon = CCSprite::create("top_btn.png"_spr);
-        if (!topIcon) topIcon = ButtonSprite::create("Top");
-        else topIcon->setScale(0.7f);
-        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(topIcon, this, menu_selector(InfoPopup::onOpenLeaderboard)));
+        if (!topIcon) {
+            topIcon = ButtonSprite::create("Top");
+        }
+        else {
+            topIcon->setScale(0.7f);
+        }
+        auto topBtn = CCMenuItemSpriteExtra::create(
+            topIcon, this, menu_selector(InfoPopup::onOpenLeaderboard)
+        );
+        applyGDPSDisable(topBtn);
+        allBottomBtns.push_back(topBtn);
 
         auto msgIcon = CCSprite::create("msm.png"_spr);
-        if (!msgIcon) msgIcon = CCSprite::createWithSpriteFrameName("GJ_chatBtn_001.png");
+        if (!msgIcon) {
+            msgIcon = CCSprite::createWithSpriteFrameName("GJ_chatBtn_001.png");
+        }
         msgIcon->setScale(0.7f);
-        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(msgIcon, this, menu_selector(InfoPopup::onOpenMessages)));
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(
+            msgIcon, this, menu_selector(InfoPopup::onOpenMessages)
+        ));
 
         auto redeemIcon = CCSprite::create("redemcode_btn.png"_spr);
-        if (!redeemIcon) redeemIcon = ButtonSprite::create("Code");
+        if (!redeemIcon) {
+            redeemIcon = ButtonSprite::create("Code");
+        }
         redeemIcon->setScale(0.7f);
-        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(redeemIcon, this, menu_selector(InfoPopup::onRedeemCode)));
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(
+            redeemIcon, this, menu_selector(InfoPopup::onRedeemCode)
+        ));
 
         auto shopIcon = CCSprite::create("daily_shop.png"_spr);
-        if (!shopIcon) shopIcon = ButtonSprite::create("Shop");
-        else shopIcon->setScale(0.7f);
-        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(shopIcon, this, menu_selector(InfoPopup::onOpenDailyShop)));
+        if (!shopIcon) {
+            shopIcon = ButtonSprite::create("Shop");
+        }
+        else {
+            shopIcon->setScale(0.7f);
+        }
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(
+            shopIcon, this, menu_selector(InfoPopup::onOpenDailyShop)
+        ));
 
         auto kofiIcon = CCSprite::create("ko-fi_btn.png"_spr);
-        if (!kofiIcon) kofiIcon = ButtonSprite::create("Donate");
-        else kofiIcon->setScale(0.7f);
-        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(kofiIcon, this, menu_selector(InfoPopup::onOpenDonations)));
+        if (!kofiIcon) {
+            kofiIcon = ButtonSprite::create("Donate");
+        }
+        else {
+            kofiIcon->setScale(0.7f);
+        }
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(
+            kofiIcon, this, menu_selector(InfoPopup::onOpenDonations)
+        ));
 
         auto achievementsIcon = CCSprite::create("achievements_btn.png"_spr);
-        if (!achievementsIcon) achievementsIcon = ButtonSprite::create("Logros");
-        else achievementsIcon->setScale(0.7f);
-
+        if (!achievementsIcon) {
+            achievementsIcon = ButtonSprite::create("Logros");
+        }
+        else {
+            achievementsIcon->setScale(0.7f);
+        }
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(
-            achievementsIcon,
-            this,
-            menu_selector(InfoPopup::onOpenAchievements)
+            achievementsIcon, this, menu_selector(InfoPopup::onOpenAchievements)
         ));
 
         auto trendIcon = CCSprite::create("tendencies_btn.png"_spr);
-        if (!trendIcon) trendIcon = ButtonSprite::create("Trend");
-        else trendIcon->setScale(0.7f);
-        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(trendIcon, this, menu_selector(InfoPopup::onOpenTrending)));
+        if (!trendIcon) {
+            trendIcon = ButtonSprite::create("Trend");
+        }
+        else {
+            trendIcon->setScale(0.7f);
+        }
+        auto trendBtn = CCMenuItemSpriteExtra::create(
+            trendIcon, this, menu_selector(InfoPopup::onOpenTrending)
+        );
+        applyGDPSDisable(trendBtn);
+        allBottomBtns.push_back(trendBtn);
 
         int btnsPerPage = 5;
         int totalPages = std::ceil((float)allBottomBtns.size() / btnsPerPage);
@@ -494,36 +517,40 @@ protected:
 
             for (int j = 0; j < btnsPerPage; ++j) {
                 int index = (i * btnsPerPage) + j;
-                if (index < allBottomBtns.size()) {
+                if (index < (int)allBottomBtns.size()) {
                     pageMenu->addChild(allBottomBtns[index]);
                 }
             }
-            pageMenu->alignItemsHorizontallyWithPadding(5.0f);
 
+            pageMenu->alignItemsHorizontallyWithPadding(5.0f);
             pageMenu->setVisible(i == 0);
             m_mainLayer->addChild(pageMenu, 10);
             m_bottomPages.push_back(pageMenu);
         }
 
+    
         auto arrowMenu = CCMenu::create();
         arrowMenu->setPosition({ 0, 0 });
         m_mainLayer->addChild(arrowMenu, 15);
 
         auto leftSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
         leftSpr->setScale(0.5f);
-        m_leftArrowBtn = CCMenuItemSpriteExtra::create(leftSpr, this, menu_selector(InfoPopup::onPrevPage));
+        m_leftArrowBtn = CCMenuItemSpriteExtra::create(
+            leftSpr, this, menu_selector(InfoPopup::onPrevPage)
+        );
         m_leftArrowBtn->setPosition({ 40.f, 25.f });
         arrowMenu->addChild(m_leftArrowBtn);
 
         auto rightSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
         rightSpr->setFlipX(true);
         rightSpr->setScale(0.5f);
-        m_rightArrowBtn = CCMenuItemSpriteExtra::create(rightSpr, this, menu_selector(InfoPopup::onNextPage));
+        m_rightArrowBtn = CCMenuItemSpriteExtra::create(
+            rightSpr, this, menu_selector(InfoPopup::onNextPage)
+        );
         m_rightArrowBtn->setPosition({ winSize.width - 40.f, 25.f });
         arrowMenu->addChild(m_rightArrowBtn);
 
         updateArrowVisibility();
-
         this->updateDisplay();
 
         if (g_streakData.shouldShowAnimation()) {
@@ -547,9 +574,10 @@ protected:
 
         return true;
     }
+ 
 
     void onNextPage(CCObject*) {
-        if (m_currentPage < m_bottomPages.size() - 1) {
+        if (m_currentPage < (int)m_bottomPages.size() - 1) {
             m_bottomPages[m_currentPage]->setVisible(false);
             m_currentPage++;
             m_bottomPages[m_currentPage]->setVisible(true);
@@ -571,13 +599,11 @@ protected:
             m_leftArrowBtn->setVisible(m_currentPage > 0);
         }
         if (m_rightArrowBtn) {
-            m_rightArrowBtn->setVisible(m_currentPage < m_bottomPages.size() - 1);
+            m_rightArrowBtn->setVisible(m_currentPage < (int)m_bottomPages.size() - 1);
         }
     }
 
-    void onOpenTrending(CCObject*) {
-        TrendLevelsPopup::create()->show();
-    }
+ 
 
     void updateDisplay() {
         if (!m_mainLayer || !m_streakLabel || !m_streakBar || !m_barText) {
@@ -592,18 +618,16 @@ protected:
         if (requiredPoints > 0) {
             percent = static_cast<float>(pointsToday) / static_cast<float>(requiredPoints);
         }
-
-        if (percent > 1.0f) percent = 1.0f;
-        if (percent < 0.0f) percent = 0.0f;
+        percent = std::clamp(percent, 0.0f, 1.0f);
 
         m_streakLabel->setString(fmt::format("Daily streak: {}", currentStreak).c_str());
 
         if (m_streakBar) {
             m_streakBar->setProgress(percent);
-            
             if (percent >= 1.0f) {
                 m_streakBar->setRainbowMode(true);
-            } else {
+            }
+            else {
                 m_streakBar->setRainbowMode(false);
                 m_streakBar->setGradientColors({ 250, 225, 60 }, { 255, 165, 0 });
             }
@@ -631,19 +655,18 @@ protected:
                 );
             }
 
-            if (m_xpBar) {
-                m_xpBar->setProgress(xpPercent);
-            }
-
+            m_xpBar->setProgress(xpPercent);
             m_xpLabel->setString(fmt::format("Lvl. {}", g_streakData.currentLevel).c_str());
         }
     }
 
+ 
+
     void onOpenAccount(CCObject*) {
         ProfileData myData;
         auto am = GJAccountManager::sharedState();
-        myData.username = am->m_username.empty() ? "Player" : am->m_username;
 
+        myData.username = am->m_username.empty() ? "Player" : am->m_username;
         g_streakData.load();
         myData.currentStreak = g_streakData.currentStreak;
         myData.level = g_streakData.currentLevel;
@@ -655,8 +678,8 @@ protected:
         myData.badgeID = g_streakData.equippedBadge;
         myData.streakID = g_streakData.streakID;
         myData.globalRank = g_streakData.globalRank;
-
         myData.isMythic = false;
+
         auto badge = g_streakData.getEquippedBadge();
         if (badge && badge->category == StreakData::BadgeCategory::MYTHIC) {
             myData.isMythic = true;
@@ -741,6 +764,10 @@ protected:
         AchievementsPopup::create()->show();
     }
 
+    void onOpenTrending(CCObject*) {
+        TrendLevelsPopup::create()->show();
+    }
+
     void onOpenRoulette(CCObject*) {
         if (g_streakData.currentStreak < 1) {
             FLAlertLayer::create(
@@ -752,6 +779,8 @@ protected:
         }
         RoulettePopup::create()->show();
     }
+
+   
 
     void showStreakAnimation(int streakLevel) {
         auto winSize = CCDirector::sharedDirector()->getWinSize();
@@ -776,7 +805,6 @@ protected:
             shineGlow->setColor({ 255, 255, 255 });
             shineGlow->setOpacity(200);
             shineGlow->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
-
             contentLayer->addChild(shineGlow, 1);
 
             shineGlow->runAction(CCSequence::create(
@@ -784,8 +812,9 @@ protected:
                 CCEaseSineOut::create(CCScaleTo::create(1.0f, 7.5f)),
                 nullptr
             ));
-
-            shineGlow->runAction(CCRepeatForever::create(CCRotateBy::create(15.0f, 360.f)));
+            shineGlow->runAction(
+                CCRepeatForever::create(CCRotateBy::create(15.0f, 360.f))
+            );
         }
 
         auto titleSprite = CCSprite::create("NewStreak.png"_spr);
@@ -799,7 +828,6 @@ protected:
                 CCEaseBackOut::create(CCScaleTo::create(0.5f, 1.0f)),
                 nullptr
             ));
-
             titleSprite->runAction(CCSequence::create(
                 CCDelayTime::create(1.0f),
                 CCRepeatForever::create(CCSequence::create(
@@ -822,7 +850,6 @@ protected:
                 CCEaseElasticOut::create(CCScaleTo::create(1.2f, 1.0f), 0.6f),
                 nullptr
             ));
-
             rachaSprite->runAction(CCSequence::create(
                 CCDelayTime::create(1.5f),
                 CCRepeatForever::create(CCSequence::create(
@@ -832,7 +859,6 @@ protected:
                 )),
                 nullptr
             ));
-
             rachaSprite->runAction(CCSequence::create(
                 CCDelayTime::create(1.5f),
                 CCRepeatForever::create(CCSequence::create(
@@ -865,7 +891,6 @@ protected:
             CCCallFunc::create(this, callfunc_selector(InfoPopup::playExtraStreakSound)),
             nullptr
         ));
-
         contentLayer->runAction(CCSequence::create(
             CCDelayTime::create(6.0f),
             CCCallFunc::create(this, callfunc_selector(InfoPopup::onAnimationExit)),
@@ -902,7 +927,17 @@ protected:
         Popup::onClose(sender);
     }
 
+ 
+
 public:
+    void show() override {
+        if (g_streakData.needsRegistration) {
+            RegisterPopup::create()->show();
+            return;
+        }
+        Popup::show();
+    }
+
     static InfoPopup* create() {
         auto ret = new InfoPopup();
         if (ret && ret->init()) {
