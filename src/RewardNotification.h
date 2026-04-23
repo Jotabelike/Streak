@@ -6,7 +6,7 @@
 using namespace cocos2d;
 using namespace geode::prelude;
 
-// Puente de datos para sincronizarnos con EndLevelLayer
+ 
 namespace StreakDataBridge {
     inline bool shouldReward = false;
     inline int pointsGained = 0;
@@ -25,18 +25,44 @@ class $modify(ProCurrencyRewardLayer, CurrencyRewardLayer) {
         bool m_isExiting = false;
     };
 
-    bool init(int p0, int p1, int p2, int p3, CurrencySpriteType p4, int p5, CurrencySpriteType p6, int p7, cocos2d::CCPoint p8, CurrencyRewardType p9, float p10, float p11) {
-        // Primero dejamos que la capa nativa se inicialice con sus elementos
-        if (!CurrencyRewardLayer::init(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11)) return false;
-
-        // Si EndLevelLayer activó la bandera, nos inyectamos en esta misma capa
+    bool init(int p0,
+        int p1,
+        int p2, 
+        int p3, 
+        CurrencySpriteType p4, 
+        int p5, 
+        CurrencySpriteType p6, 
+        int p7,
+        cocos2d::CCPoint p8,
+        CurrencyRewardType p9,
+        float p10, 
+        float p11) 
+    {
+ 
+        if (!CurrencyRewardLayer::init(p0,
+            p1, 
+            p2,
+            p3,
+            p4, 
+            p5, 
+            p6, 
+            p7, 
+            p8,
+            p9, 
+            p10,
+            p11))
+            return false;
+ 
         if (StreakDataBridge::shouldReward) {
             int typeID = std::hash<std::string>{}("streak_point.png");
             int startAmount = StreakDataBridge::currentTotal - StreakDataBridge::pointsGained;
             if (startAmount < 0) startAmount = 0;
 
-            // Llamamos a nuestro addObjects nativo, que calculará la posición correcta
-            this->addObjects(typeID, StreakDataBridge::pointsGained, startAmount, StreakDataBridge::spawnPos, "streak_point.png"_spr);
+ 
+            this->addObjects(typeID,
+                StreakDataBridge::pointsGained, 
+                startAmount,
+                StreakDataBridge::spawnPos, "streak_point.png"_spr);
         }
 
         return true;

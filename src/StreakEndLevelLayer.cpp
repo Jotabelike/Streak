@@ -1,7 +1,8 @@
-#include <Geode/Geode.hpp>
+﻿#include <Geode/Geode.hpp>
 #include <Geode/modify/EndLevelLayer.hpp>
 #include "RewardNotification.h"
 #include "StreakData.h"
+#include "StreakProgressBar.h"
 
 using namespace geode::prelude;
 
@@ -56,14 +57,32 @@ class $modify(StreakEndLevelLayer, EndLevelLayer) {
     void showLayer(bool p0) {
         EndLevelLayer::showLayer(p0);
         auto f = m_fields.self();
-
         f->m_pointsGained = StreakDataBridge::pointsGained;
-        if (f->m_pointsGained <= 0) return;
+        int animMode = geode::Mod::get()->getSavedValue<int>("end_level_anim_mode", 2);     
+        if (f->m_pointsGained <= 0 || animMode == 0) return;   
+        if (animMode == 1) {
+            int startPoints = g_streakData.streakPointsToday - f->m_pointsGained;
+            if (startPoints < 0) startPoints = 0;
+            int reqPoints = g_streakData.getRequiredPoints();
+            auto bar = StreakProgressBar::create(startPoints, f->m_pointsGained, reqPoints);
+            bar->setID("streak-progress-bar"_spr);
+            auto winSize = CCDirector::get()->getWinSize();
+            bar->setPosition({ winSize.width / 2, winSize.height - 110.f });  
+            bar->setScale(0.f);
+            m_mainLayer->addChild(bar, 10);    
+            bar->runAction(CCSequence::create(
+                CCDelayTime::create(0.5f),
+                CCEaseBounceOut::create(CCScaleTo::create(0.5f, 1.0f)),
+                CCCallFunc::create(bar, callfunc_selector(StreakProgressBar::animate)),
+                nullptr
+            ));
+            return;  
+        }
 
+      
         auto starContainer = m_mainLayer->getChildByID("star-container");
         auto orbContainer = m_mainLayer->getChildByID("orb-container");
         auto diamondContainer = m_mainLayer->getChildByID("diamond-container");
-
         if (!starContainer) {
             starContainer = m_mainLayer->getChildByID("moon-container");
         }

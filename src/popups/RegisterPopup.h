@@ -307,6 +307,8 @@ protected:
         g_streakData.resetToDefault();
         g_streakData.needsRegistration = false;
         g_streakData.isGDPS = m_isGDPS;
+        geode::Mod::get()->setSavedValue<bool>("is_gdps_player", m_isGDPS);
+
         g_streakData.dailyUpdate();
         updatePlayerDataInFirebase();
 

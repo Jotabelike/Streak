@@ -6,6 +6,7 @@
 #include "../StreakData.h"
 #include "HistoryPopup.h" 
 #include <Geode/ui/TextInput.hpp>
+#include "RegisterPopup.h"
 
 using namespace geode::prelude;
 
@@ -147,6 +148,7 @@ protected:
 
     std::vector<std::string> m_listOptions = { "10", "50" };
     std::vector<std::string> m_pauseModes = { "On", "Off" };
+    std::vector<std::string> m_animModes = { "None", "Bar", "Label" };
 
     CCNode* createBaseCell(float height = 40.f) {
         auto cell = CCNode::create();
@@ -280,6 +282,71 @@ protected:
         menu->addChild(btnR);
 
         m_scrollLayer->m_contentLayer->addChild(cell);
+    }
+
+    void addAnimModeSetting(const std::string& name, const std::string& saveKey, const std::string& infoText) {
+        auto cell = createBaseCell();
+        auto menu = CCMenu::create();
+        menu->setPosition(0, 0);
+        cell->addChild(menu);
+
+        auto nameLabel = CCLabelBMFont::create(name.c_str(), "goldFont.fnt");
+        nameLabel->setAnchorPoint({ 0.0f, 0.5f });
+        nameLabel->setPosition({ 15.f, 20.f });
+        nameLabel->setScale(0.5f);
+        cell->addChild(nameLabel);
+
+        addInfoButton(cell, infoText, 15.f + nameLabel->getScaledContentSize().width);
+
+        int currentVal = Mod::get()->getSavedValue<int>(saveKey, 2); 
+        auto valLabel = CCLabelBMFont::create(m_animModes[currentVal].c_str(), "bigFont.fnt");
+        valLabel->setScale(0.4f);
+        valLabel->setColor({ 255, 255, 0 });
+        valLabel->setPosition({ m_listWidth - 45.f, 20.f });
+        cell->addChild(valLabel);
+
+        auto arrowL = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        arrowL->setScale(0.35f);
+        auto btnL = CCMenuItemSpriteExtra::create(arrowL, this, menu_selector(SettingsPopup::onAnimArrowLeft));
+        btnL->setPosition({ m_listWidth - 70.f, 20.f });
+        btnL->setUserObject(CCString::create(saveKey));
+        btnL->setUserData(valLabel);
+        menu->addChild(btnL);
+
+        auto arrowR = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        arrowR->setFlipX(true);
+        arrowR->setScale(0.35f);
+        auto btnR = CCMenuItemSpriteExtra::create(arrowR, this, menu_selector(SettingsPopup::onAnimArrowRight));
+        btnR->setPosition({ m_listWidth - 20.f, 20.f });
+        btnR->setUserObject(CCString::create(saveKey));
+        btnR->setUserData(valLabel);
+        menu->addChild(btnR);
+
+        m_scrollLayer->m_contentLayer->addChild(cell);
+    }
+
+    void onAnimArrowLeft(CCObject* sender) {
+        auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
+        auto keyStr = static_cast<CCString*>(btn->getUserObject());
+        auto label = static_cast<CCLabelBMFont*>(btn->getUserData());
+        if (!keyStr) return;
+
+        int current = Mod::get()->getSavedValue<int>(keyStr->getCString(), 2);
+        int next = (current - 1 + m_animModes.size()) % m_animModes.size();
+        Mod::get()->setSavedValue<int>(keyStr->getCString(), next);
+        label->setString(m_animModes[next].c_str());
+    }
+
+    void onAnimArrowRight(CCObject* sender) {
+        auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
+        auto keyStr = static_cast<CCString*>(btn->getUserObject());
+        auto label = static_cast<CCLabelBMFont*>(btn->getUserData());
+        if (!keyStr) return;
+
+        int current = Mod::get()->getSavedValue<int>(keyStr->getCString(), 2);
+        int next = (current + 1) % m_animModes.size();
+        Mod::get()->setSavedValue<int>(keyStr->getCString(), next);
+        label->setString(m_animModes[next].c_str());
     }
 
     void addToggleSetting(const std::string& name, const std::string& saveKey, const std::string& infoText) {
@@ -612,13 +679,13 @@ protected:
             ->setAxisAlignment(AxisAlignment::Start)
             ->setAutoGrowAxis(scrollSize.height)
         );
-
+        addButtonSetting("Terms & Conditions", "T&C", menu_selector(SettingsPopup::onOpenTerms), "Read the Terms and Conditions of the mod.");
         addButtonSetting("Streak ID", "Copy", menu_selector(SettingsPopup::onCopyStreakID), "Copy your unique Streak ID");
         addImageButtonSetting("History", "historial_btn.png"_spr, menu_selector(SettingsPopup::onOpenHistory), "Check your daily points history");
         addImageButtonSetting("Need Help?", "discord_btn.png"_spr, menu_selector(SettingsPopup::onJoinDiscord), "Join our Discord Server!");
         addArrowSetting("Expand Top List", "leaderboard_capacity_idx", "Show 10 or 50 players");
         addPauseModeSetting("Streak counter", "pause_hud_mode", "Streak counter in the pause menu");
-        addToggleSetting("Streak Bar", "enable_streak_bar", "Show the Streak progress bar you complete levels.");
+        addAnimModeSetting("End Animation", "end_level_anim_mode", "Choose the streak animation at the end of a level.");
         addToggleSetting("Welcome Notification", "enable_welcome_notif", "Toggle the welcome message on startup");
         addToggleSetting("Streak Animation", "enable_streak_anim", "Disables the Streak animation");
         addToggleSetting("Level Points","enable_level_points","Show how many Streak points a level gives.");
@@ -700,6 +767,10 @@ protected:
 
     void onJoinDiscord(CCObject*) {
         geode::utils::web::openLinkInBrowser("https://discord.gg/dykf3y6HWw");
+    }
+
+    void onOpenTerms(CCObject*) {
+        TermsScrollPopup::create()->show();
     }
 
     void onInfo(CCObject* sender) {

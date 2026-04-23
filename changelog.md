@@ -1,4 +1,9 @@
 # Streak!
+## 1.10.41
+- More settings were added
+- The progress bar at the end of the levels returned
+- Some errors were fixed
+
 ## 1.10.40
 - New cosmetics added
 - New Banners

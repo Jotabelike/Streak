@@ -179,7 +179,8 @@ protected:
   
 
     void applyGDPSDisable(CCMenuItemSpriteExtra* btn) {
-        if (!g_streakData.isGDPS) {
+        bool isGDPS = geode::Mod::get()->getSavedValue<bool>("is_gdps_player", g_streakData.isGDPS);
+        if (!isGDPS) {
             return;
         }
         btn->setEnabled(false);

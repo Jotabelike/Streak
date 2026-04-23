@@ -22,15 +22,14 @@
 
 class $modify(MyPlayLayer, PlayLayer) {
     struct Fields {
-        int m_pointsGained = 0; // Guardamos los puntos aquí para que EndLevelLayer los lea
+        int m_pointsGained = 0;  
     };
 
     void levelComplete() {
+        StreakDataBridge::pointsGained = 0;
         int percentBefore = this->m_level->m_normalPercent;
-
         PlayLayer::levelComplete();
         int percentAfter = this->m_level->m_normalPercent;
-
         if (this->m_isPracticeMode) return;
         if (percentBefore >= 100) return;
         if (percentAfter < 100) {
@@ -55,8 +54,7 @@ class $modify(MyPlayLayer, PlayLayer) {
                 log::info("Legally completed level ({} stars -> {} points)", stars, points);
                 g_streakData.addPoints(points);
 
-                if (geode::Mod::get()->getSavedValue<bool>("enable_streak_bar", true)) {
-                    // GUARDAMOS LOS PUNTOS EN EL PUENTE GLOBAL
+                if (geode::Mod::get()->getSavedValue<int>("end_level_anim_mode", 2) != 0) {
                     StreakDataBridge::pointsGained = points;
                 }
             }
