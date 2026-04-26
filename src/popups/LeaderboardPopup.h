@@ -465,7 +465,7 @@ protected:
     bool init() override {
         if (!Popup::init(390.f, 280.f, "geode.loader/GE_square03.png")) return false;
 
-        this->setTitle("Top Streaks (beta)");
+        this->setTitle("Top Streaks");
         auto winSize = this->m_mainLayer->getContentSize();
 
         auto infoSpr = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");

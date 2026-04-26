@@ -172,11 +172,14 @@ class $modify(MyColoredCommentCell, CommentCell) {
         if (accountID <= 0) return;
 
         bool showBanners = Mod::get()->getSavedValue<bool>("enable_comment_banners", true);
+         
+        bool showRainbow = Mod::get()->getSavedValue<bool>("enable_rainbow_effect", true);
 
-   
+     
         if (accountID == GJAccountManager::sharedState()->m_accountID) {
             if (auto* equippedBadge = g_streakData.getEquippedBadge()) {
-                if (equippedBadge->category == StreakData::BadgeCategory::MYTHIC) {
+              
+                if (equippedBadge->category == StreakData::BadgeCategory::MYTHIC && showRainbow) {
                     this->schedule(schedule_selector(MyColoredCommentCell::updateRainbowEffect));
                 }
             }
@@ -187,7 +190,6 @@ class $modify(MyColoredCommentCell, CommentCell) {
                 }
             }
 
-         
             this->applyNameModifiers(g_streakData.equippedNameColor,
                 g_streakData.equippedNameFont,
                 g_streakData.equippedNameEffect,
@@ -195,13 +197,12 @@ class $modify(MyColoredCommentCell, CommentCell) {
             return;
         }
 
-     
+      
         std::string cachedBadge = g_streakData.getCachedBadge(accountID);
         std::string cachedBanner = g_streakData.getCachedBanner(accountID);
 
-      
         if (!cachedBadge.empty() && !cachedBanner.empty() && cachedBadge != "pending") {
-            if (isBadgeMythic(cachedBadge)) {
+            if (isBadgeMythic(cachedBadge) && showRainbow) {
                 this->schedule(schedule_selector(MyColoredCommentCell::updateRainbowEffect));
             }
             if (showBanners && cachedBanner != "none") {
@@ -210,22 +211,20 @@ class $modify(MyColoredCommentCell, CommentCell) {
                 }
             }
 
-        
             auto cachedNames = g_streakData.getCachedNameCosmetics(accountID);
             this->applyNameModifiers(cachedNames.color, cachedNames.font, cachedNames.effect, cachedNames.animation);
             return;
         }
 
-      
         g_streakData.cacheUserBadge(accountID, "pending");
         g_streakData.cacheUserBanner(accountID, "pending");
-
-      
         this->applyNameModifiers("Default", "Default", "None", "None");
         std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
         auto req = web::WebRequest();
-
         m_fields->m_cosmeticsCheckListener.spawn(req.get(url), [this, accountID, showBanners](web::WebResponse res) {
+         
+            bool showRainbowCb = Mod::get()->getSavedValue<bool>("enable_rainbow_effect", true);
+
             if (res.ok() && res.json().isOk()) {
                 auto playerData = res.json().unwrap();
 
@@ -240,7 +239,8 @@ class $modify(MyColoredCommentCell, CommentCell) {
                 g_streakData.cacheUserBanner(accountID, bannerId.empty() ? "none" : bannerId);
                 g_streakData.cacheUserNameCosmetics(accountID, nameColor, nameFont, nameEffect, nameAnim);
 
-                if (this->isBadgeMythic(badgeId)) {
+            
+                if (this->isBadgeMythic(badgeId) && showRainbowCb) {
                     this->schedule(schedule_selector(MyColoredCommentCell::updateRainbowEffect));
                 }
 
@@ -258,7 +258,7 @@ class $modify(MyColoredCommentCell, CommentCell) {
                 g_streakData.cacheUserNameCosmetics(accountID, "Default", "Default", "None", "None");
                 this->applyNameModifiers("Default", "Default", "None", "None");
             }
-        });
+            });
     }
 
     static void onModify(auto& self) {

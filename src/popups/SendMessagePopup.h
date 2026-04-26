@@ -14,6 +14,14 @@ using namespace geode::prelude;
 
 
 class MessageCell : public CCNode {
+protected:
+    std::string m_msgID;
+    int m_likesCount = 0;
+    bool m_isLiked = false;
+    CCLabelBMFont* m_likesLabel = nullptr;
+    CCMenuItemSpriteExtra* m_likeBtn = nullptr;
+    async::TaskHolder<web::WebResponse> m_likeListener;
+
 public:
     static MessageCell* create(const matjson::Value& msgData, float width) {
         auto ret = new MessageCell();
@@ -28,9 +36,21 @@ public:
     bool init(const matjson::Value& msgData, float width) {
         if (!CCNode::init()) return false;
 
+        
+        m_msgID = msgData["id"].as<std::string>().unwrapOr("");
         std::string username = msgData["username"].as<std::string>().unwrapOr("Unknown");
         std::string content = msgData["content"].as<std::string>().unwrapOr("...");
         int role = msgData["role"].as<int>().unwrapOr(0);
+        m_likesCount = msgData["likesCount"].as<int>().unwrapOr(0);
+
+      
+        auto am = GJAccountManager::sharedState();
+        std::string myAccID = std::to_string(am->m_accountID);
+        if (msgData.contains("likedBy") && msgData["likedBy"].isObject()) {
+            if (msgData["likedBy"].contains(myAccID)) {
+                m_isLiked = msgData["likedBy"][myAccID].as<bool>().unwrapOr(false);
+            }
+        }
 
         size_t pos = 0;
         while ((pos = content.find("\\n", pos)) != std::string::npos) {
@@ -44,13 +64,7 @@ public:
 
         float contentWidth = width - 24.f;
         auto textArea = TextArea::create(
-            content,
-            "chatFont.fnt",
-            0.6f,
-            contentWidth,
-            { 0, 1 },
-            8.f,
-            false
+            content, "chatFont.fnt", 0.6f, contentWidth, { 0, 1 }, 8.f, false
         );
         textArea->setColor({ 255, 255, 255 });
         textArea->setOpacity(255);
@@ -65,15 +79,14 @@ public:
         float gapNameText = 4.f;
         float nameHeight = 15.f;
         float textHeight = textArea->getContentSize().height;
+        float likeAreaHeight = 18.f;  
 
-        float totalHeight = paddingY + nameHeight + gapNameText + textHeight + paddingY;
+        float totalHeight = paddingY + nameHeight + gapNameText + textHeight + likeAreaHeight + paddingY;
 
         this->setContentSize({ width, totalHeight });
         this->setAnchorPoint({ 0.5f, 0.5f });
         auto bg = cocos2d::extension::CCScale9Sprite::create(
-            "square02_001.png",
-            CCRect(0, 0, 80, 80),
-            CCRect(10, 10, 60, 60)
+            "square02_001.png", CCRect(0, 0, 80, 80), CCRect(10, 10, 60, 60)
         );
         bg->setContentSize({ width, totalHeight });
         bg->setPosition({ width / 2, totalHeight / 2 });
@@ -81,20 +94,99 @@ public:
         bg->setOpacity(90);
         this->addChild(bg, 0);
 
-        float shiftUp = 5.0f;
-
         float currentY = totalHeight - paddingY - (nameHeight / 2);
-        nameLabel->setPosition({ 12.f, currentY + shiftUp });
+        nameLabel->setPosition({ 12.f, currentY });
         this->addChild(nameLabel, 5);
 
         float textTopY = totalHeight - paddingY - nameHeight - gapNameText;
-        textArea->setPosition({ 12.f, textTopY + shiftUp });
+        textArea->setPosition({ 12.f, textTopY });
         this->addChild(textArea, 5);
+
+       
+        m_likesLabel = CCLabelBMFont::create(std::to_string(m_likesCount).c_str(), "chatFont.fnt");
+        m_likesLabel->setScale(0.5f);
+        m_likesLabel->setAnchorPoint({ 1.f, 0.5f });
+        m_likesLabel->setPosition({ width - 12.f, paddingY + 5.f });
+        this->addChild(m_likesLabel, 5);
+
+        auto likeSpr = CCSprite::createWithSpriteFrameName("GJ_likesIcon_001.png");
+        likeSpr->setScale(0.5f);
+
+        if (m_isLiked) {
+            likeSpr->setColor({ 255, 255, 255 });  
+            likeSpr->setOpacity(150);             
+        }
+        else {
+            likeSpr->setColor({ 255, 255, 255 });
+            likeSpr->setOpacity(255);
+        }
+
+        m_likeBtn = CCMenuItemSpriteExtra::create(
+            likeSpr, this, menu_selector(MessageCell::onLikeClicked)
+        );
+
+        if (m_isLiked) {
+            m_likeBtn->setEnabled(false);
+        }
+
+        auto likeMenu = CCMenu::create();
+        likeMenu->setPosition({ 0, 0 });
+        likeMenu->addChild(m_likeBtn);
+
+        m_likeBtn->setPosition({ width - 25.f - m_likesLabel->getScaledContentSize().width, paddingY + 5.f });
+        this->addChild(likeMenu, 5);
 
         return true;
     }
+
+    void onLikeClicked(CCObject*) {
+        if (m_msgID.empty()) {
+            FLAlertLayer::create("Error", "The message ID is missing. Please check your server.js file in Render..", "OK")->show();
+            return;
+        }
+        if (!m_likeBtn) return;
+
+        m_likeBtn->setEnabled(false);
+
+        auto am = GJAccountManager::sharedState();
+        matjson::Value payload = matjson::Value::object();
+        payload.set("accountID", std::to_string(am->m_accountID));
+
+        auto req = web::WebRequest();
+        std::string url = fmt::format("https://streak-servidor.onrender.com/messages/{}/like", m_msgID);
+
+        m_likeListener.spawn(
+            req.bodyJSON(payload).post(url),
+            [this](web::WebResponse res) {
+                if (res.ok() && res.json().isOk()) {
+                    auto data = res.json().unwrap();
+
+                    if (data.contains("error")) {
+                        FLAlertLayer::create("Error", data["error"].as<std::string>().unwrapOr("Error desconocido"), "OK")->show();
+                        m_likeBtn->setEnabled(true);
+                        return;
+                    }
+
+                    m_likesCount = data["likesCount"].as<int>().unwrapOr(m_likesCount);
+                    m_likesLabel->setString(std::to_string(m_likesCount).c_str());
+
+                    if (auto spr = typeinfo_cast<CCSprite*>(m_likeBtn->getNormalImage())) {
+                        spr->setColor({ 255, 255, 255 });  
+                        spr->setOpacity(150);              
+                    }
+
+                    m_likeBtn->setEnabled(false);
+                }
+                else {
+                    FLAlertLayer::create("Error de red", fmt::format("Código: {}", res.code()), "OK")->show();
+                    m_likeBtn->setEnabled(true);
+                }
+            }
+        );
+    }
 };
 
+ 
 
 class SendMessagePopup : public Popup {
 protected:

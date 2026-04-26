@@ -28,7 +28,7 @@ protected:
         { 5000,  10, "Pro Streak", 0, "", "diamond_streak_badge" },
         { 9000,  20, "Master Streak", 25000, "", "" },
         { 15000, 30, "Legendary Streak", 0, "banner_29", "" },
-        { 20000, 40, "legend Streak", 0, "banner_42", "" },
+        { 20000, 40, "Top Streak", 0, "banner_42", "" },
         { 30000, 50, "Mythic Streak", 0, "banner_44", "" }
     };
 

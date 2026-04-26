@@ -134,6 +134,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     streakPointsToday = safeInt(data, "streakPointsToday", 0);
     gems = safeInt(data, "gems", 0);
     gemRouletteSpinCount = safeInt(data, "gem_roulette_spin_count", 0);
+    isGDPS = data["isGDPS"].as<bool>().unwrapOr(false);
     gemRouletteHash = data["gem_roulette_hash"].as<std::string>().unwrapOr(std::string(""));
     equippedNameAnimation = data["equipped_name_animation"].as<std::string>().unwrapOr(std::string("None"));
     equippedNameColor = data["equipped_name_color"].as<std::string>().unwrapOr(std::string("Default"));
@@ -1013,6 +1014,31 @@ void StreakData::unlockNameItem(const std::string& item) {
 }
 
 int StreakData::getNameItemPrice(const std::string& item) {
-
-    return 100;
+ 
+    if (item == "Default" || item == "None") return 0;
+    if (item.find("Wave") != std::string::npos ||
+        item == "Synthwave" ||
+        item.find("Blink") != std::string::npos ||
+        item == "Rainbow") {
+        return 800;
+    }
+ 
+    if (item.find("Static") != std::string::npos) {
+        return 350;
+    }
+ 
+    if (item.find("Font") != std::string::npos || item == "Chat" || item == "Gold" || item == "Pusab") {
+        return 150;
+    }
+ 
+    std::set<std::string> basicColors = {
+        "Black", "Blue", "Brown", "Cyan", "Gold", "Green", "Lime", "Magenta",
+        "Maroon", "Mint", "Navy", "Orange", "Peach", "Pink", "Purple", "Red",
+        "Silver", "Teal", "Yellow"
+    };
+    if (basicColors.count(item)) {
+        return 100;
+    }
+ 
+    return 250;
 }

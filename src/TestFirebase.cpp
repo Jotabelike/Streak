@@ -39,6 +39,8 @@ void loadPlayerDataFromServer() {
         [accountID](web::WebResponse res) {
             if (res.ok() && res.json().isOk()) {
                 g_streakData.parseServerResponse(res.json().unwrap());
+                std::string gdpsKey = fmt::format("is_gdps_player_{}", accountID);
+                geode::Mod::get()->setSavedValue<bool>(gdpsKey, g_streakData.isGDPS);
                 g_streakData.isDataLoaded = true;
                 g_streakData.m_initialized = true;
                 log::info("Data received and processed.");
@@ -73,8 +75,7 @@ void updatePlayerDataInFirebase() {
     playerData.set("username", std::string(accountManager->m_username));
     playerData.set("accountID", accountID);
     playerData.set("userID", userID);
-    playerData.set("isGDPS", g_streakData.isGDPS);
-    
+    playerData.set("isGDPS", g_streakData.isGDPS); 
     playerData.set("equipped_badge_id", g_streakData.equippedBadge);
     playerData.set("equipped_banner_id", g_streakData.equippedBanner);
     playerData.set("equipped_name_color", g_streakData.equippedNameColor);

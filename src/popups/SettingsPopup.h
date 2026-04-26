@@ -686,6 +686,7 @@ protected:
         addArrowSetting("Expand Top List", "leaderboard_capacity_idx", "Show 10 or 50 players");
         addPauseModeSetting("Streak counter", "pause_hud_mode", "Streak counter in the pause menu");
         addAnimModeSetting("End Animation", "end_level_anim_mode", "Choose the streak animation at the end of a level.");
+        addToggleSetting("Comments Colors", "enable_rainbow_effect", "Toggle the multicolor effect for Mythic badges.");
         addToggleSetting("Welcome Notification", "enable_welcome_notif", "Toggle the welcome message on startup");
         addToggleSetting("Streak Animation", "enable_streak_anim", "Disables the Streak animation");
         addToggleSetting("Level Points","enable_level_points","Show how many Streak points a level gives.");

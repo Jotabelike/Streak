@@ -4,6 +4,11 @@
 bool StreakChestPopup::init(int superStars, int starTickets, int gems, int rewardXP, std::function<void()> reloadFunc) {
     if (!Popup::init(350.f, 220.f, "GJ_square02.png")) return false;
 
+   
+    if (m_closeBtn) {
+        m_closeBtn->setVisible(false);
+    }
+
     m_superStars = superStars;
     m_starTickets = starTickets;
     m_gems = gems;
@@ -56,13 +61,18 @@ bool StreakChestPopup::init(int superStars, int starTickets, int gems, int rewar
     auto fallTo = CCMoveTo::create(0.85f, { m_size.width / 2, m_size.height / 2 - 25.f });
     auto bounceEffect = CCEaseBounceOut::create(fallTo);
 
-    auto playLandSound = CallFuncExt::create([]() {
-        FMODAudioEngine::sharedEngine()->playEffect("chestLand.ogg");
-        });
+    // Secuencia paralela para reproducir el sonido en el primer impacto
+    auto soundAction = CCSequence::create(
+        CCDelayTime::create(0.35f), // El primer impacto del cofre ocurre aprox a los 0.35s
+        CallFuncExt::create([]() {
+            FMODAudioEngine::sharedEngine()->playEffect("chestLand.ogg");
+            }),
+        nullptr
+    );
 
     auto startSequence = CCSequence::create(
-        bounceEffect,
-        playLandSound,
+        // CCSpawn ejecuta el rebote y el temporizador del sonido de manera simultánea
+        CCSpawn::create(bounceEffect, soundAction, nullptr),
         CCDelayTime::create(0.5f),
         CallFuncExt::create([this]() {
             this->playOpenAnimation();
@@ -290,4 +300,7 @@ StreakChestPopup* StreakChestPopup::create(int superStars,
     }
     CC_SAFE_DELETE(ret);
     return nullptr;
+}
+
+void StreakChestPopup::keyBackClicked() {
 }

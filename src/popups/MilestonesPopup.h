@@ -191,23 +191,19 @@ public:
         return true;
     }
 
-    void onPlayLevel(CCObject* sender) {
-        int levelID = sender->getTag();
-        if (levelID == 0) return;
+ void onPlayLevel(CCObject* sender) {
+    int levelID = sender->getTag();
+    if (levelID == 0) return;
+    auto searchObj = GJSearchObject::create(
+        SearchType::Search, 
+        std::to_string(levelID)
+    );
 
-        auto searchObj = GJSearchObject::create(
-            SearchType::Search,
-            std::to_string(levelID)
-        );
-
-        auto browserLayer = LevelBrowserLayer::create(searchObj);
-        auto scene = CCScene::create();
-        scene->addChild(browserLayer);
-
-        CCDirector::sharedDirector()->replaceScene(
-            CCTransitionFade::create(0.5f, scene)
-        );
-    }
+    auto scene = LevelBrowserLayer::scene(searchObj);
+    CCDirector::sharedDirector()->pushScene(
+        CCTransitionFade::create(0.5f, scene)
+    );
+}
 
     void onPinLevel(CCObject*) {
         if (m_currentLevels.empty()) return;

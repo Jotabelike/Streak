@@ -78,7 +78,7 @@ class $modify(MyProfilePage, ProfilePage) {
         }
     }
 
-    void onStreakStatClick(CCObject * sender) {
+    void onStreakStatClick(CCObject* sender) {
         g_streakData.load();
 
         ProfileData myData;
@@ -94,14 +94,19 @@ class $modify(MyProfilePage, ProfilePage) {
         myData.bannerID = g_streakData.equippedBanner;
         myData.streakID = g_streakData.streakID;
         myData.globalRank = g_streakData.globalRank;
+
+      
+        myData.nameColor = g_streakData.equippedNameColor;
+        myData.nameFont = g_streakData.equippedNameFont;
+        myData.nameEffect = g_streakData.equippedNameEffect;
+        myData.nameAnimation = g_streakData.equippedNameAnimation;
+
         myData.isPartialData = false;
 
         auto badge = g_streakData.getEquippedBadge();
         myData.isMythic = (badge && badge->category == StreakData::BadgeCategory::MYTHIC);
 
-        ProfileCardPopup::create(
-            myData
-        )->show();
+        ProfileCardPopup::create(myData)->show();
     }
 
     void loadPageFromUserInfo(GJUserScore* score) {
@@ -253,6 +258,10 @@ class $modify(MyProfilePage, ProfilePage) {
 
                         std::string badgeId = json["equipped_badge_id"].as<std::string>().unwrapOr(std::string(""));
                         pData.badgeID = badgeId;
+                        pData.nameFont = nameFont;
+                        pData.nameColor = nameColor;
+                        pData.nameEffect = nameEffect;
+                        pData.nameAnimation = nameAnim;
                         pData.isPartialData = true;
 
                   

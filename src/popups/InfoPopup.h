@@ -179,7 +179,12 @@ protected:
   
 
     void applyGDPSDisable(CCMenuItemSpriteExtra* btn) {
-        bool isGDPS = geode::Mod::get()->getSavedValue<bool>("is_gdps_player", g_streakData.isGDPS);
+        auto am = GJAccountManager::sharedState();
+        if (!am) return;  
+
+        std::string gdpsKey = fmt::format("is_gdps_player_{}", am->m_accountID);
+        bool isGDPS = geode::Mod::get()->getSavedValue<bool>(gdpsKey, g_streakData.isGDPS);
+
         if (!isGDPS) {
             return;
         }
@@ -678,14 +683,11 @@ protected:
         myData.bannerID = g_streakData.equippedBanner;
         myData.badgeID = g_streakData.equippedBadge;
         myData.streakID = g_streakData.streakID;
-        myData.globalRank = g_streakData.globalRank;
-        myData.isMythic = false;
-
-        auto badge = g_streakData.getEquippedBadge();
-        if (badge && badge->category == StreakData::BadgeCategory::MYTHIC) {
-            myData.isMythic = true;
-        }
-
+        myData.globalRank = g_streakData.globalRank;     
+        myData.nameColor = g_streakData.equippedNameColor;
+        myData.nameFont = g_streakData.equippedNameFont;
+        myData.nameEffect = g_streakData.equippedNameEffect;
+        myData.nameAnimation = g_streakData.equippedNameAnimation;
         ProfileCardPopup::create(myData)->show();
     }
 

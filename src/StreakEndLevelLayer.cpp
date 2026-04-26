@@ -101,7 +101,8 @@ class $modify(StreakEndLevelLayer, EndLevelLayer) {
         f->m_lbl->setOpacity(0);
         f->m_streakContainer = CCNode::create();
         f->m_streakContainer->setID("streak-container"_spr);
-        f->m_streakContainer->setPosition({ 164.5f, 182.f });
+        auto winSize = CCDirector::get()->getWinSize();      
+        f->m_streakContainer->setPosition({ winSize.width / 2 - 120.f, winSize.height / 2 + 22.f });
         f->m_streakContainer->addChild(f->m_icon);
         f->m_streakContainer->addChild(f->m_lbl);
         m_mainLayer->addChild(f->m_streakContainer, 10);

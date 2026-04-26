@@ -17,7 +17,7 @@ protected:
     bool init(int superStars, int starTickets, int gems, int rewardXP, std::function<void()> reloadFunc);
     void playOpenAnimation();
     void showRewards();
-
+    virtual void keyBackClicked() override;
 public:
     static StreakChestPopup* create(int superStars, int starTickets, int gems, int rewardXP, std::function<void()> reloadFunc);
 };

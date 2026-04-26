@@ -307,7 +307,8 @@ protected:
         g_streakData.resetToDefault();
         g_streakData.needsRegistration = false;
         g_streakData.isGDPS = m_isGDPS;
-        geode::Mod::get()->setSavedValue<bool>("is_gdps_player", m_isGDPS);
+        std::string gdpsKey = fmt::format("is_gdps_player_{}", am->m_accountID);
+        geode::Mod::get()->setSavedValue<bool>(gdpsKey, m_isGDPS);
 
         g_streakData.dailyUpdate();
         updatePlayerDataInFirebase();

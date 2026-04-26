@@ -5,6 +5,7 @@
 #include <Geode/utils/async.hpp>
 #include "../StreakData.h"
 #include "../StatusSpinner.h"
+#include "../NameModifiers.h"
 
 using namespace geode::prelude;
 
@@ -23,6 +24,12 @@ struct ProfileData {
     std::string streakID;
     int globalRank = 0;
     bool isMythic = false;
+
+     
+    std::string nameColor = "Default";
+    std::string nameFont = "Default";
+    std::string nameEffect = "None";
+    std::string nameAnimation = "None";
 
     bool isPartialData = false;
 };
@@ -115,25 +122,24 @@ protected:
 
         float textStartX = bannerCenterX - 95.f;
         std::string userName = m_data.username.empty() ? "Player" : m_data.username;
+
+        // 1. Creamos un CONTENEDOR para el nombre (esto asegura que las partículas se vean)
+        auto nameContainer = CCNode::create();
+        nameContainer->setPosition({ textStartX, bannerCenterY + 8.f });
+        m_mainLayer->addChild(nameContainer, 5);
+
         auto nameLabel = CCLabelBMFont::create(userName.c_str(), "bigFont.fnt");
         nameLabel->setScale(0.6f);
         nameLabel->setAnchorPoint({ 0.0f, 0.5f });
-        nameLabel->setPosition({ textStartX, bannerCenterY + 8.f });
-        m_mainLayer->addChild(nameLabel, 5);
+        nameLabel->setPosition({ 0, 0 });
+        nameContainer->addChild(nameLabel);
+         
+        NameModifiers::applyFont(nameLabel, m_data.nameFont);
+        NameModifiers::applyColor(nameLabel, m_data.nameColor);
+        NameModifiers::applyAnimation(nameLabel, m_data.nameAnimation);
+        NameModifiers::applyEffect(nameLabel, m_data.nameEffect);
 
-        bool isMythic = false;
-        if (auto bInfo = g_streakData.getBadgeInfo(m_data.badgeID)) {
-            if (bInfo->category == StreakData::BadgeCategory::MYTHIC) isMythic = true;
-        }
-        if (isMythic) {
-            auto rainbowAction = CCRepeatForever::create(CCSequence::create(
-                CCTintTo::create(1.0f, 255, 0, 0), CCTintTo::create(1.0f, 255, 127, 0),
-                CCTintTo::create(1.0f, 255, 255, 0), CCTintTo::create(1.0f, 0, 255, 0),
-                CCTintTo::create(1.0f, 0, 0, 255), CCTintTo::create(1.0f, 75, 0, 130),
-                CCTintTo::create(1.0f, 143, 0, 255), nullptr
-            ));
-            nameLabel->runAction(rainbowAction);
-        }
+   
 
         auto xpIcon = CCSprite::create("xp.png"_spr);
         if (!xpIcon) xpIcon = CCSprite::createWithSpriteFrameName("GJ_starsIcon_001.png");
@@ -191,6 +197,10 @@ protected:
                 m_data.starTickets = json["star_tickets"].as<int>().unwrapOr(0);
                 m_data.bannerID = json["equipped_banner_id"].as<std::string>().unwrapOr("");
                 m_data.streakID = json["streakID"].as<std::string>().unwrapOr("???");
+                m_data.nameFont = json["equipped_name_font"].as<std::string>().unwrapOr("Default");
+                m_data.nameColor = json["equipped_name_color"].as<std::string>().unwrapOr("Default");
+                m_data.nameEffect = json["equipped_name_effect"].as<std::string>().unwrapOr("None");
+                m_data.nameAnimation = json["equipped_name_animation"].as<std::string>().unwrapOr("None");
 
                 if (json.contains("rank")) m_data.globalRank = json["rank"].as<int>().unwrapOr(0);
                 else if (json.contains("global_rank")) m_data.globalRank = json["global_rank"].as<int>().unwrapOr(0);

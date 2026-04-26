@@ -633,25 +633,27 @@ protected:
         m_namesContainer->addChild(fontsTitle);
 
         std::vector<std::string> effects = {
-       "None", "Blood", "Confetti", "Electric", "Fire", "Galaxy", "Holy",
-       "Ice", "Lava", "Poison", "Rain", "Snow", "Sparkle", "Stars",
-       "Toxic", "Void"
+        "None", "Blood", "Bubbles", "ConcertLights", "Confetti", "Electric",
+        "Ember", "Explosion", "Fire", "Fireflies", "Galaxy", "Glitch",
+        "Heartbeat", "Holy", "Ice", "Lava", "Matrix", "Meteor", "Career",
+        "Orbit", "Plasma", "Poison", "Pulse", "Rain", "Rainbow", "Sakura",
+        "Scanner", "Shadow", "Shockwave", "Smoke", "Snow", "Sparkle",
+        "Spotlight", "Stars", "Supernova", "Toxic", "Void"
         };
 
         std::vector<std::string> animations = {
-            "None", "Bounce", "Domino", "DVD", "Dynamic Jump", "Float",
-            "Glitch", "Heartbeat", "Jelly", "Pulse", "Shake", "Spin",
-            "Swing", "Wave"
+              "None", "Blink", "Bounce", "Domino", "DVD", "Dynamic Jump", "Float",
+              "Glitch", "Heartbeat", "Jelly", "Pulse", "Shake", "Spin",
+              "Spiral", "Squish", "Swing", "Tremble", "Wave", "Wobble"
         };
-
         std::vector<std::string> colors = {
-            "Default", "Black", "Blue", "Brown", "Cyan", "Gold", "Green",
-            "Lime", "Magenta", "Maroon", "Mint", "Navy", "Orange",
-            "Peach", "Pink", "Purple", "Red", "Silver", "Teal", "Yellow",
-            "Cyberpunk Wave", "Fire Wave", "Ice Wave", "Ocean Wave",
-            "Rainbow", "Rainbow Wave", "Royal Wave", "Sunset Wave", "Toxic Wave",
-            "Static Blood", "Static Deep Sea", "Static Golden",
-            "Static Toxic", "Static Vaporwave"
+                "Default", "Black", "Blue", "Brown", "Cyan", "Gold", "Green",
+                "Lime", "Magenta", "Maroon", "Mint", "Navy", "Orange",
+                "Peach", "Pink", "Purple", "Red", "Silver", "Teal", "Yellow",
+                "Cyberpunk Wave", "Fire Wave", "Golden Wave", "Ice Wave", "Ocean Wave",
+                "Rainbow", "Rainbow Wave", "Royal Wave", "Sunset Wave", "Toxic Wave",
+                "Abyss Wave","Disco Blink", "Synthwave", "Pastel Wave", "Aurora Wave",
+                "Static Blood", "Static Deep Sea", "Static Toxic", "Static Vaporwave"
         };
 
         std::vector<std::string> fonts = {
