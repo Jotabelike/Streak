@@ -2,9 +2,9 @@
 
 namespace NameModifiers {
 
- 
+  
     static CCSprite* createGlowDot(float radius, ccColor3B color, GLubyte opacity = 200) {
- 
+     
         auto dot = CCSprite::create("square.png");
         if (!dot) dot = CCSprite::create();
         dot->setScale(radius / 16.f);
@@ -14,7 +14,7 @@ namespace NameModifiers {
         return dot;
     }
 
- 
+   
     static CCNode* createNodeEffect(const std::string& effectID,
         CCPoint centerPos, float halfW, float halfH, float scale) {
 
@@ -22,8 +22,7 @@ namespace NameModifiers {
         container->setPosition(centerPos);
         container->setTag(8889);
 
-         
-        
+    
         if (effectID == "Explosion") {
           
             for (int i = 0; i < 3; i++) {
@@ -56,7 +55,7 @@ namespace NameModifiers {
                 container->addChild(ring);
             }
 
-      
+         
             for (int i = 0; i < 6; i++) {
                 auto spark = CCSprite::create("square.png");
                 spark->setScale(0.1f * scale);
@@ -70,7 +69,7 @@ namespace NameModifiers {
                 CCPoint target = { cosf(rad) * dist, sinf(rad) * dist };
 
                 auto seq = CCSequence::create(
-                    CCPlace::create({ 0, 0 }),
+                    CCMoveTo::create(0.01f, { 0, 0 }),
                     CCFadeIn::create(0.05f),
                     CCSpawn::create(
                         CCMoveTo::create(0.4f, target),
@@ -85,19 +84,19 @@ namespace NameModifiers {
                 container->addChild(spark);
             }
         }
-
-       
+ 
         else if (effectID == "ConcertLights") {
             ccColor3B colors[] = {
                 {255, 0, 120}, {0, 100, 255}, {255, 220, 0},
                 {0, 255, 80}, {200, 0, 255}, {255, 50, 50}, {0, 255, 255}
             };
 
-         
+            
             for (int i = 0; i < 7; i++) {
                 auto draw = CCDrawNode::create();
                 draw->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
- 
+
+             
                 float beamHeight = halfH * 4.2f;
                 float beamWidth = halfW * 0.55f;
                 ccColor4F col = {
@@ -109,9 +108,9 @@ namespace NameModifiers {
                 ccColor4F noBorder = { 0.f, 0.f, 0.f, 0.f };
 
                 CCPoint verts[] = {
-                    { 0, 0 },                         
-                    { -beamWidth / 2, -beamHeight },   
-                    { beamWidth / 2, -beamHeight }        
+                    { 0, 0 },                           
+                    { -beamWidth / 2, -beamHeight },    
+                    { beamWidth / 2, -beamHeight }     
                 };
                 draw->drawPolygon(verts, 3, col, 0, noBorder);
 
@@ -130,7 +129,7 @@ namespace NameModifiers {
                 );
                 draw->runAction(CCRepeatForever::create(swing));
 
-           
+            
                 auto flicker = CCSequence::create(
                     CCFadeTo::create(0.15f, 200),
                     CCFadeTo::create(0.12f, 60),
@@ -143,7 +142,7 @@ namespace NameModifiers {
                 container->addChild(draw);
             }
 
-          
+            
             for (int i = 0; i < 5; i++) {
                 auto dot = CCSprite::create("square.png");
                 dot->setScale(0.25f * scale);
@@ -200,10 +199,9 @@ namespace NameModifiers {
                 container->addChild(ring);
             }
         }
-
-      
+ 
         else if (effectID == "Glitch") {
-            
+        
             for (int i = 0; i < 14; i++) {
                 auto bar = CCSprite::create("square.png");
                 float csW = bar->getContentSize().width;
@@ -223,8 +221,7 @@ namespace NameModifiers {
                 float yPos = -halfH + (halfH * 2.f / 14.f) * i;
                 float xOffset = ((i * 53) % 7 - 3) * halfW * 0.15f;
                 bar->setPosition({ xOffset, yPos });
-
-               
+                 
                 float onTime = 0.03f + (i % 3) * 0.02f;
                 float offTime = 0.15f + (i % 5) * 0.08f;
                 float jumpX = ((i * 41) % 5 - 2) * halfW * 0.3f;
@@ -243,7 +240,7 @@ namespace NameModifiers {
                         nullptr
                     ),
                     CCDelayTime::create(offTime * 0.5f),
-                 
+                
                     CCSpawn::create(
                         CCFadeIn::create(0.01f),
                         CCMoveBy::create(0.01f, { -jumpX * 0.5f, 0 }),
@@ -262,7 +259,7 @@ namespace NameModifiers {
                 container->addChild(bar);
             }
 
-          
+           
             for (int i = 0; i < 4; i++) {
                 auto block = CCSprite::create("square.png");
                 float csW = block->getContentSize().width;
@@ -278,7 +275,7 @@ namespace NameModifiers {
 
                 auto seq = CCSequence::create(
                     CCDelayTime::create(0.5f + i * 0.3f),
-                    CCPlace::create({ ((i * 29) % 5 - 2) * halfW * 0.3f, yOff }),
+                    CCMoveTo::create(0.01f, { ((i * 29) % 5 - 2) * halfW * 0.3f, yOff }),
                     CCFadeTo::create(0.02f, 120),
                     CCDelayTime::create(0.04f),
                     CCFadeTo::create(0.02f, 0),
@@ -292,7 +289,7 @@ namespace NameModifiers {
 
        
         else if (effectID == "Orbit") {
-        
+    
             for (int i = 0; i < 8; i++) {
                 auto orb = CCSprite::create("square.png");
                 orb->setScale(0.18f * scale);
@@ -323,7 +320,8 @@ namespace NameModifiers {
                 orb->runAction(CCRepeatForever::create(pulse));
                 container->addChild(pivot);
             }
- 
+
+         
             for (int i = 0; i < 6; i++) {
                 auto orb = CCSprite::create("square.png");
                 orb->setScale(0.22f * scale);
@@ -347,7 +345,7 @@ namespace NameModifiers {
 
                 float duration = 1.8f + (i % 3) * 0.2f;
                 pivot->runAction(CCRepeatForever::create(
-                    CCRotateBy::create(duration, 360.f) 
+                    CCRotateBy::create(duration, 360.f)  
                 ));
 
                 auto pulse = CCSequence::create(
@@ -359,7 +357,7 @@ namespace NameModifiers {
                 container->addChild(pivot);
             }
 
-          
+         
             for (int i = 0; i < 4; i++) {
                 auto orb = CCSprite::create("square.png");
                 orb->setScale(0.3f * scale);
@@ -382,7 +380,7 @@ namespace NameModifiers {
 
                 float duration = 3.5f + i * 0.4f;
                 pivot->runAction(CCRepeatForever::create(
-                    CCRotateBy::create(duration, 360.f)  
+                    CCRotateBy::create(duration, 360.f) 
                 ));
 
                 auto fade = CCSequence::create(
@@ -394,7 +392,7 @@ namespace NameModifiers {
                 container->addChild(pivot);
             }
 
-          
+        
             auto core = CCSprite::create("square.png");
             core->setScale(0.25f * scale);
             core->setColor({ 20, 0, 40 });
@@ -410,7 +408,7 @@ namespace NameModifiers {
             container->addChild(core, -1);
         }
 
-   
+      
         else if (effectID == "Pulse") {
             for (int i = 0; i < 3; i++) {
                 auto glow = CCSprite::create("square.png");
@@ -446,7 +444,8 @@ namespace NameModifiers {
                 container->addChild(glow, -1);
             }
         }
- 
+
+     
         else if (effectID == "Scanner") {
             auto line = CCSprite::create("square.png");
             line->setScaleX(0.02f * scale);
@@ -456,7 +455,7 @@ namespace NameModifiers {
             line->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
 
             auto sweep = CCSequence::create(
-                CCPlace::create({ -halfW * 1.1f, 0 }),
+                CCMoveTo::create(0.01f, { -halfW * 1.1f, 0 }),
                 CCFadeIn::create(0.1f),
                 CCMoveTo::create(1.2f, { halfW * 1.1f, 0 }),
                 CCFadeOut::create(0.1f),
@@ -466,7 +465,7 @@ namespace NameModifiers {
             line->runAction(CCRepeatForever::create(sweep));
             container->addChild(line);
 
-           
+         
             auto trail = CCSprite::create("square.png");
             trail->setScaleX(halfW * 0.5f / trail->getContentSize().width);
             trail->setScaleY((halfH * 2.2f) / trail->getContentSize().height);
@@ -475,7 +474,7 @@ namespace NameModifiers {
             trail->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
 
             auto sweepTrail = CCSequence::create(
-                CCPlace::create({ -halfW * 1.3f, 0 }),
+                CCMoveTo::create(0.01f, { -halfW * 1.3f, 0 }),
                 CCFadeIn::create(0.15f),
                 CCMoveTo::create(1.2f, { halfW * 0.9f, 0 }),
                 CCFadeOut::create(0.2f),
@@ -486,10 +485,8 @@ namespace NameModifiers {
             container->addChild(trail, -1);
         }
 
-       
+        
         else if (effectID == "Career") {
-           
-       
             ccColor3B neonColors[] = {
                 {255, 0, 200}, {0, 255, 200}, {255, 100, 0}, {0, 150, 255}
             };
@@ -501,15 +498,15 @@ namespace NameModifiers {
                 light->setOpacity(220);
                 light->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
 
-             
+                 
                 float pw = halfW * 1.15f;
                 float ph = halfH * 1.15f;
                 float spd = 0.4f + i * 0.05f;
 
                 CCPoint p1 = { -pw, ph };   
-                CCPoint p2 = { pw, ph };   
+                CCPoint p2 = { pw, ph };    
                 CCPoint p3 = { pw, -ph };   
-                CCPoint p4 = { -pw, -ph };   
+                CCPoint p4 = { -pw, -ph };  
 
                 int startCorner = i % 4;
                 CCPoint starts[] = { p1, p2, p3, p4 };
@@ -524,7 +521,7 @@ namespace NameModifiers {
                 );
                 light->runAction(CCRepeatForever::create(path));
 
-           
+              
                 auto pulse = CCSequence::create(
                     CCFadeTo::create(0.15f, 255),
                     CCFadeTo::create(0.15f, 140),
@@ -532,7 +529,7 @@ namespace NameModifiers {
                 );
                 light->runAction(CCRepeatForever::create(pulse));
 
-        
+              
                 int c1 = (i + 1) % 4, c2 = (i + 2) % 4;
                 auto colorShift = CCSequence::create(
                     CCTintTo::create(1.2f, neonColors[c1].r, neonColors[c1].g, neonColors[c1].b),
@@ -545,7 +542,7 @@ namespace NameModifiers {
                 container->addChild(light);
             }
 
-          
+         
             auto bgGlow = CCSprite::create("square.png");
             float csW = bgGlow->getContentSize().width;
             float csH = bgGlow->getContentSize().height;
@@ -573,10 +570,10 @@ namespace NameModifiers {
             container->addChild(bgGlow, -1);
         }
 
-   
+        
         else if (effectID == "Spotlight") {
             auto cone = CCSprite::create("square.png");
-      
+          
             cone->setScaleX((halfW * 1.5f) / cone->getContentSize().width);
             cone->setScaleY((halfH * 4.f) / cone->getContentSize().height);
             cone->setAnchorPoint({ 0.5f, 1.f });
@@ -584,8 +581,7 @@ namespace NameModifiers {
             cone->setColor({ 255, 255, 200 });
             cone->setOpacity(25);
             cone->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
-
-           
+ 
             auto swing = CCSequence::create(
                 CCRotateTo::create(2.f, -12.f),
                 CCRotateTo::create(2.f, 12.f),
@@ -594,7 +590,7 @@ namespace NameModifiers {
             cone->runAction(CCRepeatForever::create(swing));
             container->addChild(cone, -1);
 
-          
+            
             auto flare = CCSprite::create("square.png");
             flare->setScale(0.3f * scale);
             flare->setColor({ 255, 255, 220 });
@@ -611,7 +607,7 @@ namespace NameModifiers {
             container->addChild(flare);
         }
 
-        
+       
         else if (effectID == "Matrix") {
             for (int i = 0; i < 20; i++) {
                 const char* digit = (i % 2 == 0) ? "1" : "0";
@@ -631,7 +627,7 @@ namespace NameModifiers {
 
                 auto seq = CCSequence::create(
                     CCDelayTime::create(waitDur),
-                    CCPlace::create({ xPos, yStart }),
+                    CCMoveTo::create(0.01f, { xPos, yStart }),
                     CCFadeTo::create(0.05f, 200),
                     CCSpawn::create(
                         CCMoveTo::create(fallDur, { xPos, yEnd }),
@@ -668,14 +664,13 @@ namespace NameModifiers {
         }
 
         else {
- 
+       
             container->release();
             return nullptr;
         }
 
         return container;
     }
-
  
     void applyEffect(CCLabelBMFont* label, const std::string& effectID) {
         if (!label) return;
@@ -688,8 +683,7 @@ namespace NameModifiers {
         if (isProfile && parent->getParent()) {
             targetLayer = parent->getParent();
         }
-
-        
+ 
         if (auto old = targetLayer->getChildByTag(8888)) {
             old->removeFromParentAndCleanup(true);
         }
@@ -717,17 +711,16 @@ namespace NameModifiers {
 
         if (effectID == "None") return;
 
- 
+      
         CCNode* nodeEffect = createNodeEffect(effectID, centerPos, halfW, halfH, scale);
         if (nodeEffect) {
             targetLayer->addChild(nodeEffect, parent->getZOrder() - 1);
             return;
-        }
-
-       
+        }    
         CCParticleSystemQuad* particles = nullptr;
 
-  
+       
+
         if (effectID == "Sparkle") {
             particles = CCParticleSnow::create();
             particles->setTotalParticles(60);
@@ -987,7 +980,7 @@ namespace NameModifiers {
             centerPos.y += halfH * 1.3f;
         }
         else if (effectID == "Plasma") {
-        
+          
             particles = CCParticleFire::create();
             particles->setTotalParticles(180);
             particles->setLife(0.5f);
@@ -1005,13 +998,14 @@ namespace NameModifiers {
             particles->setAngle(90.f);
             particles->setAngleVar(360.f);
         }
-        else if (effectID == "Rainbow") {        
+        else if (effectID == "Rainbow") {
+            
             particles = CCParticleFire::create();
             particles->setTotalParticles(150);
             particles->setLife(0.8f);
             particles->setEmissionRate(150.f / 0.8f);
             particles->setStartColor({ 1.0f, 0.0f, 0.0f, 1.0f });
-            particles->setStartColorVar({ 0.0f, 1.0f, 1.0f, 0.0f });
+            particles->setStartColorVar({ 0.0f, 1.0f, 1.0f, 0.0f }); 
             particles->setEndColor({ 0.5f, 0.5f, 1.0f, 0.0f });
             particles->setEndColorVar({ 0.5f, 0.5f, 0.5f, 0.0f });
             particles->setStartSize(12.f * scale);
@@ -1036,16 +1030,16 @@ namespace NameModifiers {
             particles->setStartSize(20.f * scale);
             particles->setEndSize(5.f * scale);
             particles->setSpeed(90.f * scale);
-            particles->setSpeedVar(20.f * scale);      
+            particles->setSpeedVar(20.f * scale);
             particles->setAngle(225.f);
             particles->setAngleVar(12.f);
-            particles->setGravity({ 20.f * scale, -35.f * scale });        
+            particles->setGravity({ 20.f * scale, -35.f * scale });
             particles->setPosVar({ halfW * 0.9f, halfH * 0.5f });
-            particles->setBlendAdditive(true);          
+            particles->setBlendAdditive(true);
             centerPos.y += halfH * 0.3f;
         }
         else if (effectID == "Heartbeat") {
-           
+        
             particles = CCParticleFire::create();
             particles->setTotalParticles(40);
             particles->setLife(1.5f);
@@ -1064,7 +1058,7 @@ namespace NameModifiers {
             particles->setBlendAdditive(false);
         }
         else if (effectID == "Shadow") {
-           
+            
             particles = CCParticleFire::create();
             particles->setTotalParticles(80);
             particles->setLife(1.2f);
@@ -1081,7 +1075,7 @@ namespace NameModifiers {
             particles->setBlendAdditive(false);
         }
         else if (effectID == "Fireflies") {
-          
+         
             particles = CCParticleSnow::create();
             particles->setTotalParticles(35);
             particles->setLife(2.5f);
@@ -1123,7 +1117,7 @@ namespace NameModifiers {
             centerPos.y -= halfH * 0.6f;
         }
         else if (effectID == "Bubbles") {
-        
+         
             particles = CCParticleSnow::create();
             particles->setTotalParticles(40);
             particles->setLife(2.0f);
@@ -1143,6 +1137,7 @@ namespace NameModifiers {
             centerPos.y -= halfH * 0.5f;
         }
         else if (effectID == "Supernova") {
+          
             particles = CCParticleExplosion::create();
             particles->setDuration(-1);
             particles->setTotalParticles(200);
@@ -1161,7 +1156,7 @@ namespace NameModifiers {
             particles->setBlendAdditive(true);
         }
         else if (effectID == "Smoke") {
-       
+     
             particles = CCParticleFire::create();
             particles->setTotalParticles(60);
             particles->setLife(1.5f);
