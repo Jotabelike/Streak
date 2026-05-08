@@ -94,6 +94,10 @@ class $modify(MyMenuLayer, MenuLayer) {
     }
 
     void loadPlayerData() {
+        if (g_streakData.isDataLoaded && g_streakData.m_initialized && !HMACAuth::getSessionToken().empty()) {
+            this->createStreakButton(ButtonState::Active);
+            return;
+        }
         auto accountManager = GJAccountManager::sharedState();
         if (!accountManager || accountManager->m_accountID == 0) {
             g_streakData.m_initialized = true;
