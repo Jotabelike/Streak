@@ -11,6 +11,7 @@
 #include "../RewardNotification.h"
 #include "SharedVisuals.h"
 #include "../BannerNotification.h"
+#include "../HMACAuth.h"
 
 using namespace geode::prelude;
 
@@ -259,8 +260,11 @@ protected:
         matjson::Value payload = matjson::Value::object();
         payload.set("accountID", am->m_accountID);
 
+   
         auto req = web::WebRequest();
-        m_listener.spawn(req.bodyJSON(payload).post("https://streak-servidor.onrender.com/my-codes"), [this](web::WebResponse res) {
+        HMACAuth::signRequest(req, am->m_accountID, payload);
+        m_listener.spawn(req.bodyJSON(payload).post("https://streak-servidor.onrender.com/my-codes"),
+            [this](web::WebResponse res) {
             if (m_loadingLabel) {
                 m_loadingLabel->setVisible(false);
             }
@@ -572,6 +576,7 @@ protected:
         payload.set("rewards", rewards);
 
         auto req = web::WebRequest();
+        HMACAuth::signRequest(req, GJAccountManager::sharedState()->m_accountID, payload);
         m_createListener.spawn(req.bodyJSON(payload).post(
             "https://streak-servidor.onrender.com/create-code"
         ), [this](web::WebResponse res) {
@@ -696,6 +701,7 @@ protected:
         payload.set("accountID", GJAccountManager::sharedState()->m_accountID);
 
         auto req = web::WebRequest();
+        HMACAuth::signRequest(req, GJAccountManager::sharedState()->m_accountID, payload);
         m_redeemListener.spawn(req.bodyJSON(payload).post(
             "https://streak-servidor.onrender.com/redeem-code"
         ), [this](web::WebResponse res) {
@@ -978,8 +984,9 @@ protected:
 
         auto req = web::WebRequest();
         std::string url = "https://streak-servidor.onrender.com/ban-action";
-
-        m_banListener.spawn(req.bodyJSON(payload).post(url), [this](web::WebResponse res) {
+        HMACAuth::signRequest(req, GJAccountManager::sharedState()->m_accountID, payload);
+        m_banListener.spawn(req.bodyJSON(payload).post(url),
+            [this](web::WebResponse res) {
             this->onWebResponse(std::move(res));
             });
     }

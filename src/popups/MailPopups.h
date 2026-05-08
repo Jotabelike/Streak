@@ -6,7 +6,7 @@
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/async.hpp>
-
+#include "../HMACAuth.h"
 class MailDetailPopup : public Popup {
 protected:
     StreakData::MailMessage* m_mail = nullptr;
@@ -139,7 +139,9 @@ protected:
         std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/mail/{}/claim", am->m_accountID, m_mail->id);
 
         auto req = web::WebRequest();
-        m_actionListener.spawn(req.bodyJSON(payload).post(url), [this](web::WebResponse res) {
+        HMACAuth::signRequest(req, am->m_accountID, payload);
+        m_actionListener.spawn(req.bodyJSON(payload).post(url),
+            [this](web::WebResponse res) {
             if (res.ok()) {
                 FLAlertLayer::create("Success", "Rewards Claimed!", "OK")->show();
                 if (!m_mail->isClaimedLocal) {
@@ -525,8 +527,11 @@ protected:
             rewards
         );
 
+ 
         auto req = web::WebRequest();
-        m_sendListener.spawn(req.bodyJSON(payload).post("https://streak-servidor.onrender.com/send-mail"), [this](web::WebResponse res) {
+        HMACAuth::signRequest(req, GJAccountManager::sharedState()->m_accountID, payload);
+        m_sendListener.spawn(req.bodyJSON(payload).post("https://streak-servidor.onrender.com/send-mail"),
+            [this](web::WebResponse res) {
             this->onResponse(std::move(res));
             });
     }
@@ -646,7 +651,9 @@ protected:
         std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/mail", am->m_accountID);
 
         auto req = web::WebRequest();
-        m_loadListener.spawn(req.get(url), [this](web::WebResponse res) {
+        HMACAuth::signGetRequest(req, am->m_accountID);
+        m_loadListener.spawn(req.get(url),
+            [this](web::WebResponse res) {
             if (m_loadingLabel) m_loadingLabel->setVisible(false);
             if (res.ok() && res.json().isOk()) {
                 m_messages.clear();

@@ -1,4 +1,9 @@
-﻿#include "FirebaseManager.h"
+﻿// =============================================
+// TestFirebase.cpp - CON HMAC + SESSION TOKENS
+// Ubicación: src/TestFirebase.cpp (reemplaza el actual)
+// =============================================
+
+#include "FirebaseManager.h"
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/async.hpp>
 #include <matjson.hpp>
@@ -10,10 +15,10 @@
 #include <map>
 #include <Geode/binding/GameManager.hpp>
 #include "RewardNotification.h"
+#include "HMACAuth.h"
 
 using namespace geode::prelude;
 
- 
 static async::TaskHolder<web::WebResponse> s_updateListener;
 static async::TaskHolder<web::WebResponse> s_loadListener;
 static async::TaskHolder<web::WebResponse> s_completeLevelListener;
@@ -26,19 +31,33 @@ void loadPlayerDataFromServer() {
         g_streakData.m_initialized = true;
         return;
     }
- 
 
     int accountID = am->m_accountID;
     std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
     log::info("Requesting data from the server...");
 
+    // Limpiar token anterior antes de pedir uno nuevo
+    HMACAuth::clearSessionToken();
+
     auto req = web::WebRequest();
-   
+    HMACAuth::signGetRequest(req, accountID);
+
     s_loadListener.spawn(
         req.get(url),
         [accountID](web::WebResponse res) {
             if (res.ok() && res.json().isOk()) {
-                g_streakData.parseServerResponse(res.json().unwrap());
+                auto data = res.json().unwrap();
+
+                // GUARDAR EL SESSION TOKEN que devuelve el servidor
+                if (data.contains("session_token")) {
+                    std::string token = data["session_token"].as<std::string>().unwrapOr(std::string(""));
+                    if (!token.empty()) {
+                        HMACAuth::setSessionToken(token);
+                        log::info("Session token received and stored.");
+                    }
+                }
+
+                g_streakData.parseServerResponse(data);
                 std::string gdpsKey = fmt::format("is_gdps_player_{}", accountID);
                 geode::Mod::get()->setSavedValue<bool>(gdpsKey, g_streakData.isGDPS);
                 g_streakData.isDataLoaded = true;
@@ -52,8 +71,13 @@ void loadPlayerDataFromServer() {
                 g_streakData.isDataLoaded = true;
                 g_streakData.m_initialized = true;
             }
+            else if (res.code() == 401) {
+                log::error("Authentication failed (401). HMAC mismatch or expired.");
+                g_streakData.isDataLoaded = false;
+                g_streakData.m_initialized = false;
+            }
             else {
-                log::warn("Load failed (Code: {}). We maintain error state.", res.code());
+                log::warn("Load failed (Code: {}). Maintaining error state.", res.code());
                 g_streakData.isDataLoaded = false;
                 g_streakData.m_initialized = false;
             }
@@ -68,14 +92,22 @@ void updatePlayerDataInFirebase() {
         return;
     }
 
+    // Verificar que tengamos session token
+    if (HMACAuth::getSessionToken().empty()) {
+        log::error("Save canceled: No session token. Load data first.");
+        return;
+    }
+
     int accountID = accountManager->m_accountID;
     int userID = GameManager::sharedState()->m_playerUserID;
     matjson::Value playerData = matjson::Value::object();
 
+    // Solo campos cosméticos y de estado del cliente
+    // El servidor RECHAZA campos de economía (gems, stars, tickets, xp, level, streak)
     playerData.set("username", std::string(accountManager->m_username));
     playerData.set("accountID", accountID);
     playerData.set("userID", userID);
-    playerData.set("isGDPS", g_streakData.isGDPS); 
+    playerData.set("isGDPS", g_streakData.isGDPS);
     playerData.set("equipped_badge_id", g_streakData.equippedBadge);
     playerData.set("equipped_banner_id", g_streakData.equippedBanner);
     playerData.set("equipped_name_color", g_streakData.equippedNameColor);
@@ -87,19 +119,6 @@ void updatePlayerDataInFirebase() {
     playerData.set("gem_roulette_hash", g_streakData.gemRouletteHash);
     playerData.set("last_roulette_index", g_streakData.lastRouletteIndex);
     playerData.set("total_spins", g_streakData.totalSpins);
-    playerData.set("super_stars", g_streakData.superStars);
-    playerData.set("star_tickets", g_streakData.starTickets);
-    playerData.set("gems", g_streakData.gems);
-    playerData.set("current_level", g_streakData.currentLevel);
-    playerData.set("current_xp", g_streakData.currentXP);
-    playerData.set("lastDay", g_streakData.lastDay);
-    playerData.set("streakPointsToday", g_streakData.streakPointsToday);
-
-    matjson::Value history_obj = matjson::Value::object();
-    for (const auto& pair : g_streakData.streakPointsHistory) {
-        history_obj.set(pair.first, pair.second);
-    }
-    playerData.set("history", history_obj);
 
     std::vector<bool> gemStateVec = g_streakData.gemRouletteState;
     if (gemStateVec.size() < 7) gemStateVec.resize(7, false);
@@ -146,8 +165,6 @@ void updatePlayerDataInFirebase() {
     missions_obj.set("pm6", g_streakData.pointMission6Claimed);
     playerData.set("missions", missions_obj);
 
-
-
     bool hasMythicEquipped = false;
     if (!g_streakData.equippedBadge.empty()) {
         if (auto* badgeInfo = g_streakData.getBadgeInfo(g_streakData.equippedBadge)) {
@@ -168,7 +185,6 @@ void updatePlayerDataInFirebase() {
     }
     playerData.set("claimed_streak_goals", goalsArray);
 
-
     std::vector<int> discordGoalsArray;
     for (int req : g_streakData.claimedDiscordMilestones) {
         discordGoalsArray.push_back(req);
@@ -184,12 +200,19 @@ void updatePlayerDataInFirebase() {
     std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
 
     auto req = web::WebRequest();
+    HMACAuth::signRequest(req, accountID, playerData);
 
     s_updateListener.spawn(
         req.bodyJSON(playerData).post(url),
         [](web::WebResponse res) {
             if (!res.ok()) {
                 log::error("SERVER ERROR SAVING: {}", res.code());
+                if (res.code() == 401) {
+                    log::error("Auth failed. Session may have expired. Reloading...");
+                    // Si el token expiró, recargar datos para obtener uno nuevo
+                    HMACAuth::clearSessionToken();
+                    loadPlayerDataFromServer();
+                }
             }
         }
     );
@@ -199,16 +222,23 @@ void completeLevelInFirebase(int stars) {
     auto am = GJAccountManager::sharedState();
     if (!am || am->m_accountID == 0) return;
 
+    // Verificar session token
+    if (HMACAuth::getSessionToken().empty()) {
+        log::error("Complete level canceled: No session token.");
+        return;
+    }
+
     int accountID = am->m_accountID;
     std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/complete-level", accountID);
 
     matjson::Value payload = matjson::Value::object();
     payload.set("stars", stars);
-    payload.set("clientDate", g_streakData.getCurrentDate());
+    // El servidor calcula la fecha, no el cliente
 
     log::info("Sending completed level to the server...");
 
     auto req = web::WebRequest();
+    HMACAuth::signRequest(req, accountID, payload);
 
     s_completeLevelListener.spawn(
         req.bodyJSON(payload).post(url),
@@ -216,7 +246,6 @@ void completeLevelInFirebase(int stars) {
             if (res.ok() && res.json().isOk()) {
                 auto data = res.json().unwrap();
 
-              
                 if (data.contains("current_xp"))
                     g_streakData.currentXP = data["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
                 if (data.contains("daily_shop_seed"))
@@ -238,19 +267,16 @@ void completeLevelInFirebase(int stars) {
                 if (data.contains("lastDay"))
                     g_streakData.lastDay = data["lastDay"].as<std::string>().unwrapOr(std::string(""));
 
-                
                 int reqPoints = g_streakData.getRequiredPoints();
                 if (g_streakData.streakPointsToday >= reqPoints && reqPoints > 0) {
                     g_streakData.hasNewStreak = true;
                 }
 
-            
                 std::string today = g_streakData.getCurrentDate();
                 if (!today.empty()) {
                     g_streakData.streakPointsHistory[today] = g_streakData.streakPointsToday;
                 }
 
-             
                 if (data.contains("newRewards")) {
                     auto rewards = data["newRewards"];
                     int starsGiven = rewards["stars"].as<int>().unwrapOr(0);
@@ -259,30 +285,29 @@ void completeLevelInFirebase(int stars) {
 
                     if (levelsGained > 0) {
                         FMODAudioEngine::sharedEngine()->playEffect("magic_explode_01.ogg");
-
                         Notification::create(
                             fmt::format("LEVEL UP!\nWelcome to Level {}", g_streakData.currentLevel),
                             NotificationIcon::Success
                         )->show();
-
                         if (starsGiven > 0) RewardNotification::show("super_star.png"_spr,
-                            g_streakData.superStars - starsGiven,
-                            starsGiven);
+                            g_streakData.superStars - starsGiven, starsGiven);
                         if (ticketsGiven > 0) RewardNotification::show("star_tiket.png"_spr,
-                            g_streakData.starTickets - ticketsGiven,
-                            ticketsGiven);
+                            g_streakData.starTickets - ticketsGiven, ticketsGiven);
                     }
                 }
 
                 g_streakData.isDataLoaded = true;
                 log::info("Level completed. XP: {}, Level: {}, PointsToday: {}, Streak: {}",
-                    g_streakData.currentXP,
-                    g_streakData.currentLevel,
-                    g_streakData.streakPointsToday,
-                    g_streakData.currentStreak);
+                    g_streakData.currentXP, g_streakData.currentLevel,
+                    g_streakData.streakPointsToday, g_streakData.currentStreak);
             }
             else {
                 log::error("Error completing level: {}", res.code());
+                if (res.code() == 401) {
+                    log::error("Session expired. Reloading data...");
+                    HMACAuth::clearSessionToken();
+                    loadPlayerDataFromServer();
+                }
             }
         }
     );

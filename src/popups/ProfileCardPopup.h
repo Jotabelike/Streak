@@ -6,6 +6,7 @@
 #include "../StreakData.h"
 #include "../StatusSpinner.h"
 #include "../NameModifiers.h"
+#include "../HMACAuth.h"
 
 using namespace geode::prelude;
 
@@ -123,7 +124,7 @@ protected:
         float textStartX = bannerCenterX - 95.f;
         std::string userName = m_data.username.empty() ? "Player" : m_data.username;
 
-        // 1. Creamos un CONTENEDOR para el nombre (esto asegura que las partículas se vean)
+      
         auto nameContainer = CCNode::create();
         nameContainer->setPosition({ textStartX, bannerCenterY + 8.f });
         m_mainLayer->addChild(nameContainer, 5);
@@ -184,7 +185,7 @@ protected:
     }
 
     void fetchFullProfile() {
-        std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", m_data.accountID);
+        std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/public-profile", m_data.accountID);
         auto req = web::WebRequest();
 
         m_fullDataListener.spawn(req.get(url), [this](web::WebResponse res) {

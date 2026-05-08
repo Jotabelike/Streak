@@ -13,9 +13,9 @@
 #include <matjson.hpp>
 #include "../StatusSpinner.h"
 #include "../RewardNotification.h"
+#include "../HMACAuth.h"
 
 using namespace geode::prelude;
-
 class LeaderboardCell : public CCLayer {
 protected:
     matjson::Value m_playerData;
@@ -301,8 +301,9 @@ protected:
         body.set("accountID", am->m_accountID);
 
         auto req = web::WebRequest();
-
-        this->m_fields.m_claimListener.spawn(req.bodyJSON(body).post(url), [this, spawnPos](web::WebResponse res) {
+        HMACAuth::signRequest(req, am->m_accountID, body);
+        this->m_fields.m_claimListener.spawn(req.bodyJSON(body).post(url),
+            [this, spawnPos](web::WebResponse res) {
             this->m_fields.m_spinner->setVisible(false);
             if (res.ok() && res.json().isOk()) {
                 auto data = res.json().unwrap();

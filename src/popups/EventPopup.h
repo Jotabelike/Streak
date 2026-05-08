@@ -10,6 +10,7 @@
 #include "SharedVisuals.h" 
 #include "../StatusSpinner.h"
 #include <Geode/ui/Notification.hpp>
+#include "../HMACAuth.h"
 
 using namespace geode::prelude;
 
@@ -715,8 +716,9 @@ protected:
     void loadEvent() {
         m_spinner->setLoading("Loading...");
         m_contentLayer->setVisible(false);
+        int accountID = GJAccountManager::sharedState()->m_accountID;
         auto req = web::WebRequest();
-
+        HMACAuth::signGetRequest(req, accountID);
 
         m_loadTask.spawn(
             req.get(fmt::format(
@@ -839,8 +841,8 @@ protected:
         payload.set("claimID", "roulette_spin");
 
         auto req = web::WebRequest();
+        HMACAuth::signRequest(req, GJAccountManager::sharedState()->m_accountID, payload);
         req.bodyJSON(payload);
-
 
         m_claimTask.spawn(
             req.post("https://streak-servidor.onrender.com/event/claim"),

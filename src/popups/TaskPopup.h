@@ -9,6 +9,7 @@
 #include "../BadgeNotification.h"
 #include "../RewardNotification.h"
 #include "../BannerNotification.h"
+#include "../HMACAuth.h"
 
 using namespace geode::prelude;
 
@@ -84,9 +85,9 @@ protected:
         body.set("url", url);
 
         auto req = web::WebRequest();
+        HMACAuth::signRequest(req, am->m_accountID, body);
         req.bodyJSON(body);
 
-       
         m_reqTask.spawn(
             req.post(endpoint),
             [this](web::WebResponse res) {
@@ -335,6 +336,7 @@ protected:
         auto safeReloadFunc = m_reloadFunc;
 
         auto req = web::WebRequest();
+        HMACAuth::signRequest(req, am->m_accountID, body);
         req.bodyJSON(body);
 
         async::spawn(

@@ -10,6 +10,7 @@
 #include <Geode/loader/Event.hpp>
 #include <matjson.hpp>
 #include "NameModifiers.h"
+#include "HMACAuth.h"
 
 using namespace geode::prelude;
 
@@ -222,7 +223,7 @@ class $modify(MyProfilePage, ProfilePage) {
                 statsMenu->updateLayout();
             }
 
-            std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", score->m_accountID);
+            std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/public-profile", score->m_accountID);
 
             auto req = web::WebRequest();
             m_fields->m_remoteDataListener.spawn(

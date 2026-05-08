@@ -7,6 +7,7 @@
 #include "../StatusSpinner.h"
 #include "StreakChestPopup.h"
 #include "../utils/RoundedProgressBar.h"
+#include "../HMACAuth.h"
 
 using namespace geode::prelude;
 
@@ -158,6 +159,7 @@ protected:
         body.set("levelID", m_data.levelID);
 
         auto req = web::WebRequest();
+        HMACAuth::signRequest(req, am->m_accountID, body);
         req.bodyJSON(body);
 
         m_claimTask.spawn(
@@ -232,6 +234,7 @@ protected:
         std::string url = fmt::format("https://streak-servidor.onrender.com/trending-level/{}", am->m_accountID);
 
         auto req = web::WebRequest();
+        HMACAuth::signGetRequest(req, am->m_accountID);
         m_fetchTask.spawn(
             req.get(url),
             [this](web::WebResponse res) {

@@ -9,6 +9,7 @@
 #include <Geode/loader/Event.hpp>
 #include <matjson.hpp>
 #include "NameModifiers.h"
+#include "HMACAuth.h"
 using namespace geode::prelude;
 
 class $modify(MyColoredCommentCell, CommentCell) {
@@ -219,9 +220,10 @@ class $modify(MyColoredCommentCell, CommentCell) {
         g_streakData.cacheUserBadge(accountID, "pending");
         g_streakData.cacheUserBanner(accountID, "pending");
         this->applyNameModifiers("Default", "Default", "None", "None");
-        std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
+        std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/public-profile", accountID);
         auto req = web::WebRequest();
-        m_fields->m_cosmeticsCheckListener.spawn(req.get(url), [this, accountID, showBanners](web::WebResponse res) {
+        m_fields->m_cosmeticsCheckListener.spawn(req.get(url),
+            [this, accountID, showBanners](web::WebResponse res) {
          
             bool showRainbowCb = Mod::get()->getSavedValue<bool>("enable_rainbow_effect", true);
 

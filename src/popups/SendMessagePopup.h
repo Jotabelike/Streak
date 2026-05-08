@@ -9,6 +9,7 @@
 #include <Geode/utils/async.hpp>
 #include "../SystemNotification.h"
 #include "../StatusSpinner.h"
+#include "../HMACAuth.h"
 
 using namespace geode::prelude;
 
@@ -141,7 +142,7 @@ public:
 
     void onLikeClicked(CCObject*) {
         if (m_msgID.empty()) {
-            FLAlertLayer::create("Error", "The message ID is missing. Please check your server.js file in Render..", "OK")->show();
+            FLAlertLayer::create("Error", "The message ID is missing", "OK")->show();
             return;
         }
         if (!m_likeBtn) return;
@@ -154,6 +155,7 @@ public:
 
         auto req = web::WebRequest();
         std::string url = fmt::format("https://streak-servidor.onrender.com/messages/{}/like", m_msgID);
+        HMACAuth::signRequest(req, am->m_accountID, payload);
 
         m_likeListener.spawn(
             req.bodyJSON(payload).post(url),
@@ -162,7 +164,7 @@ public:
                     auto data = res.json().unwrap();
 
                     if (data.contains("error")) {
-                        FLAlertLayer::create("Error", data["error"].as<std::string>().unwrapOr("Error desconocido"), "OK")->show();
+                        FLAlertLayer::create("Error", data["error"].as<std::string>().unwrapOr("Unknown error"), "OK")->show();
                         m_likeBtn->setEnabled(true);
                         return;
                     }
@@ -178,7 +180,7 @@ public:
                     m_likeBtn->setEnabled(false);
                 }
                 else {
-                    FLAlertLayer::create("Error de red", fmt::format("Código: {}", res.code()), "OK")->show();
+                    FLAlertLayer::create("Network error", fmt::format("Code: {}", res.code()), "OK")->show();
                     m_likeBtn->setEnabled(true);
                 }
             }
@@ -423,6 +425,7 @@ protected:
     void checkForMail() {
         auto am = GJAccountManager::sharedState();
         auto req = web::WebRequest();
+        HMACAuth::signGetRequest(req, am->m_accountID);
         m_mailCheckListener.spawn(
             req.get(fmt::format("https://streak-servidor.onrender.com/players/{}/mail", am->m_accountID)),
             [this](web::WebResponse res) {
@@ -597,6 +600,7 @@ protected:
         payload.set("content", msg);
 
         auto req = web::WebRequest();
+        HMACAuth::signRequest(req, am->m_accountID, payload);
         m_sendListener.spawn(
             req.bodyJSON(payload).post("https://streak-servidor.onrender.com/messages"),
             [this](web::WebResponse res) { this->onWebResponse(std::move(res)); }

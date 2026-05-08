@@ -19,10 +19,11 @@
 #include <Geode/ui/Notification.hpp> 
 #include "WelcomeNotification.h"
 #include "RewardNotification.h"
+#include "HMACAuth.h"
 
 class $modify(MyPlayLayer, PlayLayer) {
     struct Fields {
-        int m_pointsGained = 0;  
+        int m_pointsGained = 0;
     };
 
     void levelComplete() {
@@ -102,12 +103,30 @@ class $modify(MyMenuLayer, MenuLayer) {
             return;
         }
 
-        std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountManager->m_accountID);
-        auto req = web::WebRequest();
+        int accountID = accountManager->m_accountID;
+        std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
 
-        m_fields->m_playerDataListener.spawn(req.get(url), [this](web::WebResponse res) {
+        // Limpiar token anterior
+        HMACAuth::clearSessionToken();
+
+        auto req = web::WebRequest();
+        // NUEVO: Firmar la petición con HMAC
+        HMACAuth::signGetRequest(req, accountID);
+
+        m_fields->m_playerDataListener.spawn(req.get(url), [this, accountID](web::WebResponse res) {
             if (res.ok() && res.json().isOk()) {
-                g_streakData.parseServerResponse(res.json().unwrap());
+                auto data = res.json().unwrap();
+
+                // NUEVO: Guardar el session token
+                if (data.contains("session_token")) {
+                    std::string token = data["session_token"].as<std::string>().unwrapOr(std::string(""));
+                    if (!token.empty()) {
+                        HMACAuth::setSessionToken(token);
+                        log::info("Session token received.");
+                    }
+                }
+
+                g_streakData.parseServerResponse(data);
                 if (g_streakData.isBanned) {
                     if (m_fields->m_isReconnecting) {
                         this->unschedule(schedule_selector(MyMenuLayer::tryReconnect));
@@ -123,6 +142,7 @@ class $modify(MyMenuLayer, MenuLayer) {
                 this->onLoadSuccess();
             }
             else {
+                log::warn("Load failed (Code: {})", res.code());
                 this->onLoadFailed();
             }
             });
@@ -341,7 +361,10 @@ class $modify(MyCommentCell, CommentCell) {
             return;
         }
 
-        std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", p0->m_accountID);
+        // NUEVO: Usar el endpoint público /players/:id/public-profile
+        // Este endpoint NO requiere autenticación porque solo devuelve
+        // datos cosméticos (badge, banner, colores) - no datos sensibles
+        std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/public-profile", p0->m_accountID);
         auto req = web::WebRequest();
 
         m_fields->m_badgeListener.spawn(req.get(url), [this, p0](web::WebResponse res) {
@@ -389,8 +412,8 @@ class $modify(MyPauseLayer, PauseLayer) {
     void customSetup() {
         PauseLayer::customSetup();
         int mode = geode::Mod::get()->getSavedValue<int>("pause_hud_mode", 0);
-        if (mode == 1) 
-        return;
+        if (mode == 1)
+            return;
 
         auto winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
         double posX = Mod::get()->getSavedValue<double>("pause-pos-x", 0.10);

@@ -8,6 +8,7 @@
 #include "../RewardNotification.h"
 #include "ChestRewardHelper.h" 
 #include "../StatusSpinner.h" 
+#include "../HMACAuth.h"
 
 using namespace geode::prelude;
 
@@ -269,6 +270,7 @@ protected:
 
         std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", am->m_accountID);
         auto req = web::WebRequest();
+        HMACAuth::signGetRequest(req, am->m_accountID);
 
         m_fetchTask.spawn(req.get(url), [this](web::WebResponse res) {
             if (res.ok() && res.json().isOk()) {

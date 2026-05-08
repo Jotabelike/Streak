@@ -1,4 +1,7 @@
 # Streak!
+## 1.10.42 Beta 2
+- increased security
+
 ## 1.10.41
 - More settings were added
 - The progress bar at the end of the levels returned

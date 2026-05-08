@@ -3,6 +3,7 @@
 #include <Geode/binding/GJAccountManager.hpp>
 #include "StreakData.h"
 #include "FirebaseManager.h" 
+#include "HMACAuth.h"
 
 using namespace geode::prelude;
 
@@ -16,7 +17,7 @@ class $modify(AccountWatcher, GameManager) {
         if (!am) return;
 
         int currentID = am->m_accountID;
-       
+
         if (g_lastAccountID == -1) {
             g_lastAccountID = currentID;
             if (currentID != 0 && !g_streakData.isInitialized()) {
@@ -25,9 +26,10 @@ class $modify(AccountWatcher, GameManager) {
             }
             return;
         }
-       
+
         if (currentID != g_lastAccountID) {
-            log::info("Account change detected ({} -> {})", g_lastAccountID, currentID);
+            log::info("Account change detected ({} -> {})", g_lastAccountID, currentID);      
+            HMACAuth::clearSessionToken();
 
             if (currentID == 0) {
                 log::info("Logging out. Resetting data.");
@@ -38,7 +40,7 @@ class $modify(AccountWatcher, GameManager) {
                 log::info("Login (ID: {}). Loading data...", currentID);
                 g_streakData.resetToDefault();
                 g_streakData.isDataLoaded = false;
-                loadPlayerDataFromServer(); 
+                loadPlayerDataFromServer();
             }
 
             g_lastAccountID = currentID;
