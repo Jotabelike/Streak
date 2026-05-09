@@ -384,22 +384,32 @@ protected:
     void processPurchase(const StreakData::ShopItem& item) {
         if (g_streakData.gems < item.price) return;
 
-        g_streakData.purchaseItem(item);
-        FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
+        matjson::Value payload = matjson::Value::object();
+        payload.set("itemID", item.id);
+        payload.set("price", item.price);
+        payload.set("isBadge", item.isBadge);
 
-        if (item.isBadge) {
-            BadgeNotification::show(item.id);
-        }
-        else {
-            std::string rarityName = g_streakData.getCategoryName(item.rarity);
-            ccColor3B rareColor = g_streakData.getCategoryColor(item.rarity);
-            BannerNotification::show(item.id, item.sprite, item.name, rarityName, rareColor);
-        }
+        claimOnServer("/daily-shop/purchase", payload, [this, item](bool ok) {
+            if (!ok) {
+                FLAlertLayer::create("Error", "Purchase failed. Try again.", "OK")->show();
+                return;
+            }
+            if (item.isBadge) g_streakData.unlockBadge(item.id);
+            else g_streakData.unlockBanner(item.id);
 
-        if (m_gemLabel) {
-            m_gemLabel->setString(std::to_string(g_streakData.gems).c_str());
-        }
-        this->refreshItems();
+            FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
+
+            if (item.isBadge) {
+                BadgeNotification::show(item.id);
+            } else {
+                std::string rarityName = g_streakData.getCategoryName(item.rarity);
+                ccColor3B rareColor = g_streakData.getCategoryColor(item.rarity);
+                BannerNotification::show(item.id, item.sprite, item.name, rarityName, rareColor);
+            }
+
+            if (m_gemLabel) m_gemLabel->setString(std::to_string(g_streakData.gems).c_str());
+            this->refreshItems();
+        });
     }
 
     void onBuyConsumable(CCObject* sender) {
@@ -430,34 +440,25 @@ protected:
     void processConsumablePurchase(const StreakData::ConsumableItem& item) {
         if (g_streakData.gems < item.price) return;
 
-      
         int startAmount = item.isTickets ? g_streakData.starTickets : g_streakData.superStars;
 
-        g_streakData.gems -= item.price;
+        matjson::Value payload = matjson::Value::object();
+        payload.set("price", item.price);
+        payload.set("amount", item.amount);
+        payload.set("isTickets", item.isTickets);
 
-        if (item.isTickets) {
-            g_streakData.starTickets += item.amount;
-        }
-        else {
-            g_streakData.superStars += item.amount;
-        }
-
-        g_streakData.save();
-        FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
- 
-        std::string sprName = item.isTickets ? "star_tiket.png" : "super_star.png";
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-        RewardNotification::show(
-            fmt::format("{}"_spr, sprName),
-            startAmount,
-            item.amount,
-            winSize / 2
-        );
-
-        if (m_gemLabel) {
-            m_gemLabel->setString(std::to_string(g_streakData.gems).c_str());
-        }
-        this->refreshItems();
+        claimOnServer("/daily-shop/purchase-consumable", payload, [this, item, startAmount](bool ok) {
+            if (!ok) {
+                FLAlertLayer::create("Error", "Purchase failed. Try again.", "OK")->show();
+                return;
+            }
+            FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
+            std::string sprName = item.isTickets ? "star_tiket.png" : "super_star.png";
+            auto winSize = CCDirector::sharedDirector()->getWinSize();
+            RewardNotification::show(fmt::format("{}"_spr, sprName), startAmount, item.amount, winSize / 2);
+            if (m_gemLabel) m_gemLabel->setString(std::to_string(g_streakData.gems).c_str());
+            this->refreshItems();
+        });
     }
 
 public:

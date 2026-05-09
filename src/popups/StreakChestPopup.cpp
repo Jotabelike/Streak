@@ -1,5 +1,6 @@
 #include "StreakChestPopup.h"
-#include "../RewardNotification.h"  
+#include "../RewardNotification.h"
+#include "../FirebaseManager.h"
 
 bool StreakChestPopup::init(int superStars, int starTickets, int gems, int rewardXP, std::function<void()> reloadFunc) {
     if (!Popup::init(350.f, 220.f, "GJ_square02.png")) return false;
@@ -61,9 +62,9 @@ bool StreakChestPopup::init(int superStars, int starTickets, int gems, int rewar
     auto fallTo = CCMoveTo::create(0.85f, { m_size.width / 2, m_size.height / 2 - 25.f });
     auto bounceEffect = CCEaseBounceOut::create(fallTo);
 
-    // Secuencia paralela para reproducir el sonido en el primer impacto
+   
     auto soundAction = CCSequence::create(
-        CCDelayTime::create(0.35f), // El primer impacto del cofre ocurre aprox a los 0.35s
+        CCDelayTime::create(0.35f),  
         CallFuncExt::create([]() {
             FMODAudioEngine::sharedEngine()->playEffect("chestLand.ogg");
             }),
@@ -71,7 +72,6 @@ bool StreakChestPopup::init(int superStars, int starTickets, int gems, int rewar
     );
 
     auto startSequence = CCSequence::create(
-        // CCSpawn ejecuta el rebote y el temporizador del sonido de manera simultánea
         CCSpawn::create(bounceEffect, soundAction, nullptr),
         CCDelayTime::create(0.5f),
         CallFuncExt::create([this]() {
@@ -183,20 +183,25 @@ void StreakChestPopup::playOpenAnimation() {
             CC_SAFE_DELETE(ambientParticles);
         }
 
-       
-        if (m_superStars > 0) g_streakData.superStars += m_superStars;
-        if (m_starTickets > 0) g_streakData.starTickets += m_starTickets;
-        if (m_gems > 0) g_streakData.gems += m_gems;
-        if (m_rewardXP > 0) g_streakData.addXP(m_rewardXP);
-        g_streakData.save();
+        m_startStars = g_streakData.superStars;
+        m_startTickets = g_streakData.starTickets;
+        m_startGems = g_streakData.gems;
+        m_startXP = g_streakData.currentXP;
 
-        this->runAction(CCSequence::create(
-            CCDelayTime::create(0.4f),
-            CallFuncExt::create([this]() {
-                this->showRewards();
-                }),
-            nullptr
-        ));
+        matjson::Value chestPayload = matjson::Value::object();
+        chestPayload.set("superStars", m_superStars);
+        chestPayload.set("starTickets", m_starTickets);
+        chestPayload.set("gems", m_gems);
+        chestPayload.set("xp", m_rewardXP);
+        chestPayload.set("context", std::string("chest"));
+
+        claimOnServer("/chest/claim", chestPayload, [this](bool ok) {
+            this->runAction(CCSequence::create(
+                CCDelayTime::create(0.4f),
+                CallFuncExt::create([this]() { this->showRewards(); }),
+                nullptr
+            ));
+        });
         });
 
     m_chestSpr->runAction(CCSequence::create(shake, shake, delay1, frame2, delay2, frame3, nullptr));
@@ -207,26 +212,17 @@ void StreakChestPopup::showRewards() {
 
     CCPoint spawnPos = m_chestSpr->convertToWorldSpaceAR(CCPointZero);
 
-   
     if (m_superStars > 0) RewardNotification::show("super_star.png"_spr,
-        g_streakData.superStars - m_superStars,
-        m_superStars, spawnPos
-    );
+        m_startStars, m_superStars, spawnPos);
 
     if (m_starTickets > 0) RewardNotification::show("star_tiket.png"_spr,
-        g_streakData.starTickets - m_starTickets,
-        m_starTickets, spawnPos
-    );
+        m_startTickets, m_starTickets, spawnPos);
 
     if (m_gems > 0) RewardNotification::show("gem.png"_spr,
-        g_streakData.gems - m_gems, m_gems,
-        spawnPos
-    );
+        m_startGems, m_gems, spawnPos);
 
     if (m_rewardXP > 0) RewardNotification::show("xp.png"_spr,
-        g_streakData.currentXP - m_rewardXP, m_rewardXP,
-        spawnPos
-    );
+        m_startXP, m_rewardXP, spawnPos);
 
     std::vector<std::pair<std::string, int>> rewards;
     if (m_superStars > 0) rewards.push_back({ "super_star.png"_spr, m_superStars });

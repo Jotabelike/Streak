@@ -9,7 +9,11 @@ protected:
     int m_superStars;
     int m_starTickets;
     int m_gems;
-    int m_rewardXP;  
+    int m_rewardXP;
+    int m_startStars = 0;
+    int m_startTickets = 0;
+    int m_startGems = 0;
+    int m_startXP = 0;
     std::function<void()> m_reloadFunc;
 
     CCSprite* m_chestSpr;

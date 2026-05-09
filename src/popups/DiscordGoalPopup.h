@@ -9,10 +9,9 @@
 #include "ChestRewardHelper.h" 
 #include "../StatusSpinner.h" 
 #include "../HMACAuth.h"
+#include "../FirebaseManager.h"
 
 using namespace geode::prelude;
-
-extern void updatePlayerDataInFirebase();
 
 class DiscordGoalPopup : public Popup {
 protected:
@@ -226,34 +225,36 @@ protected:
             }
 
             g_streakData.claimedDiscordMilestones.insert(req);
-            g_streakData.save();
-            updatePlayerDataInFirebase();
 
-            if (it->isChest) {
-         
-                ChestRewardHelper::openRandomChest([this]() { this->refreshUI(); });
-            }
-            else {
-                if (it->tickets > 0) {
-                    int start = g_streakData.starTickets;
-                    g_streakData.starTickets += it->tickets;
-                    RewardNotification::show("star_tiket.png"_spr, start, it->tickets);
-                }
-                if (it->stars > 0) {
-                    int start = g_streakData.superStars;
-                    g_streakData.superStars += it->stars;
-                    RewardNotification::show("super_star.png"_spr, start, it->stars);
-                }
-                if (it->gems > 0) {
-                    int start = g_streakData.gems;
-                    g_streakData.gems += it->gems;
-                    RewardNotification::show("gem.png"_spr, start, it->gems);
-                }
-                g_streakData.save();
+            bool isChest = it->isChest;
+            int tickets = it->tickets;
+            int stars = it->stars;
+            int gems = it->gems;
+
+            matjson::Value payload = matjson::Value::object();
+            payload.set("requirement", req);
+            payload.set("tickets", tickets);
+            payload.set("stars", stars);
+            payload.set("gems", gems);
+            payload.set("isChest", isChest);
+
+            claimOnServer("/discord-milestone/claim", payload, [this, isChest, tickets, stars, gems](bool ok) {
                 updatePlayerDataInFirebase();
-                FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
-                this->refreshUI();
-            }
+                if (isChest) {
+                    ChestRewardHelper::openRandomChest([this]() { this->refreshUI(); });
+                } else {
+                    if (ok) {
+                        if (tickets > 0) RewardNotification::show("star_tiket.png"_spr,
+                            g_streakData.starTickets - tickets, tickets);
+                        if (stars > 0) RewardNotification::show("super_star.png"_spr,
+                            g_streakData.superStars - stars, stars);
+                        if (gems > 0) RewardNotification::show("gem.png"_spr,
+                            g_streakData.gems - gems, gems);
+                    }
+                    FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
+                    this->refreshUI();
+                }
+            });
         }
     }
 

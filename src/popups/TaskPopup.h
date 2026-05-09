@@ -10,6 +10,7 @@
 #include "../RewardNotification.h"
 #include "../BannerNotification.h"
 #include "../HMACAuth.h"
+#include "../FirebaseManager.h"
 
 using namespace geode::prelude;
 
@@ -353,39 +354,44 @@ protected:
     }
 
     void onClaimClick(CCObject*) {
-        if (m_data.stars > 0) {
-            g_streakData.addXP(m_data.stars);
-            int startStars = g_streakData.superStars;
-            g_streakData.superStars += m_data.stars;
-            RewardNotification::show("super_star.png"_spr, startStars, m_data.stars);
-        }
+        auto taskID = m_data.id;
+        auto stars = m_data.stars;
+        auto badgeID = m_data.badgeID;
+        auto bannerID = m_data.bannerID;
+        auto reloadFunc = m_reloadFunc;
 
-        if (!m_data.badgeID.empty()) {
-            g_streakData.unlockBadge(m_data.badgeID);
-            BadgeNotification::show(m_data.badgeID);
-        }
+        matjson::Value payload = matjson::Value::object();
+        payload.set("taskID", taskID);
+        payload.set("rewardStars", stars);
+        payload.set("badgeID", badgeID);
+        payload.set("bannerID", bannerID);
 
-        if (!m_data.bannerID.empty()) {
-            g_streakData.unlockBanner(m_data.bannerID);
-            auto bInfo = g_streakData.getBannerInfo(m_data.bannerID);
-            if (bInfo) {
-                BannerNotification::show(
-                    m_data.bannerID,
-                    bInfo->spriteName,
-                    bInfo->displayName,
-                    g_streakData.getCategoryName(bInfo->rarity),
-                    g_streakData.getCategoryColor(bInfo->rarity)
-                );
+        claimOnServer("/task/claim", payload, [taskID, stars, badgeID, bannerID, reloadFunc](bool ok) {
+            if (!ok) {
+                FLAlertLayer::create("Error", "Claim failed. Try again.", "OK")->show();
+                return;
             }
-        }
-
-        g_streakData.setTaskStatus(m_data.id, "claimed");
-        g_streakData.save();
-
-        if (m_reloadFunc) {
-            m_reloadFunc();
-        }
-        FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
+            if (stars > 0) {
+                RewardNotification::show("super_star.png"_spr,
+                    g_streakData.superStars - stars, stars);
+            }
+            if (!badgeID.empty()) {
+                g_streakData.unlockBadge(badgeID);
+                BadgeNotification::show(badgeID);
+            }
+            if (!bannerID.empty()) {
+                g_streakData.unlockBanner(bannerID);
+                auto bInfo = g_streakData.getBannerInfo(bannerID);
+                if (bInfo) {
+                    BannerNotification::show(bannerID, bInfo->spriteName, bInfo->displayName,
+                        g_streakData.getCategoryName(bInfo->rarity), g_streakData.getCategoryColor(bInfo->rarity));
+                }
+            }
+            g_streakData.setTaskStatus(taskID, "claimed");
+            g_streakData.save();
+            if (reloadFunc) reloadFunc();
+            FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
+        });
     }
 
 public:

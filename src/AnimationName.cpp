@@ -21,7 +21,7 @@ namespace NameModifiers {
 
         CCAction* animAction = nullptr;
 
-        // --- ANIMACIONES DE PALABRA COMPLETA ---
+      
         if (animID == "Pulse") {
             auto scaleUp = CCScaleTo::create(0.4f, baseScale * 1.15f);
             auto scaleDown = CCScaleTo::create(0.4f, baseScale);
@@ -33,7 +33,7 @@ namespace NameModifiers {
             animAction = CCRepeatForever::create(CCSequence::create(CCEaseSineInOut::create(rotRight), CCEaseSineInOut::create(rotLeft), nullptr));
         }
         else if (animID == "Glitch") {
-            // Efecto Glitch Cyberpunk/VHS: Distorsión (Skew), micro-saltos y velocidad extrema
+         
             auto skew1 = CCSkewTo::create(0.03f, 15.f, 0.f);
             auto move1 = CCMoveBy::create(0.03f, { 5.f * baseScale, 0.f });
             auto sp1 = CCSpawn::create(skew1, move1, nullptr);
@@ -46,15 +46,14 @@ namespace NameModifiers {
             auto move3 = CCMoveBy::create(0.03f, { 5.f * baseScale, -2.f * baseScale });
             auto sp3 = CCSpawn::create(skew3, move3, nullptr);
 
-            // NUEVO: Movimiento inverso al sp1 para asegurar que regrese al centro en el segundo salto
+       
             auto skew4 = CCSkewTo::create(0.03f, 0.f, 0.f);
             auto move4 = CCMoveBy::create(0.03f, { -5.f * baseScale, 0.f });
             auto sp4 = CCSpawn::create(skew4, move4, nullptr);
 
-            auto delay1 = CCDelayTime::create(1.5f); // Tiempo normal
-            auto delay2 = CCDelayTime::create(0.15f); // Micro pausa para el "doble glitch"
-
-            // Secuencia: Espera -> Fuerte (sp1, sp2, sp3=0) -> Pausa corta -> Rápido (sp1, sp4=0) -> Repite
+            auto delay1 = CCDelayTime::create(1.5f);  
+            auto delay2 = CCDelayTime::create(0.15f);  
+ 
             animAction = CCRepeatForever::create(CCSequence::create(
                 delay1, sp1, sp2, sp3, delay2, sp1, sp4, nullptr
             ));
@@ -78,14 +77,14 @@ namespace NameModifiers {
             animAction = CCRepeatForever::create(CCSequence::create(beat1, beat2, beat3, beat4, rest, nullptr));
         }
         else if (animID == "Blink") {
-            // El parpadeo suave clásico.
+   
             auto fadeOut = CCFadeTo::create(0.2f, 50);
             auto fadeIn = CCFadeTo::create(0.2f, 255);
             auto delay = CCDelayTime::create(0.5f);
             animAction = CCRepeatForever::create(CCSequence::create(fadeOut, fadeIn, delay, nullptr));
         }
         else if (animID == "Tremble") {
-            // Un escalofrío: movimiento rápido estrictamente horizontal con pausas.
+        
             auto m1 = CCMoveBy::create(0.03f, { 3.f * baseScale, 0.f });
             auto m2 = CCMoveBy::create(0.03f, { -6.f * baseScale, 0.f });
             auto m3 = CCMoveBy::create(0.03f, { 3.f * baseScale, 0.f });
@@ -102,7 +101,7 @@ namespace NameModifiers {
             animAction = CCRepeatForever::create(CCSequence::create(spawn1, spawn2, nullptr));
         }
 
-        // --- ANIMACIONES LETRA POR LETRA ---
+ 
         else if (animID == "Bounce" || animID == "Shake" || animID == "DVD" || animID == "Float" ||
             animID == "Dynamic Jump" || animID == "Wave" || animID == "Domino" || animID == "Spiral" || animID == "Squish") {
 
@@ -119,7 +118,7 @@ namespace NameModifiers {
                         letter->runAction(CCRepeatForever::create(seq));
                     }
                     else if (animID == "Shake") {
-                        // Terremoto total: Multi-direccional y caótico
+              
                         auto m1 = CCMoveBy::create(0.05f, { 2.f * baseScale, 2.f * baseScale });
                         auto m2 = CCMoveBy::create(0.05f, { -4.f * baseScale, -2.f * baseScale });
                         auto m3 = CCMoveBy::create(0.05f, { 2.f * baseScale, 4.f * baseScale });

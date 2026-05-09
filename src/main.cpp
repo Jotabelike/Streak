@@ -109,19 +109,16 @@ class $modify(MyMenuLayer, MenuLayer) {
 
         int accountID = accountManager->m_accountID;
         std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
-
-        // Limpiar token anterior
+ 
         HMACAuth::clearSessionToken();
 
         auto req = web::WebRequest();
-        // NUEVO: Firmar la petición con HMAC
         HMACAuth::signGetRequest(req, accountID);
 
         m_fields->m_playerDataListener.spawn(req.get(url), [this, accountID](web::WebResponse res) {
             if (res.ok() && res.json().isOk()) {
                 auto data = res.json().unwrap();
-
-                // NUEVO: Guardar el session token
+                 
                 if (data.contains("session_token")) {
                     std::string token = data["session_token"].as<std::string>().unwrapOr(std::string(""));
                     if (!token.empty()) {
@@ -364,10 +361,7 @@ class $modify(MyCommentCell, CommentCell) {
             }
             return;
         }
-
-        // NUEVO: Usar el endpoint público /players/:id/public-profile
-        // Este endpoint NO requiere autenticación porque solo devuelve
-        // datos cosméticos (badge, banner, colores) - no datos sensibles
+ 
         std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/public-profile", p0->m_accountID);
         auto req = web::WebRequest();
 

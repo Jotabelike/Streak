@@ -1,6 +1,7 @@
 #pragma once
 #include "StreakCommon.h"
 #include "SharedVisuals.h"
+#include "../FirebaseManager.h"
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
 #include <Geode/binding/GameLevelManager.hpp>
@@ -315,7 +316,6 @@ protected:
     }
 
     void onClaimMission(CCObject* sender) {
- 
         auto btn = static_cast<CCNode*>(sender);
         CCPoint spawnPos = btn->convertToWorldSpaceAR(CCPointZero);
 
@@ -324,53 +324,44 @@ protected:
 
         const LevelMission* missionPtr = nullptr;
         for (const auto& m : g_levelMissions) {
-            if (m.levelID == levelID) {
-                missionPtr = &m;
-                break;
-            }
+            if (m.levelID == levelID) { missionPtr = &m; break; }
         }
 
         if (missionPtr) {
+            std::string rewardBadgeID = missionPtr->rewardBadgeID;
+            LevelRewardType secondaryType = missionPtr->secondaryRewardType;
+            int secondaryQty = missionPtr->secondaryRewardQuantity;
+
+            std::string secondaryTypeStr = "";
+            if (secondaryType == LevelRewardType::SuperStars) secondaryTypeStr = "super_stars";
+            else if (secondaryType == LevelRewardType::StarTickets) secondaryTypeStr = "star_tickets";
+
+            matjson::Value payload = matjson::Value::object();
+            payload.set("levelID", levelID);
+            payload.set("rewardBadgeID", rewardBadgeID);
+            payload.set("secondaryType", secondaryTypeStr);
+            payload.set("secondaryAmount", secondaryQty);
+
             g_streakData.completedLevelMissions.insert(levelID);
 
-            if (!missionPtr->rewardBadgeID.empty()) {
-                bool alreadyHadBadge = g_streakData.isBadgeUnlocked(missionPtr->rewardBadgeID);
-                g_streakData.unlockBadge(missionPtr->rewardBadgeID);
-                if (!alreadyHadBadge) {
-                    BadgeNotification::show(missionPtr->rewardBadgeID);
+            claimOnServer("/level-mission/claim", payload, [this, rewardBadgeID, secondaryType, secondaryQty, spawnPos](bool ok) {
+                if (!rewardBadgeID.empty()) {
+                    bool alreadyHadBadge = g_streakData.isBadgeUnlocked(rewardBadgeID);
+                    g_streakData.unlockBadge(rewardBadgeID);
+                    if (!alreadyHadBadge) BadgeNotification::show(rewardBadgeID);
                 }
-            }
-
-            if (missionPtr->secondaryRewardType == LevelRewardType::SuperStars) {
-                int start = g_streakData.superStars;
-                g_streakData.superStars += missionPtr->secondaryRewardQuantity;
- 
-                RewardNotification::show(
-                    "super_star.png"_spr,
-                    start,
-                    missionPtr->secondaryRewardQuantity,
-                    spawnPos
-                );
-            }
-
-            if (missionPtr->secondaryRewardType == LevelRewardType::StarTickets) {
-                int start = g_streakData.starTickets;
-                g_streakData.starTickets += missionPtr->secondaryRewardQuantity;
-
-           
-                RewardNotification::show(
-                    "star_tiket.png"_spr,
-                    start,
-                    missionPtr->secondaryRewardQuantity,
-                    spawnPos
-                );
-            }
-            g_streakData.save();
+                if (ok && secondaryType == LevelRewardType::SuperStars && secondaryQty > 0) {
+                    RewardNotification::show("super_star.png"_spr,
+                        g_streakData.superStars - secondaryQty, secondaryQty, spawnPos);
+                }
+                if (ok && secondaryType == LevelRewardType::StarTickets && secondaryQty > 0) {
+                    RewardNotification::show("star_tiket.png"_spr,
+                        g_streakData.starTickets - secondaryQty, secondaryQty, spawnPos);
+                }
+            });
         }
 
-        if (m_scrollLayer) {
-            m_scrollLayer->m_contentLayer->removeAllChildren();
-        }
+        if (m_scrollLayer) m_scrollLayer->m_contentLayer->removeAllChildren();
         loadList();
         setupProgressBar();
     }

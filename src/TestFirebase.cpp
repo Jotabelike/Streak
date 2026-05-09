@@ -1,9 +1,4 @@
-﻿// =============================================
-// TestFirebase.cpp - CON HMAC + SESSION TOKENS
-// Ubicación: src/TestFirebase.cpp (reemplaza el actual)
-// =============================================
-
-#include "FirebaseManager.h"
+﻿#include "FirebaseManager.h"
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/async.hpp>
 #include <matjson.hpp>
@@ -13,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <functional>
 #include <Geode/binding/GameManager.hpp>
 #include "RewardNotification.h"
 #include "HMACAuth.h"
@@ -22,6 +18,11 @@ using namespace geode::prelude;
 static async::TaskHolder<web::WebResponse> s_updateListener;
 static async::TaskHolder<web::WebResponse> s_loadListener;
 static async::TaskHolder<web::WebResponse> s_completeLevelListener;
+static async::TaskHolder<web::WebResponse> s_rouletteSpinListener;
+static async::TaskHolder<web::WebResponse> s_gemRouletteSpinListener;
+static async::TaskHolder<web::WebResponse> s_claimListener;
+
+static const std::string SERVER_URL = "https://streak-servidor.onrender.com";
 
 void loadPlayerDataFromServer() {
     auto am = GJAccountManager::sharedState();
@@ -33,10 +34,9 @@ void loadPlayerDataFromServer() {
     }
 
     int accountID = am->m_accountID;
-    std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
+    std::string url = fmt::format("{}/players/{}", SERVER_URL, accountID);
     log::info("Requesting data from the server...");
 
-    // Limpiar token anterior antes de pedir uno nuevo
     HMACAuth::clearSessionToken();
 
     auto req = web::WebRequest();
@@ -48,7 +48,6 @@ void loadPlayerDataFromServer() {
             if (res.ok() && res.json().isOk()) {
                 auto data = res.json().unwrap();
 
-                // GUARDAR EL SESSION TOKEN que devuelve el servidor
                 if (data.contains("session_token")) {
                     std::string token = data["session_token"].as<std::string>().unwrapOr(std::string(""));
                     if (!token.empty()) {
@@ -92,7 +91,6 @@ void updatePlayerDataInFirebase() {
         return;
     }
 
-    // Verificar que tengamos session token
     if (HMACAuth::getSessionToken().empty()) {
         log::error("Save canceled: No session token. Load data first.");
         return;
@@ -102,8 +100,7 @@ void updatePlayerDataInFirebase() {
     int userID = GameManager::sharedState()->m_playerUserID;
     matjson::Value playerData = matjson::Value::object();
 
-    // Solo campos cosméticos y de estado del cliente
-    // El servidor RECHAZA campos de economía (gems, stars, tickets, xp, level, streak)
+ 
     playerData.set("username", std::string(accountManager->m_username));
     playerData.set("accountID", accountID);
     playerData.set("userID", userID);
@@ -197,7 +194,7 @@ void updatePlayerDataInFirebase() {
     }
     playerData.set("unlocked_name_items", unlocked_names_vec);
 
-    std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
+    std::string url = fmt::format("{}/players/{}", SERVER_URL, accountID);
 
     auto req = web::WebRequest();
     HMACAuth::signRequest(req, accountID, playerData);
@@ -209,7 +206,6 @@ void updatePlayerDataInFirebase() {
                 log::error("SERVER ERROR SAVING: {}", res.code());
                 if (res.code() == 401) {
                     log::error("Auth failed. Session may have expired. Reloading...");
-                    // Si el token expiró, recargar datos para obtener uno nuevo
                     HMACAuth::clearSessionToken();
                     loadPlayerDataFromServer();
                 }
@@ -222,18 +218,16 @@ void completeLevelInFirebase(int stars) {
     auto am = GJAccountManager::sharedState();
     if (!am || am->m_accountID == 0) return;
 
-    // Verificar session token
     if (HMACAuth::getSessionToken().empty()) {
         log::error("Complete level canceled: No session token.");
         return;
     }
 
     int accountID = am->m_accountID;
-    std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/complete-level", accountID);
+    std::string url = fmt::format("{}/players/{}/complete-level", SERVER_URL, accountID);
 
     matjson::Value payload = matjson::Value::object();
     payload.set("stars", stars);
-    // El servidor calcula la fecha, no el cliente
 
     log::info("Sending completed level to the server...");
 
@@ -308,6 +302,158 @@ void completeLevelInFirebase(int stars) {
                     HMACAuth::clearSessionToken();
                     loadPlayerDataFromServer();
                 }
+            }
+        }
+    );
+}
+ 
+static void applyServerBalances(const matjson::Value& data) {
+    if (data.contains("balances")) {
+        auto bal = data["balances"];
+        g_streakData.superStars = bal["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
+        g_streakData.starTickets = bal["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
+        g_streakData.gems = bal["gems"].as<int>().unwrapOr(g_streakData.gems);
+    }
+    if (data.contains("totalSpins"))
+        g_streakData.totalSpins = data["totalSpins"].as<int>().unwrapOr(g_streakData.totalSpins);
+}
+ 
+static void applyServerUnlocks(const matjson::Value& data) {
+    if (data.contains("unlocked_badges")) {
+        auto badges = data["unlocked_badges"].as<std::vector<matjson::Value>>();
+        if (badges.isOk()) {
+            for (auto& b : badges.unwrap()) {
+                g_streakData.unlockBadge(b.as<std::string>().unwrapOr(std::string("")));
+            }
+        }
+    }
+    if (data.contains("unlocked_banners")) {
+        auto banners = data["unlocked_banners"].as<std::vector<matjson::Value>>();
+        if (banners.isOk()) {
+            for (auto& b : banners.unwrap()) {
+                g_streakData.unlockBanner(b.as<std::string>().unwrapOr(std::string("")));
+            }
+        }
+    }
+}
+
+void claimOnServer(const std::string& endpoint, const matjson::Value& payload, std::function<void(bool)> callback) {
+    auto am = GJAccountManager::sharedState();
+    if (!am || am->m_accountID == 0) { callback(false); return; }
+    if (HMACAuth::getSessionToken().empty()) { callback(false); return; }
+
+    int accountID = am->m_accountID;
+    std::string url = fmt::format("{}{}", SERVER_URL, endpoint);
+
+    auto req = web::WebRequest();
+    HMACAuth::signRequest(req, accountID, payload);
+
+    log::info("Claiming on server: {}", endpoint);
+
+    s_claimListener.spawn(
+        req.bodyJSON(payload).post(url),
+        [callback](web::WebResponse res) {
+            if (res.ok() && res.json().isOk()) {
+                auto data = res.json().unwrap();
+                applyServerBalances(data);
+                log::info("Claim OK. Stars: {}, Tickets: {}, Gems: {}",
+                    g_streakData.superStars, g_streakData.starTickets, g_streakData.gems);
+                callback(true);
+            } else {
+                log::error("Claim failed: {}", res.code());
+                if (res.code() == 401) {
+                    HMACAuth::clearSessionToken();
+                    loadPlayerDataFromServer();
+                }
+                callback(false);
+            }
+        }
+    );
+}
+
+void spinStandardRouletteOnServer(int spins, std::function<void(bool, matjson::Value)> callback) {
+    auto am = GJAccountManager::sharedState();
+    if (!am || am->m_accountID == 0) { callback(false, matjson::Value()); return; }
+    if (HMACAuth::getSessionToken().empty()) { callback(false, matjson::Value()); return; }
+
+    int accountID = am->m_accountID;
+    std::string url = fmt::format("{}/roulette/spin", SERVER_URL);
+
+    matjson::Value payload = matjson::Value::object();
+    payload.set("spins", spins);
+
+    auto req = web::WebRequest();
+    HMACAuth::signRequest(req, accountID, payload);
+
+    log::info("Sending standard roulette spin (x{}) to server...", spins);
+
+    s_rouletteSpinListener.spawn(
+        req.bodyJSON(payload).post(url),
+        [callback](web::WebResponse res) {
+            if (res.ok() && res.json().isOk()) {
+                auto data = res.json().unwrap();
+                applyServerBalances(data);
+                applyServerUnlocks(data);
+                log::info("Standard roulette spin OK. Stars: {}, Tickets: {}",
+                    g_streakData.superStars, g_streakData.starTickets);
+                callback(true, data);
+            }
+            else {
+                log::error("Standard roulette spin failed: {}", res.code());
+                if (res.code() == 401) {
+                    HMACAuth::clearSessionToken();
+                    loadPlayerDataFromServer();
+                }
+                callback(false, matjson::Value());
+            }
+        }
+    );
+}
+
+void spinGemRouletteOnServer(std::function<void(bool, matjson::Value)> callback) {
+    auto am = GJAccountManager::sharedState();
+    if (!am || am->m_accountID == 0) { callback(false, matjson::Value()); return; }
+    if (HMACAuth::getSessionToken().empty()) { callback(false, matjson::Value()); return; }
+
+    int accountID = am->m_accountID;
+    std::string url = fmt::format("{}/gem-roulette/spin", SERVER_URL);
+
+    matjson::Value payload = matjson::Value::object();
+
+    auto req = web::WebRequest();
+    HMACAuth::signRequest(req, accountID, payload);
+
+    log::info("Sending gem roulette spin to server...");
+
+    s_gemRouletteSpinListener.spawn(
+        req.bodyJSON(payload).post(url),
+        [callback](web::WebResponse res) {
+            if (res.ok() && res.json().isOk()) {
+                auto data = res.json().unwrap();
+                applyServerBalances(data);
+                applyServerUnlocks(data);
+
+            
+                if (data.contains("gemRouletteState")) {
+                    g_streakData.gemRouletteState =
+                        data["gemRouletteState"].as<std::vector<bool>>().unwrapOr(g_streakData.gemRouletteState);
+                }
+                if (data.contains("gemRouletteSpinCount")) {
+                    g_streakData.gemRouletteSpinCount =
+                        data["gemRouletteSpinCount"].as<int>().unwrapOr(g_streakData.gemRouletteSpinCount);
+                }
+
+                log::info("Gem roulette spin OK. Gems: {}, SpinCount: {}",
+                    g_streakData.gems, g_streakData.gemRouletteSpinCount);
+                callback(true, data);
+            }
+            else {
+                log::error("Gem roulette spin failed: {}", res.code());
+                if (res.code() == 401) {
+                    HMACAuth::clearSessionToken();
+                    loadPlayerDataFromServer();
+                }
+                callback(false, matjson::Value());
             }
         }
     );

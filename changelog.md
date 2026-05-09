@@ -1,6 +1,40 @@
 # Streak!
-## 1.10.42 Beta 2
-- increased security
+## 1.10.43 Beta 3
+- Removed XOR obfuscation from HMACAuth.h (this was flagged as vivecode in Beta 2)
+- All economy transactions (gems, super stars, star tickets, XP) are now processed server-side
+- Added server endpoints for: shop purchases, daily shop, roulette spins, streak goal claims, discord milestone claims, level mission claims, task reward claims, and chest rewards
+- Fixed a bug where spending currencies (spinning roulettes, buying items, claiming rewards) would reset after restarting the game
+- The client no longer modifies currency values locally — all changes come from the server response
+
+### Why not GlobedGD/Argon?
+Argon (https://github.com/GlobedGD/argon) is an excellent API for verifying Geometry Dash account ownership. It was designed for multiplayer mods like Globed, where the main concern is identity — making sure Player A can't impersonate Player B.
+
+Streak! has a different security need. This mod manages a virtual economy (gems, super stars, star tickets, XP, levels, badges, banners) where the main concern is transaction integrity — making sure nobody can forge a request to give themselves free currency, duplicate rewards, or tamper with purchase amounts.
+
+Argon solves: "Is this player really who they say they are?"
+HMAC solves: "Was this specific request (with this exact body, at this exact time) actually sent by the mod, and has it not been modified in transit?"
+
+Argon tokens verify identity once, but they don't sign individual request bodies. A valid Argon token could be reused to send modified requests (e.g., changing `"gems": 5` to `"gems": 999999` in a purchase request). HMAC signs every request body with a timestamp, so any modification invalidates the signature.
+
+Additionally:
+- **GDPS compatibility**: Streak! supports GDPS players. Argon's official server (argon.globed.dev) only works with official GD servers. GDPS support would require self-hosting an Argon server, adding infrastructure complexity for GDPS server owners.
+- **No external dependency**: Argon depends on argon.globed.dev being online. If the Argon server goes down, authentication breaks. Streak!'s HMAC system is self-contained between the mod and its own server.
+- **Request-level protection**: Every single API call is individually signed with HMAC-SHA256 (account ID + timestamp + request body), making replay attacks and request tampering impossible even with a valid session.
+
+The security model has 5 layers:
+1. **HMAC-SHA256 signatures** — every request is signed, preventing forgery and tampering
+2. **Timestamp-based anti-replay** — requests expire after 30 seconds
+3. **Session tokens** — issued on first load, required for all write operations
+4. **Server-side validation** — the server validates all economy transactions and rejects invalid ones
+5. **FORBIDDEN_FIELDS** — the client cannot directly set economy values (gems, stars, tickets, XP, level, streak)
+
+### Sources
+- **GlobedGD/Argon**: https://github.com/GlobedGD/argon
+- **GlobedGD/Argon Server API**: https://github.com/GlobedGD/argon-server/blob/main/docs/server-api.md
+- **RFC 2104** — HMAC: Keyed-Hashing for Message Authentication (IETF, 1997): https://datatracker.ietf.org/doc/html/rfc2104
+- **RFC 4868** — Using HMAC-SHA-256 with IPsec (IETF, 2007): https://tools.ietf.org/html/rfc4868
+- **AWS** — HMAC-SHA Signature for API Authentication: https://docs.aws.amazon.com/AmazonSimpleDB/latest/DeveloperGuide/HMACAuth.html
+- **GitGuardian** — HMAC Secrets Explained: https://blog.gitguardian.com/hmac-secrets-explained-authentication/
 
 ## 1.10.41
 - More settings were added
@@ -196,6 +230,3 @@ Solo tu podras ver tus insignias, ya que el modo "ONLINE" no se ha agregado en e
 
 # BETA 0.0.2
 - Added a daily streak system for collecting stars
-
-
-

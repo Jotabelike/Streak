@@ -8,8 +8,13 @@
 #include "../RewardNotification.h"
 #include "../BannerNotification.h" 
 #include "GemRouletteConfig.h" 
+#include <functional>
 
 using namespace geode::prelude;
+
+ 
+extern void spinStandardRouletteOnServer(int spins, std::function<void(bool, matjson::Value)> callback);
+extern void spinGemRouletteOnServer(std::function<void(bool, matjson::Value)> callback);
 
 enum class RouletteMode {
     Standard,
@@ -43,7 +48,7 @@ protected:
     CCMenu* m_infoMenu = nullptr;
     CCMenuItemToggler* m_skipToggle = nullptr;
 
-    // Botones laterales
+    // buttons
     CCMenuItemSpriteExtra* m_standardModeBtn = nullptr;
     CCMenuItemSpriteExtra* m_gemModeBtn = nullptr;
     CCMenu* m_modeMenu = nullptr;
@@ -77,6 +82,19 @@ protected:
     std::vector<StreakData::BadgeInfo> m_pendingMythics;
     std::vector<std::string> m_newBadgesWon;
     int m_pendingTotalTickets = 0;
+
+    // Server espin results
+    struct ServerSpinResult {
+        int winningIndex = -1;
+        std::string type;
+        std::string id;
+        int quantity = 0;
+        std::string category;
+        bool isNewBadge = false;
+        int ticketsFromDuplicate = 0;
+    };
+    std::vector<ServerSpinResult> m_serverResults;
+    bool m_useServerResults = false;
 
     void runPopAnimation(CCNode* node) {
         if (node) {
@@ -203,7 +221,7 @@ protected:
         m_orderedSlots.clear();
         if (m_selectorSprite) m_selectorSprite->removeFromParent();
 
-        
+
         {
             std::vector<CCNode*> toRemove;
             for (auto* child : CCArrayExt<CCNode*>(m_rouletteNode->getChildren())) {
@@ -401,7 +419,7 @@ protected:
 
         m_standardModeBtn->setEnabled(m_currentMode != RouletteMode::Standard);
         m_gemModeBtn->setEnabled(m_currentMode != RouletteMode::Gem);
- 
+
         m_spinMenu->removeChild(m_spinBtn, true);
         m_spin10Btn->retain();
         m_spinMenu->removeChild(m_spin10Btn, false);
@@ -409,8 +427,8 @@ protected:
         if (m_currentMode == RouletteMode::Standard) {
             m_adsClipper->setVisible(true);
             m_spinBtn = CCMenuItemSpriteExtra::create(ButtonSprite::create("Spin"), this, menu_selector(RoulettePopup::onSpin));
-            m_spinMenu->addChild(m_spinBtn);    
-            m_spinMenu->addChild(m_spin10Btn);  
+            m_spinMenu->addChild(m_spinBtn);
+            m_spinMenu->addChild(m_spin10Btn);
             m_spin10Btn->release();
             m_spin10Btn->setVisible(true);
             m_currencyLabel->setString(std::to_string(g_streakData.superStars).c_str());
@@ -506,14 +524,14 @@ protected:
         }
 
         m_gradientColors = {
-        ccc3(255, 50, 50),    
-        ccc3(255, 150, 50),  
-        ccc3(255, 255, 50),  
-        ccc3(50, 255, 50),   
-        ccc3(50, 255, 255), 
-        ccc3(50, 100, 255),  
-        ccc3(150, 50, 255),  
-        ccc3(255, 50, 150)   
+        ccc3(255, 50, 50),
+        ccc3(255, 150, 50),
+        ccc3(255, 255, 50),
+        ccc3(50, 255, 50),
+        ccc3(50, 255, 255),
+        ccc3(50, 100, 255),
+        ccc3(150, 50, 255),
+        ccc3(255, 50, 150)
         };
         m_gradCurrentStart = m_gradientColors[0];
         m_gradCurrentEnd = m_gradientColors[5];
@@ -524,7 +542,7 @@ protected:
         m_rouletteNode->setPosition({ winSize.width / 2, winSize.height / 2 + 15.f });
         m_mainLayer->addChild(m_rouletteNode);
 
-  
+
         auto bgSize = m_bgSprite->getContentSize();
         auto gradStencil = CCScale9Sprite::create("GJ_square02.png");
         gradStencil->setContentSize(bgSize);
@@ -538,8 +556,8 @@ protected:
         gradClipper->setAnchorPoint({ 0, 0 });
 
         m_bgGradient = CCLayerGradient::create(
-            ccc4(m_gradCurrentStart.r, m_gradCurrentStart.g, m_gradCurrentStart.b, 100), 
-            ccc4(m_gradCurrentEnd.r, m_gradCurrentEnd.g, m_gradCurrentEnd.b, 100)       
+            ccc4(m_gradCurrentStart.r, m_gradCurrentStart.g, m_gradCurrentStart.b, 100),
+            ccc4(m_gradCurrentEnd.r, m_gradCurrentEnd.g, m_gradCurrentEnd.b, 100)
         );
         m_bgGradient->setContentSize(bgSize);
         m_bgGradient->setPosition({ 0, 0 });
@@ -615,7 +633,7 @@ protected:
     }
 
     void update(float dt) override {
-    
+
         if (m_bgGradient && !m_gradientColors.empty()) {
             m_gradTransitionTime += dt * 0.25f;
             if (m_gradTransitionTime >= 1.0f) {
@@ -623,7 +641,7 @@ protected:
                 m_gradColorIndex = (m_gradColorIndex + 1) % m_gradientColors.size();
                 m_gradCurrentStart = m_gradTargetStart;
                 m_gradCurrentEnd = m_gradTargetEnd;
-                m_gradTargetStart = m_gradientColors[(m_gradColorIndex + 1) % m_gradientColors.size()];         
+                m_gradTargetStart = m_gradientColors[(m_gradColorIndex + 1) % m_gradientColors.size()];
                 m_gradTargetEnd = m_gradientColors[(m_gradColorIndex + 2) % m_gradientColors.size()];
             }
             float p = m_gradTransitionTime;
@@ -639,8 +657,8 @@ protected:
             };
             m_bgGradient->setStartColor(startC);
             m_bgGradient->setEndColor(endC);
-            m_bgGradient->setStartOpacity(150); 
-            m_bgGradient->setEndOpacity(50);    
+            m_bgGradient->setStartOpacity(150);
+            m_bgGradient->setEndOpacity(50);
         }
         if (!m_isAdAnimating && !m_adSprites.empty() && m_currentMode == RouletteMode::Standard) {
             m_timeSinceLastAdSwitch += dt;
@@ -685,326 +703,290 @@ protected:
     }
 
 
-    void onSpin(CCObject*) {
-        int spinCost = 0;
-        std::vector<int> logicalAvailableIndices;
-
-        if (m_currentMode == RouletteMode::Standard) {
-            spinCost = 1;
-            if (g_streakData.superStars < spinCost) {
-                FLAlertLayer::create("Not Enough Super Stars", "You need 1 Super Star.", "OK")->show();
-                return;
-            }
-        }
-        else {
-            if (g_streakData.gemRouletteState.size() < 7) g_streakData.gemRouletteState.resize(7, false);
-
-            for (int i = 0; i < 7; i++) {
-                bool isTaken = false;
-                if (i < g_streakData.gemRouletteState.size() && g_streakData.gemRouletteState[i]) isTaken = true;
-                if (i < m_roulettePrizes.size()) {
-                    auto& p = m_roulettePrizes[i];
-                    if (p.type == RewardType::Badge && g_streakData.isBadgeUnlocked(p.id)) isTaken = true;
-                    if (p.type == RewardType::Banner && g_streakData.isBannerUnlocked(p.id)) isTaken = true;
-                }
-                if (!isTaken) logicalAvailableIndices.push_back(i);
-            }
-
-            if (logicalAvailableIndices.empty()) {
-                FLAlertLayer::create("Completed", "You have claimed all Gem Rewards!", "OK")->show();
-                return;
-            }
-
-            spinCost = GemRouletteConfig::getCostForStep(g_streakData.gemRouletteSpinCount);
-            if (g_streakData.gems < spinCost) {
-                FLAlertLayer::create("Not Enough Gems", fmt::format("You need {} Gems.", spinCost), "OK")->show();
-                return;
-            }
-        }
-
-        if (m_isSpinning) return;
-
-        if (m_currentMode == RouletteMode::Standard) {
-            g_streakData.superStars -= spinCost;
-        }
-        else {
-            g_streakData.gems -= spinCost;
-            g_streakData.gemRouletteSpinCount++;
-        }
-
-        m_isSpinning = true;
-        toggleUI(false);
-
-        g_streakData.totalSpins += 1;
-        g_streakData.save();
-        updateButtons();
-
-        int winningIndex = 0;
-
-        if (m_currentMode == RouletteMode::Standard) {
-            int totalWeight = 0;
-            for (const auto& prize : m_roulettePrizes) totalWeight += prize.probabilityWeight;
-
-            if (totalWeight > 0) {
-                int randomValue = std::rand() % totalWeight;
-                for (size_t i = 0; i < m_roulettePrizes.size(); ++i) {
-                    if (randomValue < m_roulettePrizes[i].probabilityWeight) {
-                        winningIndex = i;
-                        break;
-                    }
-                    randomValue -= m_roulettePrizes[i].probabilityWeight;
-                }
-            }
-        }
-        else {
-            int totalWeight = 0;
-            for (int idx : logicalAvailableIndices) {
-                if (idx < m_roulettePrizes.size()) totalWeight += m_roulettePrizes[idx].probabilityWeight;
-            }
-
-            if (totalWeight > 0 && !logicalAvailableIndices.empty()) {
-                int randomValue = std::rand() % totalWeight;
-                bool found = false;
-                int currentAccumulator = 0;
-                for (int idx : logicalAvailableIndices) {
-                    if (idx >= m_roulettePrizes.size()) continue;
-                    currentAccumulator += m_roulettePrizes[idx].probabilityWeight;
-                    if (randomValue < currentAccumulator) {
-                        winningIndex = idx;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) winningIndex = logicalAvailableIndices.back();
-            }
-            else if (!logicalAvailableIndices.empty()) {
-                winningIndex = logicalAvailableIndices[0];
-            }
-        }
-
+    void runSpinAnimationForIndex(int winningIndex, std::vector<int> logicalAvailableIndices) {
+        
         if (m_skipToggle->isToggled()) {
             m_currentSelectorIndex = winningIndex;
             m_selectorSprite->setPosition(m_orderedSlots[winningIndex]->getPosition());
-
             this->spawnImpactParticles(m_orderedSlots[winningIndex]->getPosition());
-
             this->onSpinEnd();
             return;
         }
 
+         
         if (m_currentMode == RouletteMode::Gem && logicalAvailableIndices.size() == 1) {
             m_totalSteps = 1;
-
             auto moveAction = CCEaseSineOut::create(CCMoveTo::create(0.4f, m_orderedSlots[winningIndex]->getPosition()));
-
             auto arriveEffect = CallFuncExt::create([this, winningIndex]() {
                 this->playTickSound();
                 this->runPopAnimation(m_orderedSlots[winningIndex]);
                 this->flashSlot(m_orderedSlots[winningIndex]);
-
                 this->spawnImpactParticles(m_orderedSlots[winningIndex]->getPosition());
-
                 m_currentSelectorIndex = winningIndex;
                 });
-
             auto endCall = CCCallFunc::create(this, callfunc_selector(RoulettePopup::onSpinEnd));
             m_selectorSprite->runAction(CCSequence::create(moveAction, arriveEffect, endCall, nullptr));
-            updatePlayerDataInFirebase();
             return;
         }
 
+    
         std::vector<int> animationPathIndices;
-
         if (m_currentMode == RouletteMode::Gem) {
-            for (int i = 0; i < m_orderedSlots.size(); i++) {
+            for (int i = 0; i < (int)m_orderedSlots.size(); i++) {
                 bool isTaken = false;
-                if (i < g_streakData.gemRouletteState.size() && g_streakData.gemRouletteState[i]) isTaken = true;
-                if (i < m_roulettePrizes.size()) {
+                if (i < (int)g_streakData.gemRouletteState.size() && g_streakData.gemRouletteState[i]) isTaken = true;
+                if (i < (int)m_roulettePrizes.size()) {
                     auto& p = m_roulettePrizes[i];
                     if (p.type == RewardType::Badge && g_streakData.isBadgeUnlocked(p.id)) isTaken = true;
                     if (p.type == RewardType::Banner && g_streakData.isBannerUnlocked(p.id)) isTaken = true;
                 }
-
-                if (!isTaken || i == winningIndex) {
-                    animationPathIndices.push_back(i);
-                }
+                if (!isTaken || i == winningIndex) animationPathIndices.push_back(i);
             }
             std::sort(animationPathIndices.begin(), animationPathIndices.end());
         }
         else {
-            for (int i = 0; i < m_orderedSlots.size(); i++) animationPathIndices.push_back(i);
+            for (int i = 0; i < (int)m_orderedSlots.size(); i++) animationPathIndices.push_back(i);
         }
-
         if (animationPathIndices.empty()) {
-            for (int i = 0; i < m_orderedSlots.size(); i++) animationPathIndices.push_back(i);
+            for (int i = 0; i < (int)m_orderedSlots.size(); i++) animationPathIndices.push_back(i);
         }
 
         int pathSize = animationPathIndices.size();
         int startPosInPath = pathSize - 1;
-
         for (int i = 0; i < pathSize; i++) {
-            if (animationPathIndices[i] == m_currentSelectorIndex) {
-                startPosInPath = i;
-                break;
-            }
-            if (animationPathIndices[i] < m_currentSelectorIndex) {
-                startPosInPath = i;
-            }
-            else {
-                break;
-            }
+            if (animationPathIndices[i] == m_currentSelectorIndex) { startPosInPath = i; break; }
+            if (animationPathIndices[i] < m_currentSelectorIndex) startPosInPath = i;
+            else break;
         }
-
         int targetPosInPath = 0;
         for (int i = 0; i < pathSize; i++) {
-            if (animationPathIndices[i] == winningIndex) {
-                targetPosInPath = i;
-                break;
-            }
+            if (animationPathIndices[i] == winningIndex) { targetPosInPath = i; break; }
         }
-
         int stepsInPath = (5 * pathSize) + (targetPosInPath - startPosInPath + pathSize) % pathSize;
         if (stepsInPath < pathSize) stepsInPath += pathSize;
-
         m_totalSteps = stepsInPath;
 
         auto actions = CCArray::create();
         for (int i = 1; i <= stepsInPath; ++i) {
             int nextPathIndex = (startPosInPath + i) % pathSize;
             int realSlotIndex = animationPathIndices[nextPathIndex];
-
             float duration = (i < 5) ? 0.2f - (i * 0.03f) :
-                (i > stepsInPath - 10) ? 0.05f + ((i - (stepsInPath - 10)) * 0.04f) :
-                0.05f;
-
+                (i > stepsInPath - 10) ? 0.05f + ((i - (stepsInPath - 10)) * 0.04f) : 0.05f;
             auto moveAction = CCEaseSineInOut::create(CCMoveTo::create(duration, m_orderedSlots[realSlotIndex]->getPosition()));
-
             auto arriveEffects = CallFuncExt::create([this, realSlotIndex]() {
                 this->playTickSound();
                 this->runPopAnimation(m_orderedSlots[realSlotIndex]);
                 this->flashSlot(m_orderedSlots[realSlotIndex]);
-
                 m_currentSelectorIndex = realSlotIndex;
                 });
             actions->addObject(CCSequence::create(moveAction, arriveEffects, nullptr));
         }
-
         auto finalParticles = CallFuncExt::create([this, winningIndex]() {
             this->spawnImpactParticles(m_orderedSlots[winningIndex]->getPosition());
             });
         actions->addObject(finalParticles);
-
         actions->addObject(CCCallFunc::create(this, callfunc_selector(RoulettePopup::onSpinEnd)));
         m_selectorSprite->runAction(CCSequence::create(actions));
-        updatePlayerDataInFirebase();
+    }
+
+    void onSpin(CCObject*) {
+        if (m_isSpinning) return;
+         
+        std::vector<int> logicalAvailableIndices;
+        if (m_currentMode == RouletteMode::Standard) {
+            if (g_streakData.superStars < 1) {
+                FLAlertLayer::create("Not Enough Super Stars", "You need 1 Super Star.", "OK")->show();
+                return;
+            }
+        }
+        else {
+            if (g_streakData.gemRouletteState.size() < 7) g_streakData.gemRouletteState.resize(7, false);
+            for (int i = 0; i < 7; i++) {
+                bool isTaken = false;
+                if (i < (int)g_streakData.gemRouletteState.size() && g_streakData.gemRouletteState[i]) isTaken = true;
+                if (i < (int)m_roulettePrizes.size()) {
+                    auto& p = m_roulettePrizes[i];
+                    if (p.type == RewardType::Badge && g_streakData.isBadgeUnlocked(p.id)) isTaken = true;
+                    if (p.type == RewardType::Banner && g_streakData.isBannerUnlocked(p.id)) isTaken = true;
+                }
+                if (!isTaken) logicalAvailableIndices.push_back(i);
+            }
+            if (logicalAvailableIndices.empty()) {
+                FLAlertLayer::create("Completed", "You have claimed all Gem Rewards!", "OK")->show();
+                return;
+            }
+            int spinCost = GemRouletteConfig::getCostForStep(g_streakData.gemRouletteSpinCount);
+            if (g_streakData.gems < spinCost) {
+                FLAlertLayer::create("Not Enough Gems", fmt::format("You need {} Gems.", spinCost), "OK")->show();
+                return;
+            }
+        }
+
+        m_isSpinning = true;
+        toggleUI(false);
+ 
+        if (m_currentMode == RouletteMode::Standard) {
+            spinStandardRouletteOnServer(1, [this](bool ok, matjson::Value data) {
+                if (!ok) {
+                    m_isSpinning = false;
+                    toggleUI(true);
+                    FLAlertLayer::create("Error", "Connection error. Try again.", "OK")->show();
+                    return;
+                }
+                
+                m_serverResults.clear();
+                m_useServerResults = true;
+                auto resultsArr = data["results"].as<std::vector<matjson::Value>>();
+                int winningIndex = 0;
+                if (resultsArr.isOk() && !resultsArr.unwrap().empty()) {
+                    auto& r = resultsArr.unwrap()[0];
+                    ServerSpinResult sr;
+                    sr.winningIndex = r["winningIndex"].as<int>().unwrapOr(0);
+                    sr.type = r["type"].as<std::string>().unwrapOr(std::string(""));
+                    sr.id = r["id"].as<std::string>().unwrapOr(std::string(""));
+                    sr.quantity = r["quantity"].as<int>().unwrapOr(0);
+                    sr.category = r["category"].as<std::string>().unwrapOr(std::string(""));
+                    sr.isNewBadge = r["isNewBadge"].as<bool>().unwrapOr(false);
+                    sr.ticketsFromDuplicate = r["ticketsFromDuplicate"].as<int>().unwrapOr(0);
+                    m_serverResults.push_back(sr);
+                    winningIndex = sr.winningIndex;
+                }
+                updateButtons();
+                runSpinAnimationForIndex(winningIndex, {});
+                });
+        }
+        else {
+            auto capturedAvailable = logicalAvailableIndices;
+            spinGemRouletteOnServer([this, capturedAvailable](bool ok, matjson::Value data) {
+                if (!ok) {
+                    m_isSpinning = false;
+                    toggleUI(true);
+                    FLAlertLayer::create("Error", "Connection error. Try again.", "OK")->show();
+                    return;
+                }
+                m_serverResults.clear();
+                m_useServerResults = true;
+                auto result = data["result"];
+                ServerSpinResult sr;
+                sr.winningIndex = result["winningIndex"].as<int>().unwrapOr(0);
+                sr.type = result["type"].as<std::string>().unwrapOr(std::string(""));
+                sr.id = result["id"].as<std::string>().unwrapOr(std::string(""));
+                sr.quantity = result["quantity"].as<int>().unwrapOr(0);
+                sr.category = result["category"].as<std::string>().unwrapOr(std::string(""));
+                m_serverResults.push_back(sr);
+                updateButtons();
+                runSpinAnimationForIndex(sr.winningIndex, capturedAvailable);
+                });
+        }
     }
 
     void onSpinMultiple(CCObject*) {
         if (m_currentMode != RouletteMode::Standard) return;
-
         if (g_streakData.superStars < 10) {
             FLAlertLayer::create("Error", "Need 10 Super Stars.", "OK")->show();
             return;
         }
-
         if (m_isSpinning) return;
         m_isSpinning = true;
         toggleUI(false);
-
-        g_streakData.superStars -= 10;
-        g_streakData.totalSpins += 10;
-
-        m_multiSpinResults.clear();
-        m_pendingMythics.clear();
-        m_newBadgesWon.clear();
-
-        std::vector<int> winningIndices;
-        int totalWeight = 0;
-        for (const auto& prize : m_roulettePrizes) totalWeight += prize.probabilityWeight;
-
-        for (int i = 0; i < 10; ++i) {
-            int rVal = rand() % totalWeight;
-            int wIndex = 0;
-            for (size_t j = 0; j < m_roulettePrizes.size(); ++j) {
-                if (rVal < m_roulettePrizes[j].probabilityWeight) { wIndex = j; break; }
-                rVal -= m_roulettePrizes[j].probabilityWeight;
+ 
+        spinStandardRouletteOnServer(10, [this](bool ok, matjson::Value data) {
+            if (!ok) {
+                m_isSpinning = false;
+                toggleUI(true);
+                FLAlertLayer::create("Error", "Connection error. Try again.", "OK")->show();
+                return;
             }
-            winningIndices.push_back(wIndex);
-            auto& prize = m_roulettePrizes[wIndex];
-            GenericPrizeResult res;
-            res.type = prize.type; res.id = prize.id; res.quantity = prize.quantity;
-            res.displayName = prize.displayName; res.category = prize.category;
 
-            if (prize.type == RewardType::Badge) {
-                auto* bInfo = g_streakData.getBadgeInfo(prize.id);
-                if (bInfo) {
-                    res.spriteName = bInfo->spriteName;
-                    res.isNew = !g_streakData.isBadgeUnlocked(prize.id);
-                    if (res.isNew) {
-                        g_streakData.unlockBadge(prize.id);
-                        m_newBadgesWon.push_back(prize.id);
-                        if (bInfo->category == StreakData::BadgeCategory::MYTHIC) m_pendingMythics.push_back(*bInfo);
-                    }
-                    else {
-                        int t = g_streakData.getTicketValueForRarity(bInfo->category);
-                        g_streakData.starTickets += t;
-                        res.ticketsFromDuplicate = t;
+            m_serverResults.clear();
+            m_useServerResults = true;
+            m_multiSpinResults.clear();
+            m_pendingMythics.clear();
+            m_newBadgesWon.clear();
+
+            std::vector<int> winningIndices;
+            auto resultsArr = data["results"].as<std::vector<matjson::Value>>();
+            if (resultsArr.isOk()) {
+                for (auto& r : resultsArr.unwrap()) {
+                    ServerSpinResult sr;
+                    sr.winningIndex = r["winningIndex"].as<int>().unwrapOr(0);
+                    sr.type = r["type"].as<std::string>().unwrapOr(std::string(""));
+                    sr.id = r["id"].as<std::string>().unwrapOr(std::string(""));
+                    sr.quantity = r["quantity"].as<int>().unwrapOr(0);
+                    sr.category = r["category"].as<std::string>().unwrapOr(std::string(""));
+                    sr.isNewBadge = r["isNewBadge"].as<bool>().unwrapOr(false);
+                    sr.ticketsFromDuplicate = r["ticketsFromDuplicate"].as<int>().unwrapOr(0);
+                    m_serverResults.push_back(sr);
+                    winningIndices.push_back(sr.winningIndex);
+
+                
+                    if (sr.winningIndex < (int)m_roulettePrizes.size()) {
+                        auto& prize = m_roulettePrizes[sr.winningIndex];
+                        GenericPrizeResult res;
+                        res.type = prize.type;
+                        res.id = prize.id;
+                        res.quantity = prize.quantity;
+                        res.displayName = prize.displayName;
+                        res.category = prize.category;
+                        res.isNew = sr.isNewBadge;
+                        res.ticketsFromDuplicate = sr.ticketsFromDuplicate;
+                        if (prize.type == RewardType::Badge) {
+                            auto* bInfo = g_streakData.getBadgeInfo(prize.id);
+                            if (bInfo) {
+                                res.spriteName = bInfo->spriteName;
+                                if (sr.isNewBadge) {
+                                    m_newBadgesWon.push_back(prize.id);
+                                    if (bInfo->category == StreakData::BadgeCategory::MYTHIC)
+                                        m_pendingMythics.push_back(*bInfo);
+                                }
+                            }
+                        }
+                        else {
+                            res.spriteName = prize.spriteName;
+                        }
+                        m_multiSpinResults.push_back(res);
                     }
                 }
             }
-            else {
-                if (prize.type == RewardType::SuperStar) g_streakData.superStars += prize.quantity;
-                else if (prize.type == RewardType::StarTicket) g_streakData.starTickets += prize.quantity;
-                res.spriteName = prize.spriteName;
+
+            updateButtons();
+ 
+            if (m_skipToggle->isToggled() && !winningIndices.empty()) {
+                m_currentSelectorIndex = winningIndices.back();
+                m_selectorSprite->setPosition(m_orderedSlots[m_currentSelectorIndex]->getPosition());
+                this->spawnImpactParticles(m_orderedSlots[m_currentSelectorIndex]->getPosition());
+                this->onMultiSpinEnd();
+                return;
             }
-            m_multiSpinResults.push_back(res);
-        }
 
-        g_streakData.save();
-        updateButtons();
+            auto actions = CCArray::create();
+            int totalSlots = m_orderedSlots.size();
+            int lastIdx = m_currentSelectorIndex;
 
-        if (m_skipToggle->isToggled()) {
-            m_currentSelectorIndex = winningIndices.back();
-            m_selectorSprite->setPosition(m_orderedSlots[m_currentSelectorIndex]->getPosition());
-            this->spawnImpactParticles(m_orderedSlots[m_currentSelectorIndex]->getPosition());
-
-            this->onMultiSpinEnd();
-            return;
-        }
-
-        auto actions = CCArray::create();
-        int totalSlots = m_orderedSlots.size();
-        int lastIdx = m_currentSelectorIndex;
-
-        for (int pIdx : winningIndices) {
-            int dist = (pIdx - lastIdx + totalSlots) % totalSlots;
-            if (dist == 0) dist = totalSlots;
-
-            for (int i = 1; i <= dist; ++i) {
-                int currentSlotIdx = (lastIdx + i) % totalSlots;
-                auto moveAction = CCMoveTo::create(0.04f, m_orderedSlots[currentSlotIdx]->getPosition());
-
-                auto arriveEffects = CallFuncExt::create([this, currentSlotIdx]() {
-                    this->playTickSound();
-                    this->runSlotAnimation(m_orderedSlots[currentSlotIdx]);
-                    this->flashSlot(m_orderedSlots[currentSlotIdx]);
+            for (int pIdx : winningIndices) {
+                int dist = (pIdx - lastIdx + totalSlots) % totalSlots;
+                if (dist == 0) dist = totalSlots;
+                for (int i = 1; i <= dist; ++i) {
+                    int currentSlotIdx = (lastIdx + i) % totalSlots;
+                    auto moveAction = CCMoveTo::create(0.04f, m_orderedSlots[currentSlotIdx]->getPosition());
+                    auto arriveEffects = CallFuncExt::create([this, currentSlotIdx]() {
+                        this->playTickSound();
+                        this->runSlotAnimation(m_orderedSlots[currentSlotIdx]);
+                        this->flashSlot(m_orderedSlots[currentSlotIdx]);
+                        });
+                    actions->addObject(CCSequence::create(moveAction, arriveEffects, nullptr));
+                }
+                auto hitPrizeEffect = CallFuncExt::create([this, pIdx]() {
+                    this->spawnImpactParticles(m_orderedSlots[pIdx]->getPosition());
                     });
-                actions->addObject(CCSequence::create(moveAction, arriveEffects, nullptr));
+                actions->addObject(hitPrizeEffect);
+                actions->addObject(CCDelayTime::create(0.25f));
+                lastIdx = pIdx;
             }
-
-            auto hitPrizeEffect = CallFuncExt::create([this, pIdx]() {
-                this->spawnImpactParticles(m_orderedSlots[pIdx]->getPosition());
-                });
-            actions->addObject(hitPrizeEffect);
-
-            actions->addObject(CCDelayTime::create(0.25f));
-            lastIdx = pIdx;
-        }
-
-        m_currentSelectorIndex = lastIdx;
-        actions->addObject(CCCallFunc::create(this, callfunc_selector(RoulettePopup::onMultiSpinEnd)));
-        m_selectorSprite->runAction(CCSequence::create(actions));
-        updatePlayerDataInFirebase();
+            m_currentSelectorIndex = lastIdx;
+            actions->addObject(CCCallFunc::create(this, callfunc_selector(RoulettePopup::onMultiSpinEnd)));
+            m_selectorSprite->runAction(CCSequence::create(actions));
+            });
     }
 
     void processMythicQueue() {
@@ -1019,13 +1001,15 @@ protected:
     void onMultiSpinEnd() {
         m_isSpinning = false;
         if (m_currentMode == RouletteMode::Standard) g_streakData.lastRouletteIndex = m_currentSelectorIndex;
-        g_streakData.save();
+        updatePlayerDataInFirebase();
         updateAllCheckmarks();
         m_pendingTotalTickets = 0;
         for (const auto& r : m_multiSpinResults) {
             if (r.type == RewardType::StarTicket) m_pendingTotalTickets += r.quantity;
             if (r.type == RewardType::Badge && !r.isNew) m_pendingTotalTickets += r.ticketsFromDuplicate;
         }
+        m_useServerResults = false;
+        m_serverResults.clear();
         if (!m_pendingMythics.empty()) processMythicQueue(); else showMultiSpinSummary();
     }
 
@@ -1047,8 +1031,7 @@ protected:
         m_isSpinning = false;
         toggleUI(true);
 
-        if (m_currentSelectorIndex >= m_roulettePrizes.size()) m_currentSelectorIndex = 0;
-
+        if (m_currentSelectorIndex >= (int)m_roulettePrizes.size()) m_currentSelectorIndex = 0;
         RoulettePrize prize = m_roulettePrizes[m_currentSelectorIndex];
 
         int pendingTickets = 0;
@@ -1058,51 +1041,41 @@ protected:
 
         if (m_currentMode == RouletteMode::Gem) {
             m_lastGemIndex = m_currentSelectorIndex;
-
-            if (g_streakData.gemRouletteState.size() < 7) g_streakData.gemRouletteState.resize(7, false);
-            g_streakData.gemRouletteState[m_currentSelectorIndex] = true;
-
             if (prize.type == RewardType::Badge) {
-                g_streakData.unlockBadge(prize.id);
                 auto* bi = g_streakData.getBadgeInfo(prize.id);
-
-                if (bi && bi->category == StreakData::BadgeCategory::MYTHIC) {
-                    isMythicAnimation = true;
-                    auto animLayer = MythicAnimationLayer::create(*bi, [this, prize]() { BadgeNotification::show(prize.id); });
-                    CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 400);
-                }
-                else {
-                    showBadgeNotify = true;
+                if (bi) {
+                    if (bi->category == StreakData::BadgeCategory::MYTHIC) {
+                        isMythicAnimation = true;
+                        auto animLayer = MythicAnimationLayer::create(*bi, [this, prize]() { BadgeNotification::show(prize.id); });
+                        CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 400);
+                    }
+                    else {
+                        showBadgeNotify = true;
+                    }
                 }
             }
             else if (prize.type == RewardType::Banner) {
-                g_streakData.unlockBanner(prize.id);
                 auto* bi = g_streakData.getBannerInfo(prize.id);
-
                 if (bi) {
                     if (bi->rarity == StreakData::BadgeCategory::MYTHIC) {
                         isMythicAnimation = true;
                         auto animLayer = MythicBannerAnimationLayer::create(*bi, [bi]() {
                             BannerNotification::show(bi->bannerID, bi->spriteName, bi->displayName,
-                                g_streakData.getCategoryName(bi->rarity),
-                                g_streakData.getCategoryColor(bi->rarity));
+                                g_streakData.getCategoryName(bi->rarity), g_streakData.getCategoryColor(bi->rarity));
                             });
                         CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 400);
                     }
                     else {
                         BannerNotification::show(bi->bannerID, bi->spriteName, bi->displayName,
-                            g_streakData.getCategoryName(bi->rarity),
-                            g_streakData.getCategoryColor(bi->rarity));
+                            g_streakData.getCategoryName(bi->rarity), g_streakData.getCategoryColor(bi->rarity));
                     }
                 }
             }
             else if (prize.type == RewardType::SuperStar) {
                 pendingStars = prize.quantity;
-                g_streakData.superStars += prize.quantity;
             }
             else if (prize.type == RewardType::StarTicket) {
                 pendingTickets = prize.quantity;
-                g_streakData.starTickets += prize.quantity;
             }
         }
         else {
@@ -1111,35 +1084,42 @@ protected:
             if (prize.type == RewardType::Badge) {
                 auto* bi = g_streakData.getBadgeInfo(prize.id);
                 if (bi) {
-                    bool isNew = !g_streakData.isBadgeUnlocked(prize.id);
-                    if (isNew) {
-                        g_streakData.unlockBadge(prize.id);
+               
+                    bool isNew = false;
+                    int dupTickets = 0;
+                    if (m_useServerResults && !m_serverResults.empty()) {
+                        isNew = m_serverResults[0].isNewBadge;
+                        dupTickets = m_serverResults[0].ticketsFromDuplicate;
+                    }
+                    else {
+                        isNew = !g_streakData.isBadgeUnlocked(prize.id);
+                    }
 
+                    if (isNew) {
                         if (bi->category == StreakData::BadgeCategory::MYTHIC) {
                             isMythicAnimation = true;
                             auto animLayer = MythicAnimationLayer::create(*bi, [this, prize]() { BadgeNotification::show(prize.id); });
                             CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 400);
                         }
-                        else { showBadgeNotify = true; }
+                        else {
+                            showBadgeNotify = true;
+                        }
                     }
                     else {
-                        int val = g_streakData.getTicketValueForRarity(bi->category);
-                        pendingTickets = val;
-                        g_streakData.starTickets += val;
+                        pendingTickets = dupTickets > 0 ? dupTickets : g_streakData.getTicketValueForRarity(bi->category);
                     }
                 }
             }
             else if (prize.type == RewardType::SuperStar) {
                 pendingStars = prize.quantity;
-                g_streakData.superStars += prize.quantity;
             }
             else if (prize.type == RewardType::StarTicket) {
                 pendingTickets = prize.quantity;
-                g_streakData.starTickets += prize.quantity;
             }
         }
 
-        g_streakData.save();
+       
+        updatePlayerDataInFirebase();
         updateButtons();
 
         if (m_currentMode == RouletteMode::Gem) {
@@ -1150,11 +1130,8 @@ protected:
         }
 
         if (!isMythicAnimation) {
-
             CCPoint spawnPos = m_orderedSlots[m_currentSelectorIndex]->convertToWorldSpaceAR(CCPointZero);
-
             if (showBadgeNotify) BadgeNotification::show(prize.id);
-
             if (pendingTickets > 0) {
                 RewardNotification::show("star_tiket.png"_spr, g_streakData.starTickets - pendingTickets, pendingTickets, spawnPos);
             }
@@ -1162,6 +1139,9 @@ protected:
                 RewardNotification::show("super_star.png"_spr, g_streakData.superStars - pendingStars, pendingStars, spawnPos);
             }
         }
+
+        m_useServerResults = false;
+        m_serverResults.clear();
     }
 
     void updateAllCheckmarks() {

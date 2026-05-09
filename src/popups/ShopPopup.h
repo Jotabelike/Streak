@@ -446,58 +446,54 @@ protected:
         ItemConfirmPopup::create(spriteName, displayName, price, [this, itemID, price, category, isBadge]() {
             g_streakData.load();
             if (g_streakData.starTickets >= price) {
-         
-                g_streakData.starTickets -= price;
-
-                if (isBadge) {
-                    g_streakData.unlockBadge(itemID);
-                }
-                else {
-                    g_streakData.unlockBanner(itemID);
-                }
-
-                g_streakData.save();
-                m_ticketCounterLabel->setString(std::to_string(g_streakData.starTickets).c_str());
-                updateItems();
-                FMODAudioEngine::sharedEngine()->playEffect("buy_obj.mp3"_spr);
-
-           
-                if (isBadge) {
-                    if (category == StreakData::BadgeCategory::MYTHIC) {
-                        auto badgeInfo = g_streakData.getBadgeInfo(itemID);
-                        if (badgeInfo) {
-                            auto animLayer = MythicAnimationLayer::create(
-                                *badgeInfo, [itemID]() { BadgeNotification::show(itemID); }
-                            );
-                            CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 99999);
-                        }
+                matjson::Value payload = matjson::Value::object();
+                payload.set("itemID", itemID);
+                claimOnServer("/shop/purchase", payload, [this, itemID, category, isBadge](bool ok) {
+                    if (!ok) {
+                        FLAlertLayer::create("Error", "Purchase failed. Try again.", "OK")->show();
+                        return;
                     }
-                    else {
-                        BadgeNotification::show(itemID);
-                    }
-                }
-                else {
-                    auto info = g_streakData.getBannerInfo(itemID);
-                    if (info) {
+                    if (isBadge) g_streakData.unlockBadge(itemID);
+                    else g_streakData.unlockBanner(itemID);
+
+                    m_ticketCounterLabel->setString(std::to_string(g_streakData.starTickets).c_str());
+                    updateItems();
+                    FMODAudioEngine::sharedEngine()->playEffect("buy_obj.mp3"_spr);
+
+                    if (isBadge) {
                         if (category == StreakData::BadgeCategory::MYTHIC) {
-                            auto animLayer = MythicBannerAnimationLayer::create(
-                                *info, [itemID, info]() {
-                                    std::string rTxt = g_streakData.getCategoryName(info->rarity);
-                                    ccColor3B rCol = g_streakData.getCategoryColor(info->rarity);
-                                    BannerNotification::show(itemID, info->spriteName, info->displayName, rTxt, rCol);
-                                }
-                            );
-                            CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 99999);
+                            auto badgeInfo = g_streakData.getBadgeInfo(itemID);
+                            if (badgeInfo) {
+                                auto animLayer = MythicAnimationLayer::create(
+                                    *badgeInfo, [itemID]() { BadgeNotification::show(itemID); }
+                                );
+                                CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 99999);
+                            }
+                        } else {
+                            BadgeNotification::show(itemID);
                         }
-                        else {
-                            std::string rTxt = g_streakData.getCategoryName(info->rarity);
-                            ccColor3B rCol = g_streakData.getCategoryColor(info->rarity);
-                            BannerNotification::show(itemID, info->spriteName, info->displayName, rTxt, rCol);
+                    } else {
+                        auto info = g_streakData.getBannerInfo(itemID);
+                        if (info) {
+                            if (category == StreakData::BadgeCategory::MYTHIC) {
+                                auto animLayer = MythicBannerAnimationLayer::create(
+                                    *info, [itemID, info]() {
+                                        std::string rTxt = g_streakData.getCategoryName(info->rarity);
+                                        ccColor3B rCol = g_streakData.getCategoryColor(info->rarity);
+                                        BannerNotification::show(itemID, info->spriteName, info->displayName, rTxt, rCol);
+                                    }
+                                );
+                                CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 99999);
+                            } else {
+                                std::string rTxt = g_streakData.getCategoryName(info->rarity);
+                                ccColor3B rCol = g_streakData.getCategoryColor(info->rarity);
+                                BannerNotification::show(itemID, info->spriteName, info->displayName, rTxt, rCol);
+                            }
                         }
                     }
-                }
+                    updatePlayerDataInFirebase();
+                });
             }
-            updatePlayerDataInFirebase();
             })->show();
     }
 

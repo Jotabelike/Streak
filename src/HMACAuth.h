@@ -12,7 +12,7 @@
 
 namespace HMACAuth {
 
- 
+  
     namespace detail {
 
         static constexpr uint32_t K[64] = {
@@ -119,9 +119,9 @@ namespace HMACAuth {
             return sha256(outer.data(), outer.size());
         }
 
-    } 
+    }  
 
-    
+ 
     inline std::string s_sessionToken = "";
     inline void setSessionToken(const std::string& token) { s_sessionToken = token; }
     inline std::string getSessionToken() { return s_sessionToken; }
@@ -129,27 +129,10 @@ namespace HMACAuth {
 
  
     inline std::string getSecret() {
-        static const size_t SECRET_LEN = 79;
-        static const unsigned char encoded[] = {
-            0xC9, 0xD8, 0xC1, 0xD8, 0xC9, 0xCF, 0xC2, 0xD8, 0xC9, 0xC2,
-            0xCA, 0xCA, 0xC6, 0xDA, 0xD2, 0xDA, 0xDE, 0xC2, 0xD8, 0xC9,
-            0xC0, 0xD8, 0xC9, 0xC6, 0xC7, 0xCA, 0xC7, 0xCF, 0xCA, 0xCF,
-            0xDC, 0xCF, 0xD8, 0xC8, 0xDD, 0xCE, 0xCA, 0xC6, 0xCF, 0xC6,
-            0xCF, 0xC8, 0xC5, 0xC6, 0xD1, 0xC7, 0xDB, 0xDA, 0xDC, 0xCA,
-            0xC7, 0xC7, 0xC1, 0xC8, 0xC5, 0xC6, 0xC3, 0xD8, 0xCA, 0xDB,
-            0xCA, 0xC4, 0xC0, 0xCF, 0xD1, 0xC6, 0xC6, 0xC5, 0xCF, 0xCF,
-            0xC1, 0xDE, 0xCE, 0xC5, 0xDB, 0xD3, 0xC6, 0xD8, 0xCE
-        };
-        static const unsigned char xorKey = 0xAB;
-        std::string result;
-        result.reserve(SECRET_LEN);
-        for (size_t i = 0; i < SECRET_LEN; i++) {
-            result += static_cast<char>(encoded[i] ^ xorKey);
-        }
-        return result;
+        return "bsjsbdisbiaamqyquisbksbmlaldadwdscveamdmdcnmzlpqwalljcnmhsapaokdzmmnddjuenpxmse";
     }
 
- 
+  
     inline std::string toHex(const uint8_t* data, size_t len) {
         std::ostringstream oss;
         for (size_t i = 0; i < len; i++) {

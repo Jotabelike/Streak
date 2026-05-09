@@ -28,7 +28,6 @@ public:
       
         CCSize cardSize = { 100.f, 180.f };
         this->setContentSize(cardSize);
-
         auto cardBg = cocos2d::extension::CCScale9Sprite::create("geode.loader/GE_square03.png");
         cardBg->setContentSize(cardSize);
         cardBg->setPosition(cardSize / 2);

@@ -6,6 +6,7 @@
 #include "../BannerNotification.h"
 #include "../BadgeNotification.h"
 #include "../RewardNotification.h"
+#include "../FirebaseManager.h"
 
 using namespace geode::prelude;
 
@@ -120,45 +121,47 @@ protected:
     }
 
     void onClaim(CCObject* sender) {
-      
         auto btn = static_cast<CCNode*>(sender);
         CCPoint spawnPos = btn->convertToWorldSpaceAR(CCPointZero);
 
         int index = btn->getTag();
-        if (index < 0 || index >= m_goals.size()) return;
+        if (index < 0 || index >= (int)m_goals.size()) return;
         if (isGoalClaimed(index)) return;
 
         const auto& goal = m_goals[index];
 
-        if (!goal.rewardBannerID.empty()) {
-            g_streakData.unlockBanner(goal.rewardBannerID);
-            auto info = g_streakData.getBannerInfo(goal.rewardBannerID);
-            if (info) {
-                BannerNotification::show(
-                    goal.rewardBannerID,
-                    info->spriteName,
-                    info->displayName,
-                    g_streakData.getCategoryName(info->rarity),
-                    g_streakData.getCategoryColor(info->rarity)
-                );
+        std::string rewardBannerID = goal.rewardBannerID;
+        std::string rewardBadgeID = goal.rewardBadgeID;
+        int rewardTickets = goal.rewardTickets;
+
+        matjson::Value payload = matjson::Value::object();
+        payload.set("goalIndex", index);
+
+        claimOnServer("/streak-goal/claim", payload, [this, index, rewardBannerID, rewardBadgeID, rewardTickets, spawnPos](bool ok) {
+            if (!ok) {
+                FLAlertLayer::create("Error", "Claim failed. Try again.", "OK")->show();
+                return;
             }
-        }
-        else if (!goal.rewardBadgeID.empty()) {
-            g_streakData.unlockBadge(goal.rewardBadgeID);
-            BadgeNotification::show(goal.rewardBadgeID);
-        }
-        else if (goal.rewardTickets > 0) {
-            int start = g_streakData.starTickets;
-            g_streakData.starTickets += goal.rewardTickets;
-
-       
-            RewardNotification::show("star_tiket.png"_spr, start, goal.rewardTickets, spawnPos);
-        }
-
-        setGoalClaimed(index);
-        g_streakData.save();
-        FMODAudioEngine::sharedEngine()->playEffect("dummyDestroy.ogg");
-        refreshList();
+            if (!rewardBannerID.empty()) {
+                g_streakData.unlockBanner(rewardBannerID);
+                auto info = g_streakData.getBannerInfo(rewardBannerID);
+                if (info) {
+                    BannerNotification::show(
+                        rewardBannerID, info->spriteName, info->displayName,
+                        g_streakData.getCategoryName(info->rarity), g_streakData.getCategoryColor(info->rarity)
+                    );
+                }
+            } else if (!rewardBadgeID.empty()) {
+                g_streakData.unlockBadge(rewardBadgeID);
+                BadgeNotification::show(rewardBadgeID);
+            } else if (rewardTickets > 0) {
+                RewardNotification::show("star_tiket.png"_spr,
+                    g_streakData.starTickets - rewardTickets, rewardTickets, spawnPos);
+            }
+            setGoalClaimed(index);
+            FMODAudioEngine::sharedEngine()->playEffect("dummyDestroy.ogg");
+            refreshList();
+        });
     }
 
     CCNode* createGoalCell(const StreakGoal& goal, int index) {

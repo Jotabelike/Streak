@@ -36,29 +36,23 @@ public:
             m_particles->setTotalParticles(80);
             m_particles->setDuration(-1);
             m_particles->setEmissionRate(0.f);
-
             m_particles->setLife(2.0f);
             m_particles->setLifeVar(0.5f);
-
             m_particles->setStartSize(14.0f);
             m_particles->setStartSizeVar(3.0f);
             m_particles->setEndSize(2.0f);
             m_particles->setEndSizeVar(1.0f);
-
             m_particles->setSpeed(4.f);
             m_particles->setSpeedVar(2.f);
             m_particles->setGravity({ 0.f, 2.f });
-
             m_particles->setAngle(90.f);
             m_particles->setAngleVar(360.f);
             m_particles->setStartSpin(0.f);
             m_particles->setStartSpinVar(180.f);
             m_particles->setEndSpin(0.f);
             m_particles->setEndSpinVar(180.f);
-
             m_particles->setBlendAdditive(true);
             m_particles->setPosition({ 0.f, 0.f });  
-
             this->addChild(m_particles, 1);
         }
 
