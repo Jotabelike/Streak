@@ -427,40 +427,54 @@ protected:
     void onBuyNameItem(CCObject*) {
         int price = g_streakData.getNameItemPrice(m_selectedLockedItem);
 
-        if (g_streakData.gems >= price) {
-            g_streakData.gems -= price;
-            g_streakData.unlockNameItem(m_selectedLockedItem);
+        if (g_streakData.gems < price) {
+            FLAlertLayer::create("Oops!", "You don't have enough gems.", "OK")->show();
+            return;
+        }
 
-            if (m_selectedLockedTag == 1) g_streakData.equippedNameEffect = m_selectedLockedItem;
-            else if (m_selectedLockedTag == 2) g_streakData.equippedNameAnimation = m_selectedLockedItem;
-            else if (m_selectedLockedTag == 3) g_streakData.equippedNameColor = m_selectedLockedItem;
-            else if (m_selectedLockedTag == 4) g_streakData.equippedNameFont = m_selectedLockedItem;
+        if (m_buyNameBtn) m_buyNameBtn->setEnabled(false);
+        matjson::Value payload = matjson::Value::object();
+        payload.set("itemID", m_selectedLockedItem);
 
-            g_streakData.save();
+        std::string itemID = m_selectedLockedItem;
+        int tag = m_selectedLockedTag;
+        auto btn = m_selectedLockedBtn;
+
+        claimOnServer("/name-item/purchase", payload, [this, itemID, tag, btn](bool ok) {
+            if (m_buyNameBtn) m_buyNameBtn->setEnabled(true);
+            if (!ok) {
+                FLAlertLayer::create("Error", "Could not complete purchase.", "OK")->show();
+                return;
+            }
+
+            g_streakData.unlockNameItem(itemID);
+
+            if (tag == 1) g_streakData.equippedNameEffect = itemID;
+            else if (tag == 2) g_streakData.equippedNameAnimation = itemID;
+            else if (tag == 3) g_streakData.equippedNameColor = itemID;
+            else if (tag == 4) g_streakData.equippedNameFont = itemID;
+
             updatePlayerDataInFirebase();
 
             FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
 
-            if (m_selectedLockedBtn) {
-                if (auto label = static_cast<CCLabelBMFont*>(m_selectedLockedBtn->getNormalImage())) {
+            if (btn) {
+                if (auto label = static_cast<CCLabelBMFont*>(btn->getNormalImage())) {
                     label->setColor({ 255, 255, 255 });
                     if (auto lock = label->getChildByTag(888)) {
                         lock->removeFromParent();
                     }
 
-                    if (m_selectedLockedTag == 3) NameModifiers::applyColor(label, m_selectedLockedItem);
-                    if (m_selectedLockedTag == 4) NameModifiers::applyFont(label, m_selectedLockedItem);
-                    if (m_selectedLockedTag == 1) NameModifiers::applyEffect(label, m_selectedLockedItem);
-                    if (m_selectedLockedTag == 2) NameModifiers::applyAnimation(label, m_selectedLockedItem);
+                    if (tag == 3) NameModifiers::applyColor(label, itemID);
+                    if (tag == 4) NameModifiers::applyFont(label, itemID);
+                    if (tag == 1) NameModifiers::applyEffect(label, itemID);
+                    if (tag == 2) NameModifiers::applyAnimation(label, itemID);
                 }
             }
 
-            m_buyNameBtn->setVisible(false);
+            if (m_buyNameBtn) m_buyNameBtn->setVisible(false);
             FLAlertLayer::create("Success!", "Cosmetic purchased and equipped.", "OK")->show();
-        }
-        else {
-            FLAlertLayer::create("Oops!", "You don't have enough gems.", "OK")->show();
-        }
+        });
     }
 
     void updateNamePreview() {

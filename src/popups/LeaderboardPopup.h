@@ -321,7 +321,6 @@ protected:
                     g_streakData.save();
 
                     Notification::create(fmt::format("Season Reward Rank #{}", rank), NotificationIcon::Success)->show();
-
                     if (gems > 0) RewardNotification::show("gem.png"_spr, g_streakData.gems - gems, gems, spawnPos);
                     if (stars > 0) RewardNotification::show("super_star.png"_spr, g_streakData.superStars - stars, stars, spawnPos);
                     if (tickets > 0) RewardNotification::show("star_tiket.png"_spr, g_streakData.starTickets - tickets, tickets, spawnPos);
@@ -366,10 +365,8 @@ protected:
 
     void populateScroll(const std::vector<matjson::Value>& players) {
         if (!this->m_fields.m_scrollLayer) return;
-
         auto contentLayer = this->m_fields.m_scrollLayer->m_contentLayer;
         contentLayer->removeAllChildren();
-
         int capacityIdx = Mod::get()->getSavedValue<int>("leaderboard_capacity_idx", 0);
         size_t limit = (capacityIdx == 0) ? 10 : 50;
         size_t countToShow = std::min(players.size(), limit);
@@ -381,7 +378,6 @@ protected:
         );
 
         contentLayer->setContentSize({ 340.f, totalHeight });
-
         int localAccountID = GJAccountManager::sharedState()->m_accountID;
 
         for (size_t i = 0; i < countToShow; ++i) {

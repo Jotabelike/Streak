@@ -734,12 +734,14 @@ protected:
 
             int levelStars = 0;
             int levelTickets = 0;
+            int levelGems = 0;
             int levelsGained = 0;
 
             if (json.contains("levelUpRewards")) {
                 auto l = json["levelUpRewards"];
                 levelStars = l["stars"].as<int>().unwrapOr(0);
                 levelTickets = l["tickets"].as<int>().unwrapOr(0);
+                levelGems = l["gems"].as<int>().unwrapOr(0);
                 levelsGained = l["levelsGained"].as<int>().unwrapOr(0);
             }
 
@@ -757,11 +759,26 @@ protected:
             if (!bannerID.empty()) {
                 isNewBanner = !g_streakData.isBannerUnlocked(bannerID);
             }
+ 
+            bool appliedFromServer = false;
+            if (json.contains("balances")) {
+                auto bal = json["balances"];
+                g_streakData.superStars = bal["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
+                g_streakData.starTickets = bal["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
+                g_streakData.gems = bal["gems"].as<int>().unwrapOr(g_streakData.gems);
+                appliedFromServer = true;
+            }
+            if (json.contains("current_xp"))
+                g_streakData.currentXP = json["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
+            if (json.contains("current_level"))
+                g_streakData.currentLevel = json["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);
 
-            g_streakData.superStars += (codeStars + levelStars);
-            g_streakData.starTickets += (codeTickets + levelTickets);
-            g_streakData.gems += codeGems;
-            if (codeXP > 0) g_streakData.addXP(codeXP);
+            if (!appliedFromServer) {
+                g_streakData.superStars += (codeStars + levelStars);
+                g_streakData.starTickets += (codeTickets + levelTickets);
+                g_streakData.gems += (codeGems + levelGems);
+                g_streakData.currentXP += codeXP;
+            }
 
             if (isNewBadge) g_streakData.unlockBadge(badgeID);
             if (isNewBanner) g_streakData.unlockBanner(bannerID);
@@ -787,8 +804,9 @@ protected:
                     RewardNotification::show("star_tiket.png"_spr, ticketsStart, totalTickets, spawnPos);
                 }
 
-                if (codeGems > 0) {
-                    RewardNotification::show("gem.png"_spr, gemsStart, codeGems, spawnPos);
+                int totalGems = codeGems + levelGems;
+                if (totalGems > 0) {
+                    RewardNotification::show("gem.png"_spr, gemsStart, totalGems, spawnPos);
                 }
 
                 if (isNewBanner && !bannerID.empty()) {
