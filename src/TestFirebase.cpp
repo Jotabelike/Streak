@@ -64,7 +64,18 @@ void loadPlayerDataFromServer() {
                 log::info("Data received and processed.");
             }
             else if (res.code() == 404) {
-                log::info("New user (404). Registration required.");
+                log::info("New user (404). Registration required.");           
+                if (res.json().isOk()) {
+                    auto data = res.json().unwrap();
+                    if (data.contains("session_token")) {
+                        std::string token = data["session_token"].as<std::string>().unwrapOr("");
+                        if (!token.empty()) {
+                            HMACAuth::setSessionToken(token);
+                            log::info("Session token saved for registration.");
+                        }
+                    }
+                }
+
                 g_streakData.resetToDefault();
                 g_streakData.needsRegistration = true;
                 g_streakData.isDataLoaded = true;
