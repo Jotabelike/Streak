@@ -416,7 +416,8 @@ void StreakData::unlockBadge(const std::string& badgeID) {
 
 std::string StreakData::getCurrentDate() {
     time_t t = time(nullptr);
-    tm* now = localtime(&t);
+    t -= 5 * 3600;
+    tm* now = gmtime(&t);
     if (!now) return "";
     char buf[16];
     if (strftime(buf, sizeof(buf), "%F", now) == 0) return "";

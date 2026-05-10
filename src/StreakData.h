@@ -404,11 +404,12 @@ struct StreakData {
             {"banner_52", "banner52.png"_spr, "Archievement 2", BadgeCategory::LEGENDARY, "XJotaBeLikeX"},
             {"banner_53", "banner53.png"_spr, "Archievement 3", BadgeCategory::MYTHIC, "XJotaBeLikeX"},
             {"banner_54", "banner54.png"_spr, "Space", BadgeCategory::MYTHIC, "XJotaBeLikeX"},
-
             {"banner_55", "banner55.png"_spr, "Dark", BadgeCategory::LEGENDARY, ""},
             {"banner_56", "banner56.png"_spr, "Pink Again", BadgeCategory::SPECIAL, ""},
             {"banner_57", "banner57.png"_spr, "what is this?", BadgeCategory::COMMON, ""},
-            {"banner_58", "banner58.png"_spr, "RamRem", BadgeCategory::MYTHIC, ""}
+            {"banner_58", "banner58.png"_spr, "RamRem", BadgeCategory::MYTHIC, ""},
+            {"banner_59", "banner59.png"_spr, "Cristal Banner", BadgeCategory::LEGENDARY, "XJotaBeLikeX" },
+            {"banner_60", "banner60.png"_spr, "Cristal Banner II", BadgeCategory::LEGENDARY, "XJotaBeLikeX" }
            
 
 
