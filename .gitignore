@@ -61,7 +61,7 @@ build-*/
 # Visual Studio
 .vs/
 
-.claude/
+
 
 # CLion
 .idea/
