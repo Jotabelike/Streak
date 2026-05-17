@@ -1210,12 +1210,20 @@ public:
         if (m_state != State::Shuffling) return;
         if (m_onSkipRequest) m_onSkipRequest();
         this->stopAllActions();
-        for (auto& slot : m_cards) {
+
+        std::vector<int> perm;
+        perm.reserve(m_cards.size());
+        for (int i = 0; i < (int)m_cards.size(); ++i) perm.push_back(i);
+        std::shuffle(perm.begin(), perm.end(),
+            std::mt19937(std::random_device{}()));
+
+        for (size_t i = 0; i < m_cards.size(); ++i) {
+            auto& slot = m_cards[i];
             if (slot.button) {
                 slot.button->stopAllActions();
                 slot.button->setScale(1.f);
                 slot.button->setRotation(0.f);
-                slot.button->setPosition(slot.basePos);
+                slot.button->setPosition(m_cards[perm[i]].basePos);
             }
             if (slot.back) {
                 slot.back->stopAllActions();
