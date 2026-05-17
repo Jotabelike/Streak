@@ -353,6 +353,7 @@ protected:
     int m_selectedLockedTag = 0;
     CCMenuItemSpriteExtra* m_buyNameBtn = nullptr;
     CCLabelBMFont* m_buyPriceLabel = nullptr;
+    CCLabelBMFont* m_eventOnlyLabel = nullptr;
     CCMenuItemSpriteExtra* m_selectedLockedBtn = nullptr;
 
     void updateCellHighlights() {
@@ -411,6 +412,7 @@ protected:
             g_streakData.save();
             updatePlayerDataInFirebase();
             if (m_buyNameBtn) m_buyNameBtn->setVisible(false);
+            if (m_eventOnlyLabel) m_eventOnlyLabel->setVisible(false);
         }
         else {
             m_selectedLockedItem = id;
@@ -418,9 +420,15 @@ protected:
             m_selectedLockedBtn = btn;
 
             int price = g_streakData.getNameItemPrice(id);
-            if (m_buyPriceLabel) m_buyPriceLabel->setString(fmt::format("{}", price).c_str());
 
-            if (m_buyNameBtn) m_buyNameBtn->setVisible(true);
+            if (price <= 0) {
+                if (m_buyNameBtn) m_buyNameBtn->setVisible(false);
+                if (m_eventOnlyLabel) m_eventOnlyLabel->setVisible(true);
+            } else {
+                if (m_buyPriceLabel) m_buyPriceLabel->setString(fmt::format("{}", price).c_str());
+                if (m_buyNameBtn) m_buyNameBtn->setVisible(true);
+                if (m_eventOnlyLabel) m_eventOnlyLabel->setVisible(false);
+            }
         }
     }
 
@@ -664,7 +672,7 @@ protected:
                 "Default", "Black", "Blue", "Brown", "Cyan", "Gold", "Green",
                 "Lime", "Magenta", "Maroon", "Mint", "Navy", "Orange",
                 "Peach", "Pink", "Purple", "Red", "Silver", "Teal", "Yellow",
-                "Cyberpunk Wave", "Fire Wave", "Golden Wave", "Ice Wave", "Ocean Wave",
+                "Cyberpunk Wave", "Fire Wave", "Galaxy Wave", "Golden Wave", "Ice Wave", "Ocean Wave",
                 "Rainbow", "Rainbow Wave", "Royal Wave", "Sunset Wave", "Toxic Wave",
                 "Abyss Wave","Disco Blink", "Synthwave", "Pastel Wave", "Aurora Wave",
                 "Static Blood", "Static Deep Sea", "Static Toxic", "Static Vaporwave"
@@ -798,6 +806,12 @@ protected:
         buyMenu->addChild(m_buyNameBtn);
         buyMenu->setPosition({ 0.f, -95.f });
         m_namesContainer->addChild(buyMenu);
+
+        m_eventOnlyLabel = CCLabelBMFont::create("Event reward", "goldFont.fnt");
+        m_eventOnlyLabel->setScale(0.5f);
+        m_eventOnlyLabel->setPosition({ 0.f, -95.f });
+        m_eventOnlyLabel->setVisible(false);
+        m_namesContainer->addChild(m_eventOnlyLabel);
         updateCategoryDisplay();
         this->updateNamePreview();
         this->updateCellHighlights();

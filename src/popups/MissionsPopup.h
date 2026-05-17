@@ -4,8 +4,9 @@
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
 #include <Geode/utils/cocos.hpp>
-#include "StreakChestPopup.h" 
-#include <random> 
+#include "StreakChestPopup.h"
+#include "../utils/RoundedProgressBar.h"
+#include <random>
 
 using namespace geode::prelude;
 
@@ -14,34 +15,90 @@ protected:
     ScrollLayer* m_scrollLayer = nullptr;
     std::function<void()> m_closeCallback;
 
+    struct MissionInfo {
+        int targetPoints;
+        int rarity;
+    };
+    static MissionInfo getMissionInfo(int missionID) {
+        switch (missionID) {
+        case 0:  return { 5,  1 };
+        case 1:  return { 10, 1 };
+        case 2:  return { 15, 1 };
+        case 3:  return { 20, 1 };
+        case 4:  return { 25, 1 };
+        case 5:  return { 30, 1 };
+        case 6:  return { 35, 2 };
+        case 7:  return { 45, 2 };
+        case 8:  return { 55, 2 };
+        case 9:  return { 60, 2 };
+        case 10: return { 75, 3 };
+        case 11: return { 90, 3 };
+        case 12: return { 100, 3 };
+        }
+        return { 0, 1 };
+    }
+
+    static bool isMissionClaimed(int missionID) {
+        switch (missionID) {
+        case 0: return g_streakData.pointMission1Claimed;
+        case 1: return g_streakData.pointMission2Claimed;
+        case 2: return g_streakData.pointMission3Claimed;
+        case 3: return g_streakData.pointMission4Claimed;
+        case 4: return g_streakData.pointMission5Claimed;
+        case 5: return g_streakData.pointMission6Claimed;
+        case 6: return g_streakData.pointMission7Claimed;
+        case 7: return g_streakData.pointMission8Claimed;
+        case 8: return g_streakData.pointMission9Claimed;
+        case 9: return g_streakData.pointMission10Claimed;
+        case 10: return g_streakData.pointMission11Claimed;
+        case 11: return g_streakData.pointMission12Claimed;
+        case 12: return g_streakData.pointMission13Claimed;
+        }
+        return true;
+    }
+
+    static void markMissionClaimed(int missionID) {
+        switch (missionID) {
+        case 0: g_streakData.pointMission1Claimed = true; break;
+        case 1: g_streakData.pointMission2Claimed = true; break;
+        case 2: g_streakData.pointMission3Claimed = true; break;
+        case 3: g_streakData.pointMission4Claimed = true; break;
+        case 4: g_streakData.pointMission5Claimed = true; break;
+        case 5: g_streakData.pointMission6Claimed = true; break;
+        case 6: g_streakData.pointMission7Claimed = true; break;
+        case 7: g_streakData.pointMission8Claimed = true; break;
+        case 8: g_streakData.pointMission9Claimed = true; break;
+        case 9: g_streakData.pointMission10Claimed = true; break;
+        case 10: g_streakData.pointMission11Claimed = true; break;
+        case 11: g_streakData.pointMission12Claimed = true; break;
+        case 12: g_streakData.pointMission13Claimed = true; break;
+        }
+    }
+
     std::vector<int> getAvailableMissionIDs() {
         std::vector<int> ids;
-        if (!g_streakData.pointMission1Claimed) ids.push_back(0);
-        if (!g_streakData.pointMission2Claimed) ids.push_back(1);
-        if (!g_streakData.pointMission3Claimed) ids.push_back(2);
-        if (!g_streakData.pointMission4Claimed) ids.push_back(3);
-        if (!g_streakData.pointMission5Claimed) ids.push_back(4);
-        if (!g_streakData.pointMission6Claimed) ids.push_back(5);
+        for (int i = 0; i <= 12; ++i) {
+            if (!isMissionClaimed(i)) ids.push_back(i);
+        }
         return ids;
     }
 
     CCNode* createPointMissionNode(int missionID) {
-        int targetPoints = 0;
-
-        switch (missionID) {
-        case 0: targetPoints = 5;  break;
-        case 1: targetPoints = 10; break;
-        case 2: targetPoints = 15; break;
-        case 3: targetPoints = 20; break;
-        case 4: targetPoints = 25; break;
-        case 5: targetPoints = 30; break;
-        default: return nullptr;
-        }
+        auto info = getMissionInfo(missionID);
+        int targetPoints = info.targetPoints;
+        int rarity = info.rarity;
+        if (targetPoints == 0) return nullptr;
 
         bool isComplete = (g_streakData.streakPointsToday >= targetPoints);
 
         auto container = cocos2d::extension::CCScale9Sprite::create("GJ_square02.png");
         container->setContentSize({ 250.f, 45.f });
+
+        switch (rarity) {
+        case 1: container->setColor({ 200, 200, 200 }); break;
+        case 2: container->setColor({ 130, 190, 245 }); break;
+        case 3: container->setColor({ 245, 215, 110 }); break;
+        }
 
         auto missionIcon = CCSprite::create("streak_point.png"_spr);
         if (missionIcon) {
@@ -60,35 +117,29 @@ protected:
         container->addChild(descLabel);
 
         float barWidth = 120.f;
-        float barHeight = 8.f;
-        CCPoint barPosition = { descLabel->getPositionX(), descLabel->getPositionY() - 20.f };
+        float barHeight = 12.f;
+        CCPoint barCenter = { descLabel->getPositionX() + barWidth / 2.f,
+                              descLabel->getPositionY() - 16.f };
 
-        auto barOuter = CCLayerColor::create({ 0, 0, 0, 150 }, barWidth + 4, barHeight + 4);
-        barOuter->setPosition(barPosition + CCPoint{ -2, -2 });
-        container->addChild(barOuter);
+        auto progressBar = RoundedProgressBar::create(barWidth, barHeight);
+        progressBar->setPosition(barCenter);
 
-        auto barBorder = CCLayerColor::create({ 255, 255, 255, 100 }, barWidth + 2, barHeight + 2);
-        barBorder->setPosition(barPosition + CCPoint{ -1, -1 });
-        container->addChild(barBorder);
-
-        auto barBg = CCLayerColor::create({ 40, 40, 40, 255 }, barWidth, barHeight);
-        barBg->setPosition(barPosition);
-        container->addChild(barBg);
+        switch (rarity) {
+        case 1: progressBar->setGradientColors({ 110, 220, 110 }, { 60, 180, 60 });    break;
+        case 2: progressBar->setGradientColors({ 110, 180, 255 }, { 60, 130, 220 });   break;
+        case 3: progressBar->setGradientColors({ 255, 220, 90 }, { 230, 170, 40 });    break;
+        }
 
         float progressPercent = std::min(1.f, static_cast<float>(g_streakData.streakPointsToday) / targetPoints);
-        if (progressPercent > 0.f) {
-            auto barFill = CCLayerColor::create({ 120, 255, 120, 255 });
-            barFill->setContentSize({ barWidth * progressPercent, barHeight });
-            barFill->setPosition(barPosition);
-            container->addChild(barFill);
-        }
+        progressBar->setProgress(progressPercent);
+        container->addChild(progressBar);
 
         auto progressLabel = CCLabelBMFont::create(
             fmt::format("{}/{}", std::min(g_streakData.streakPointsToday, targetPoints), targetPoints).c_str(),
             "bigFont.fnt"
         );
         progressLabel->setScale(0.4f);
-        progressLabel->setPosition(barPosition + CCPoint(barWidth / 2, barHeight / 2));
+        progressLabel->setPosition(barCenter);
         progressLabel->setZOrder(5);
         container->addChild(progressLabel);
 
@@ -107,9 +158,11 @@ protected:
             container->addChild(menu);
         }
         else {
-            auto chest = CCSprite::createWithSpriteFrameName("chest_02_02_001.png");
+            std::string chestPath = fmt::format("{}/ChestStar{}.png", Mod::get()->getID(), rarity);
+            auto chest = CCSprite::create(chestPath.c_str());
+            if (!chest) chest = CCSprite::createWithSpriteFrameName("chest_02_02_001.png");
             if (chest) {
-                chest->setScale(0.3f);
+                chest->setScale(0.27f);
                 chest->setPosition({ 215.f, 22.5f });
                 container->addChild(chest);
             }
@@ -210,61 +263,35 @@ protected:
 
         auto btn = static_cast<CCNode*>(sender);
         int missionID = btn->getTag();
+        auto info = getMissionInfo(missionID);
+        if (info.targetPoints == 0) return;
 
-        int maxStars = 0;
-        int maxXP = 0;
-
-        switch (missionID) {
-        case 0: maxStars = 2;  maxXP = 15;  g_streakData.pointMission1Claimed = true; break;
-        case 1: maxStars = 3;  maxXP = 30;  g_streakData.pointMission2Claimed = true; break;
-        case 2: maxStars = 5;  maxXP = 50;  g_streakData.pointMission3Claimed = true; break;
-        case 3: maxStars = 8;  maxXP = 75;  g_streakData.pointMission4Claimed = true; break;
-        case 4: maxStars = 9;  maxXP = 100; g_streakData.pointMission5Claimed = true; break;
-        case 5: maxStars = 10; maxXP = 150; g_streakData.pointMission6Claimed = true; break;
-        }
-
+        markMissionClaimed(missionID);
         g_streakData.save();
-
         this->refreshList();
 
-        std::random_device rd;
-        std::mt19937 gen(rd());
+        int stars = 0, tickets = 0, gems = 0, xp = 0;
+        StreakChestPopup::rollRewardsForRarity(info.rarity, stars, tickets, gems, xp);
 
-        std::uniform_int_distribution<> starDist(0, maxStars);
-        int finalStars = starDist(gen);
-
-        std::uniform_int_distribution<> xpDist(maxXP / 2, maxXP);
-        int finalXP = xpDist(gen);
-
-        std::uniform_int_distribution<> gemDist(1, 100);
-        int gemRoll = gemDist(gen);
-        int finalGems = 0;
-
-        if (gemRoll == 1) {
-            finalGems = 10;
+        auto refresh = [this]() { this->refreshList(); };
+        if (auto popup = StreakChestPopup::create(stars, tickets, gems, xp, info.rarity, refresh)) {
+            popup->show();
         }
-        else if (gemRoll <= 3) {
-            finalGems = 4;
-        }
-        else if (gemRoll <= 8) {
-            finalGems = 1;
-        }
-
-        StreakChestPopup::create(finalStars, 0, finalGems, finalXP, nullptr)->show();
     }
 
  
     void onInfoClick(CCObject* sender) {
-        FLAlertLayer::create(
-            "Chest Info",
-            "Complete missions to earn points and open <co>chests</c>!\n\n"
-            "Chests contain <cy>Stars</c> and <cg>XP</c>.\n"
-            "You also have a chance to find <cb>Gems</c>:\n"
-            "<cg>5%</c> chance to get <cb>1 Gem</c>\n"
-            "<cy>2%</c> chance to get <cb>4 Gems</c>\n"
-            "<cr>1%</c> chance to get <cb>10 Gems!</c>",
-            "OK"
-        )->show();
+        auto alert = FLAlertLayer::create(
+            nullptr,
+            "Mission Tiers",
+            "Earn points to claim chests of growing rarity.\n\n"
+            "<cg>5 - 30 points</c>  -  <co>1-Star Chest</c>\n"
+            "<cb>35 - 60 points</c>  -  <cb>2-Star Chest</c>\n"
+            "<cy>65 - 100 points</c>  -  <cy>3-Star Chest</c>\n\n"
+            "Higher tier chests reward better loot.",
+            "OK", nullptr, 340.f
+        );
+        if (alert) alert->show();
     }
 
     void onClose(CCObject* sender) override {

@@ -45,6 +45,7 @@ void StreakData::resetToDefault() {
     isBanned = false;
     banReason = "";
     starTickets = 0;
+    fragments = 0;
     specialRank = 0;
     lastRouletteIndex = 0;
     totalSpins = 0;
@@ -63,6 +64,13 @@ void StreakData::resetToDefault() {
     pointMission4Claimed = false;
     pointMission5Claimed = false;
     pointMission6Claimed = false;
+    pointMission7Claimed = false;
+    pointMission8Claimed = false;
+    pointMission9Claimed = false;
+    pointMission10Claimed = false;
+    pointMission11Claimed = false;
+    pointMission12Claimed = false;
+    pointMission13Claimed = false;
 
 
     if (unlockedBadges.size() != badges.size()) {
@@ -133,6 +141,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     }
     streakPointsToday = safeInt(data, "streakPointsToday", 0);
     gems = safeInt(data, "gems", 0);
+    fragments = safeInt(data, "fragments", 0);
     gemRouletteSpinCount = safeInt(data, "gem_roulette_spin_count", 0);
     isGDPS = data["isGDPS"].as<bool>().unwrapOr(false);
     gemRouletteHash = data["gem_roulette_hash"].as<std::string>().unwrapOr(std::string(""));
@@ -284,6 +293,13 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     pointMission4Claimed = false;
     pointMission5Claimed = false;
     pointMission6Claimed = false;
+    pointMission7Claimed = false;
+    pointMission8Claimed = false;
+    pointMission9Claimed = false;
+    pointMission10Claimed = false;
+    pointMission11Claimed = false;
+    pointMission12Claimed = false;
+    pointMission13Claimed = false;
 
     if (data.contains("missions")) {
         auto missionsResult = data["missions"].as<std::map<std::string, matjson::Value>>();
@@ -295,6 +311,13 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
             if (m.count("pm4")) pointMission4Claimed = m.at("pm4").as<bool>().unwrapOr(false);
             if (m.count("pm5")) pointMission5Claimed = m.at("pm5").as<bool>().unwrapOr(false);
             if (m.count("pm6")) pointMission6Claimed = m.at("pm6").as<bool>().unwrapOr(false);
+            if (m.count("pm7"))  pointMission7Claimed  = m.at("pm7").as<bool>().unwrapOr(false);
+            if (m.count("pm8"))  pointMission8Claimed  = m.at("pm8").as<bool>().unwrapOr(false);
+            if (m.count("pm9"))  pointMission9Claimed  = m.at("pm9").as<bool>().unwrapOr(false);
+            if (m.count("pm10")) pointMission10Claimed = m.at("pm10").as<bool>().unwrapOr(false);
+            if (m.count("pm11")) pointMission11Claimed = m.at("pm11").as<bool>().unwrapOr(false);
+            if (m.count("pm12")) pointMission12Claimed = m.at("pm12").as<bool>().unwrapOr(false);
+            if (m.count("pm13")) pointMission13Claimed = m.at("pm13").as<bool>().unwrapOr(false);
         }
     }
 
@@ -507,6 +530,13 @@ void StreakData::dailyUpdate() {
     pointMission4Claimed = false;
     pointMission5Claimed = false;
     pointMission6Claimed = false;
+    pointMission7Claimed = false;
+    pointMission8Claimed = false;
+    pointMission9Claimed = false;
+    pointMission10Claimed = false;
+    pointMission11Claimed = false;
+    pointMission12Claimed = false;
+    pointMission13Claimed = false;
 }
 
 void StreakData::checkRewards() {
@@ -734,7 +764,7 @@ std::vector<StreakData::ShopItem> StreakData::getDailyShopSelection() {
         "badge_destello1", "badge_destello2", "badge_mc1", "badge_mc2",
         "badge_pixel1", "badge_pixel2", "badge_cherry", "badge_cherry3",
         "badge_cherry4", "badge_cherry5", "badge_cherry6", "badge_cherry8",
-        "badge_cherry9", "badge_cherry10"
+        "badge_cherry9", "badge_cherry10","limbo_badge", "banner_61","banner_60","banner_59"
     };
 
     std::vector<ShopItem> candidates;
@@ -1014,9 +1044,17 @@ void StreakData::unlockNameItem(const std::string& item) {
     save();
 }
 
+bool StreakData::isEventOnlyNameItem(const std::string& item) {
+    static const std::set<std::string> kEventOnly = {
+        "Galaxy Wave"
+    };
+    return kEventOnly.count(item) > 0;
+}
+
 int StreakData::getNameItemPrice(const std::string& item) {
- 
+
     if (item == "Default" || item == "None") return 0;
+    if (isEventOnlyNameItem(item)) return 0;
     if (item.find("Wave") != std::string::npos ||
         item == "Synthwave" ||
         item.find("Blink") != std::string::npos ||

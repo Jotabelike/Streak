@@ -413,6 +413,21 @@ protected:
             eventIcon, this, menu_selector(InfoPopup::onOpenEvent)
         ));
 
+        auto keysEventIcon = CCSprite::create("limbo_btn.png"_spr);   
+        if (!keysEventIcon || keysEventIcon->getContentSize().width == 0) {
+            keysEventIcon = CCSprite::createWithSpriteFrameName("GJ_secretChest_001.png"); 
+        }
+        if (keysEventIcon) {
+            float w = keysEventIcon->getContentSize().width;
+            float targetW = 38.f;
+            float scale = (w > 0) ? (targetW / w) : 0.7f;
+            if (scale > 0.7f) scale = 0.7f;
+            keysEventIcon->setScale(scale);
+        }
+        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(
+            keysEventIcon, this, menu_selector(InfoPopup::onOpenKeysEvent)
+        ));
+
         auto stIcon = CCSprite::create("st_progress.png"_spr);
         if (!stIcon) {
             stIcon = ButtonSprite::create("St");
@@ -444,7 +459,7 @@ protected:
         else {
             topIcon->setScale(0.7f);
         }
-        auto topBtn = CCMenuItemSpriteExtra::create(
+       auto topBtn = CCMenuItemSpriteExtra::create(
             topIcon, this, menu_selector(InfoPopup::onOpenLeaderboard)
         );
         applyGDPSDisable(topBtn);
@@ -749,6 +764,10 @@ protected:
 
     void onOpenEvent(CCObject*) {
         EventPopup::create()->show();
+    }
+
+    void onOpenKeysEvent(CCObject*) {
+        KeysEventPopup::create()->show();
     }
 
     void onOpenLevelProgress(CCObject*) {

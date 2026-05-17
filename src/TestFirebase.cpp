@@ -171,6 +171,13 @@ void updatePlayerDataInFirebase() {
     missions_obj.set("pm4", g_streakData.pointMission4Claimed);
     missions_obj.set("pm5", g_streakData.pointMission5Claimed);
     missions_obj.set("pm6", g_streakData.pointMission6Claimed);
+    missions_obj.set("pm7",  g_streakData.pointMission7Claimed);
+    missions_obj.set("pm8",  g_streakData.pointMission8Claimed);
+    missions_obj.set("pm9",  g_streakData.pointMission9Claimed);
+    missions_obj.set("pm10", g_streakData.pointMission10Claimed);
+    missions_obj.set("pm11", g_streakData.pointMission11Claimed);
+    missions_obj.set("pm12", g_streakData.pointMission12Claimed);
+    missions_obj.set("pm13", g_streakData.pointMission13Claimed);
     playerData.set("missions", missions_obj);
 
     bool hasMythicEquipped = false;
@@ -324,6 +331,9 @@ static void applyServerBalances(const matjson::Value& data) {
         g_streakData.superStars = bal["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
         g_streakData.starTickets = bal["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
         g_streakData.gems = bal["gems"].as<int>().unwrapOr(g_streakData.gems);
+        g_streakData.fragments = bal["fragments"].as<int>().unwrapOr(g_streakData.fragments);
+        g_streakData.currentXP = bal["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
+        g_streakData.currentLevel = bal["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);
     }
     if (data.contains("totalSpins"))
         g_streakData.totalSpins = data["totalSpins"].as<int>().unwrapOr(g_streakData.totalSpins);

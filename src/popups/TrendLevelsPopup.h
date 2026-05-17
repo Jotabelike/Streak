@@ -18,6 +18,7 @@ struct TrendLevelDef {
     int superStars;
     int starTickets;
     int gems;
+    int chestRarity = 0;
     std::string difficultySprite;
     bool isClaimed;
 };
@@ -131,9 +132,18 @@ protected:
                 menu->addChild(m_claimBtn);
             }
             else {
-                auto chest = CCSprite::createWithSpriteFrameName("chest_02_02_001.png");
+                bool hasRarity = (m_data.chestRarity >= 1 && m_data.chestRarity <= 5);
+                CCSprite* chest = nullptr;
+                if (hasRarity) {
+                    chest = CCSprite::create(
+                        fmt::format("{}/ChestStar{}.png", Mod::get()->getID(), m_data.chestRarity).c_str());
+                    if (chest) chest->setScale(0.5f);
+                }
+                if (!chest) {
+                    chest = CCSprite::createWithSpriteFrameName("chest_02_02_001.png");
+                    if (chest) chest->setScale(0.5f);
+                }
                 if (chest) {
-                    chest->setScale(0.5f);
                     chest->setPosition(actionBtnPos);
                     this->addChild(chest);
                 }
@@ -165,7 +175,7 @@ protected:
         m_claimTask.spawn(
             req.post("https://streak-servidor.onrender.com/trending-level/claim"),
             [this](web::WebResponse res) {
-                if (res.ok()) {
+                if (res.ok() && res.json().isOk()) {
                     m_data.isClaimed = true;
                     if (m_claimBtn) {
                         m_claimBtn->removeFromParent();
@@ -177,7 +187,32 @@ protected:
                     check->setPosition({ this->getContentSize().width - 40.0f, this->getContentSize().height / 2 });
                     this->addChild(check);
 
-                    StreakChestPopup::create(m_data.superStars, m_data.starTickets, m_data.gems, 0, m_reloadFunc)->show();
+                    auto data = res.json().unwrap();
+                    if (data.contains("balances")) {
+                        auto bal = data["balances"];
+                        g_streakData.superStars = bal["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
+                        g_streakData.starTickets = bal["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
+                        g_streakData.gems = bal["gems"].as<int>().unwrapOr(g_streakData.gems);
+                        g_streakData.currentXP = bal["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
+                        g_streakData.currentLevel = bal["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);
+                    }
+
+                    int chestRarity = data["chestRarity"].as<int>().unwrapOr(0);
+                    if (chestRarity >= 1 && chestRarity <= 5) {
+                        int rolledStars = data["rewards"]["superStars"].as<int>().unwrapOr(0);
+                        int rolledTickets = data["rewards"]["starTickets"].as<int>().unwrapOr(0);
+                        int rolledGems = data["rewards"]["gems"].as<int>().unwrapOr(0);
+                        int rolledXP = data["rewards"]["xp"].as<int>().unwrapOr(0);
+                        if (auto popup = StreakChestPopup::createOpen(
+                                rolledStars, rolledTickets, rolledGems, rolledXP, chestRarity, m_reloadFunc)) {
+                            popup->show();
+                        }
+                    } else {
+                        if (auto popup = StreakChestPopup::createOpen(
+                                m_data.superStars, m_data.starTickets, m_data.gems, 0, 1, m_reloadFunc)) {
+                            popup->show();
+                        }
+                    }
                 }
                 else {
                     if (m_claimBtn) m_claimBtn->setEnabled(true);
@@ -272,6 +307,10 @@ protected:
             def.superStars = data["rewards"]["super_stars"].as<int>().unwrapOr(0);
             def.starTickets = data["rewards"]["star_tickets"].as<int>().unwrapOr(0);
             def.gems = data["rewards"]["gems"].as<int>().unwrapOr(0);
+            def.chestRarity = data["rewards"]["chestRarity"].as<int>().unwrapOr(0);
+        }
+        if (def.chestRarity == 0 && data.contains("chestRarity")) {
+            def.chestRarity = data["chestRarity"].as<int>().unwrapOr(0);
         }
 
         float cellWidth = 320.0f;

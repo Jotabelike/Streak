@@ -108,6 +108,25 @@ namespace NameModifiers {
                     g = wave * 150 + 105;
                     b = (1.0f - wave) * 100 + 155;
                 }
+                else if (m_style == "Galaxy Wave") {
+                    float w1 = sinf(phase) * 0.5f + 0.5f;
+                    float w2 = sinf(phase + 2.094f) * 0.5f + 0.5f;
+                    float w3 = sinf(phase + 4.188f) * 0.5f + 0.5f;
+                    float blueWeight = w1;
+                    float purpleWeight = w2;
+                    float whiteWeight = w3;
+                    float total = blueWeight + purpleWeight + whiteWeight;
+                    if (total < 0.0001f) total = 1.f;
+                    blueWeight /= total;
+                    purpleWeight /= total;
+                    whiteWeight /= total;
+                    float fr = blueWeight * 60.f + purpleWeight * 170.f + whiteWeight * 255.f;
+                    float fg = blueWeight * 120.f + purpleWeight * 70.f + whiteWeight * 255.f;
+                    float fb = blueWeight * 255.f + purpleWeight * 230.f + whiteWeight * 255.f;
+                    r = (GLubyte)std::min(255.f, fr);
+                    g = (GLubyte)std::min(255.f, fg);
+                    b = (GLubyte)std::min(255.f, fb);
+                }
 
                 letter->setColor({ r, g, b });
             }
@@ -135,7 +154,7 @@ namespace NameModifiers {
             colorID == "Cyberpunk Wave" || colorID == "Sunset Wave" || colorID == "Toxic Wave" ||
             colorID == "Ice Wave" || colorID == "Royal Wave" || colorID == "Golden Wave" ||
             colorID == "Abyss Wave" || colorID == "Synthwave" || colorID == "Pastel Wave" ||
-            colorID == "Aurora Wave") {
+            colorID == "Aurora Wave" || colorID == "Galaxy Wave") {
             label->setCascadeColorEnabled(false);
             auto updater = GradientUpdater::create(label, colorID);
             updater->setTag(8888);

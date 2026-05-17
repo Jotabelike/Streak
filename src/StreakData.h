@@ -116,6 +116,7 @@ struct StreakData {
     std::string banReason = "";
     int starTickets;
     int gems;
+    int fragments = 0;
     int gemRouletteSpinCount = 0;
     std::string streakID = "";
     std::vector<int> streakCompletedLevels;
@@ -135,6 +136,7 @@ struct StreakData {
     bool isNameItemUnlocked(const std::string& item);
     void unlockNameItem(const std::string& item);
     int getNameItemPrice(const std::string& item);
+    static bool isEventOnlyNameItem(const std::string& item);
 
     std::chrono::steady_clock::time_point lastPointTime;
 
@@ -148,6 +150,13 @@ struct StreakData {
     bool pointMission4Claimed;
     bool pointMission5Claimed;
     bool pointMission6Claimed;
+    bool pointMission7Claimed;
+    bool pointMission8Claimed;
+    bool pointMission9Claimed;
+    bool pointMission10Claimed;
+    bool pointMission11Claimed;
+    bool pointMission12Claimed;
+    bool pointMission13Claimed;
 
     bool isDataLoaded;
     bool m_initialized = false;
@@ -308,6 +317,7 @@ struct StreakData {
         {0, "chica.png"_spr, "chica", BadgeCategory::SPECIAL, "chica_badge", true, "XJotaBeLikeX"},
         {0, "foxi.png"_spr, "foxi", BadgeCategory::LEGENDARY, "foxi_badge", true, "XJotaBeLikeX"},
         {0, "bonnie.png"_spr, "bonnie", BadgeCategory::EPIC, "bonnie_badge", true, "XJotaBeLikeX"},
+        {0, "limbo_badge.png"_spr, "Limbo", BadgeCategory::EPIC, "limbo_badge", true, "XJotaBeLikeX"},
 
         //mastery
         {0, "cube_mastery.png"_spr, "Cube Mastery", BadgeCategory::LEGENDARY, "cube_mastery_badge", true, "XJotaBeLikeX" },
@@ -409,7 +419,8 @@ struct StreakData {
             {"banner_57", "banner57.png"_spr, "what is this?", BadgeCategory::COMMON, ""},
             {"banner_58", "banner58.png"_spr, "RamRem", BadgeCategory::MYTHIC, ""},
             {"banner_59", "banner59.png"_spr, "Cristal Banner", BadgeCategory::LEGENDARY, "XJotaBeLikeX" },
-            {"banner_60", "banner60.png"_spr, "Cristal Banner II", BadgeCategory::LEGENDARY, "XJotaBeLikeX" }
+            {"banner_60", "banner60.png"_spr, "Cristal Banner II", BadgeCategory::LEGENDARY, "XJotaBeLikeX" },
+            {"banner_61", "banner61.png"_spr, "Limbo", BadgeCategory::EPIC, "XJotaBeLikeX"}
            
 
 
