@@ -1283,24 +1283,17 @@ public:
         }
     }
 
-    void startShuffle(const std::vector<std::pair<std::string, matjson::Value>>& decoys,
-        const std::string& winningID,
-        const matjson::Value& winningData) {
+    void startShuffle(const std::vector<std::pair<std::string, matjson::Value>>& slotRewards) {
         resetCards();
         m_state = State::Shuffling;
         if (m_skipBtn) m_skipBtn->setVisible(true);
 
-        int winSlot = rand() % m_cardCount;
-        m_originalWinningSlot = winSlot;
+        m_originalWinningSlot = -1;
 
         for (int i = 0; i < (int)m_cards.size(); ++i) {
-            if (i == winSlot) {
-                m_cards[i].rewardID = winningID;
-                m_cards[i].rewardData = winningData;
-            } else if (!decoys.empty()) {
-                int decoyIdx = (i < winSlot ? i : i - 1) % (int)decoys.size();
-                m_cards[i].rewardID = decoys[decoyIdx].first;
-                m_cards[i].rewardData = decoys[decoyIdx].second;
+            if (i < (int)slotRewards.size()) {
+                m_cards[i].rewardID = slotRewards[i].first;
+                m_cards[i].rewardData = slotRewards[i].second;
             }
             attachRewardFace(m_cards[i]);
         }
@@ -1402,23 +1395,8 @@ public:
         this->runAction(CCSequence::create(actions));
     }
 
-    void setWinningReward(int slotIdx, const std::string& rewardID,
-        const matjson::Value& rewardData) {
-        if (slotIdx < 0 || slotIdx >= (int)m_cards.size()) return;
-
-        if (slotIdx != m_originalWinningSlot &&
-            m_originalWinningSlot >= 0 &&
-            m_originalWinningSlot < (int)m_cards.size()) {
-            auto displacedID   = m_cards[slotIdx].rewardID;
-            auto displacedData = m_cards[slotIdx].rewardData;
-            m_cards[m_originalWinningSlot].rewardID   = displacedID;
-            m_cards[m_originalWinningSlot].rewardData = displacedData;
-            refreshSlotFace(m_originalWinningSlot);
-        }
-
-        m_cards[slotIdx].rewardID   = rewardID;
-        m_cards[slotIdx].rewardData = rewardData;
-        refreshSlotFace(slotIdx);
+    void setWinningReward(int /*slotIdx*/, const std::string& /*rewardID*/,
+        const matjson::Value& /*rewardData*/) {
     }
 
     void refreshSlotFace(int idx) {
@@ -2882,38 +2860,64 @@ protected:
         this->updateLabels();
 
         auto jsonRes = res.json().unwrapOr(matjson::Value::object());
-        m_lastRewardID = jsonRes["rewardID"].as<std::string>().unwrapOr("");
-        m_lastRewardData = m_eventRewards.contains(m_lastRewardID)
-            ? m_eventRewards[m_lastRewardID]
-            : matjson::Value::object();
-        m_lastFragmentsAfter = jsonRes["fragments"].as<int>().unwrapOr(g_streakData.fragments);
 
-        std::vector<std::pair<std::string, matjson::Value>> decoys;
-        if (m_eventRewards.isObject()) {
-            auto map = m_eventRewards.as<std::map<std::string, matjson::Value>>().unwrapOr(
-                std::map<std::string, matjson::Value>());
-            for (auto& [k, v] : map) {
-                if (k != m_lastRewardID) decoys.push_back({ k, v });
+        std::vector<std::pair<std::string, matjson::Value>> slotRewards;
+        if (jsonRes.contains("slotRewards")) {
+            auto arr = jsonRes["slotRewards"].as<std::vector<matjson::Value>>()
+                .unwrapOr(std::vector<matjson::Value>());
+            for (auto& v : arr) {
+                std::string id = v.as<std::string>().unwrapOr("");
+                matjson::Value data = m_eventRewards.contains(id)
+                    ? m_eventRewards[id] : matjson::Value::object();
+                slotRewards.push_back({ id, data });
             }
         }
-        std::shuffle(decoys.begin(), decoys.end(),
-            std::mt19937(std::random_device{}()));
 
         FMODAudioEngine::sharedEngine()->playMusic(
             "limbokeys.mp3"_spr, false, 0.0f, 0);
 
-        if (m_keysLayer) {
-            m_keysLayer->startShuffle(decoys, m_lastRewardID, m_lastRewardData);
+        if (m_keysLayer && !slotRewards.empty()) {
+            m_keysLayer->startShuffle(slotRewards);
+        } else {
+            m_isClaiming = false;
+            if (m_keysLayer) m_keysLayer->setStatusText("Press Spin to shuffle again!");
         }
     }
 
     void onCardPicked(int slotIdx) {
         if (!m_keysLayer) return;
-        m_keysLayer->setWinningReward(slotIdx, m_lastRewardID, m_lastRewardData);
         m_keysLayer->setStatusText("Revealing...");
-        m_keysLayer->revealPicked(slotIdx, [this]() {
-            this->finalizeReward();
-        });
+
+        matjson::Value payload = matjson::Value::object();
+        payload.set("accountID", GJAccountManager::sharedState()->m_accountID);
+        payload.set("eventID", m_eventID);
+        payload.set("claimID", "keys_pick");
+        payload.set("pickedSlot", slotIdx);
+
+        auto req = web::WebRequest();
+        HMACAuth::signRequest(req, GJAccountManager::sharedState()->m_accountID, payload);
+        req.bodyJSON(payload);
+
+        m_claimTask.spawn(
+            req.post("https://streak-servidor.onrender.com/event/claim"),
+            [this, slotIdx](web::WebResponse pickRes) {
+                if (!pickRes.ok() || !pickRes.json().isOk()) {
+                    FLAlertLayer::create("Error", "Could not finalize the pick.", "OK")->show();
+                    m_isClaiming = false;
+                    if (m_keysLayer) m_keysLayer->setStatusText("Press Spin to shuffle again!");
+                    return;
+                }
+                auto data = pickRes.json().unwrap();
+                m_lastRewardID = data["rewardID"].as<std::string>().unwrapOr("");
+                m_lastRewardData = m_eventRewards.contains(m_lastRewardID)
+                    ? m_eventRewards[m_lastRewardID] : matjson::Value::object();
+                m_lastFragmentsAfter = data["fragments"].as<int>().unwrapOr(g_streakData.fragments);
+
+                if (m_keysLayer) {
+                    m_keysLayer->revealPicked(slotIdx, [this]() { this->finalizeReward(); });
+                }
+            }
+        );
     }
 
     void finalizeReward() {
