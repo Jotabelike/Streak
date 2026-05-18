@@ -352,6 +352,7 @@ protected:
     TextInput* m_ticketsInput;
     TextInput* m_xpInput = nullptr;
     TextInput* m_gemsInput = nullptr;
+    TextInput* m_shieldsInput = nullptr;
 
     CCLabelBMFont* m_badgeLabel = nullptr;
     CCLabelBMFont* m_bannerLabel = nullptr;
@@ -364,6 +365,7 @@ protected:
     int m_pendingTickets = 0;
     int m_pendingXP = 0;
     int m_pendingGems = 0;
+    int m_pendingShields = 0;
 
     bool init() {
         if (!Popup::init(440.f, 230.f)) return false;
@@ -434,8 +436,8 @@ protected:
 
         float row2Y = winSize.height / 2 - 20.f;
         float iconOffset = 20.f;
-        float startX = winSize.width / 2 - 120.f;
-        float gap = 80.f;
+        float startX = winSize.width / 2 - 140.f;
+        float gap = 70.f;
 
         auto starIcon = CCSprite::create("super_star.png"_spr);
         starIcon->setScale(0.2f);
@@ -478,6 +480,18 @@ protected:
         m_gemsInput->setPosition({ startX + (gap * 3), row2Y - 8.f });
         m_gemsInput->setFilter("0123456789");
         m_mainLayer->addChild(m_gemsInput);
+
+        auto heartIcon = CCSprite::create("heart.png"_spr);
+        if (heartIcon) {
+            heartIcon->setScale(0.25f);
+            heartIcon->setPosition({ startX + (gap * 4), row2Y + iconOffset });
+            m_mainLayer->addChild(heartIcon);
+        }
+
+        m_shieldsInput = TextInput::create(60.f, "Lives", "chatFont.fnt");
+        m_shieldsInput->setPosition({ startX + (gap * 4), row2Y - 8.f });
+        m_shieldsInput->setFilter("0123456789");
+        m_mainLayer->addChild(m_shieldsInput);
 
         auto createBtnSpr = ButtonSprite::create(
             "Create Code", 0, 0, "goldFont.fnt", "GJ_button_01.png", 0, 0.8f
@@ -543,13 +557,15 @@ protected:
         int amountPerPersonTickets = numFromString<int>(m_ticketsInput->getString()).unwrapOrDefault();
         int amountPerPersonXP = m_xpInput ? numFromString<int>(m_xpInput->getString()).unwrapOrDefault() : 0;
         int amountPerPersonGems = m_gemsInput ? numFromString<int>(m_gemsInput->getString()).unwrapOrDefault() : 0;
+        int amountPerPersonShields = m_shieldsInput ? numFromString<int>(m_shieldsInput->getString()).unwrapOrDefault() : 0;
 
         m_pendingStars = amountPerPersonStars * uses;
         m_pendingTickets = amountPerPersonTickets * uses;
         m_pendingXP = amountPerPersonXP * uses;
         m_pendingGems = amountPerPersonGems * uses;
+        m_pendingShields = amountPerPersonShields * uses;
 
-        if (m_pendingStars == 0 && m_pendingTickets == 0 && m_pendingXP == 0 && m_pendingGems == 0 && m_selectedBadgeID.empty() && m_selectedBannerID.empty()) {
+        if (m_pendingStars == 0 && m_pendingTickets == 0 && m_pendingXP == 0 && m_pendingGems == 0 && m_pendingShields == 0 && m_selectedBadgeID.empty() && m_selectedBannerID.empty()) {
             Notification::create("Add at least one reward", NotificationIcon::Error)->show();
             return;
         }
@@ -565,6 +581,7 @@ protected:
         if (amountPerPersonTickets > 0) rewards.set("star_tickets", amountPerPersonTickets);
         if (amountPerPersonXP > 0) rewards.set("xp", amountPerPersonXP);
         if (amountPerPersonGems > 0) rewards.set("gems", amountPerPersonGems);
+        if (amountPerPersonShields > 0) rewards.set("shields", amountPerPersonShields);
 
         if (!m_selectedBadgeID.empty()) rewards.set("badge", m_selectedBadgeID);
         if (!m_selectedBannerID.empty()) rewards.set("banner", m_selectedBannerID);
@@ -719,6 +736,7 @@ protected:
             int codeTickets = 0;
             int codeXP = 0;
             int codeGems = 0;
+            int codeShields = 0;
             std::string badgeID = "";
             std::string bannerID = "";
 
@@ -728,6 +746,7 @@ protected:
                 if (r.contains("star_tickets")) codeTickets = r["star_tickets"].as<int>().unwrapOr(0);
                 if (r.contains("xp")) codeXP = r["xp"].as<int>().unwrapOr(0);
                 if (r.contains("gems")) codeGems = r["gems"].as<int>().unwrapOr(0);
+                if (r.contains("shields")) codeShields = r["shields"].as<int>().unwrapOr(0);
                 if (r.contains("badge")) badgeID = r["badge"].as<std::string>().unwrapOr("");
                 if (r.contains("banner")) bannerID = r["banner"].as<std::string>().unwrapOr("");
             }
@@ -749,6 +768,7 @@ protected:
             int ticketsStart = g_streakData.starTickets;
             int xpStart = g_streakData.currentXP;
             int gemsStart = g_streakData.gems;
+            int shieldsStart = g_streakData.streakShields;
 
             bool isNewBadge = false;
             if (!badgeID.empty()) {
@@ -766,6 +786,8 @@ protected:
                 g_streakData.superStars = bal["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
                 g_streakData.starTickets = bal["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
                 g_streakData.gems = bal["gems"].as<int>().unwrapOr(g_streakData.gems);
+                if (bal.contains("streak_shields"))
+                    g_streakData.streakShields = bal["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields);
                 appliedFromServer = true;
             }
             if (json.contains("current_xp"))
@@ -777,7 +799,15 @@ protected:
                 g_streakData.superStars += (codeStars + levelStars);
                 g_streakData.starTickets += (codeTickets + levelTickets);
                 g_streakData.gems += (codeGems + levelGems);
+                g_streakData.streakShields += codeShields;
                 g_streakData.currentXP += codeXP;
+            }
+
+            // Pull level-up rewards out of the applied balances and queue them as pending.
+            if (levelsGained > 0) {
+                int newLevel = g_streakData.currentLevel;
+                int prevLevel = newLevel - levelsGained;
+                g_streakData.handleServerLevelUp(prevLevel, newLevel);
             }
 
             if (isNewBadge) g_streakData.unlockBadge(badgeID);
@@ -794,19 +824,22 @@ protected:
                     RewardNotification::show("xp.png"_spr, xpStart, codeXP, spawnPos);
                 }
 
-                int totalStars = codeStars + levelStars;
-                if (totalStars > 0) {
-                    RewardNotification::show("super_star.png"_spr, starsStart, totalStars, spawnPos);
+                // Only animate rewards from the code itself; level-up rewards now go
+                // to the pending queue and are claimed from the XP popup.
+                if (codeStars > 0) {
+                    RewardNotification::show("super_star.png"_spr, starsStart, codeStars, spawnPos);
                 }
 
-                int totalTickets = codeTickets + levelTickets;
-                if (totalTickets > 0) {
-                    RewardNotification::show("star_tiket.png"_spr, ticketsStart, totalTickets, spawnPos);
+                if (codeTickets > 0) {
+                    RewardNotification::show("star_tiket.png"_spr, ticketsStart, codeTickets, spawnPos);
                 }
 
-                int totalGems = codeGems + levelGems;
-                if (totalGems > 0) {
-                    RewardNotification::show("gem.png"_spr, gemsStart, totalGems, spawnPos);
+                if (codeGems > 0) {
+                    RewardNotification::show("gem.png"_spr, gemsStart, codeGems, spawnPos);
+                }
+
+                if (codeShields > 0) {
+                    RewardNotification::show("heart.png"_spr, shieldsStart, codeShields, spawnPos);
                 }
 
                 if (isNewBanner && !bannerID.empty()) {
@@ -823,13 +856,7 @@ protected:
                 }
                 };
 
-            if (levelsGained > 0) {
-                FMODAudioEngine::sharedEngine()->playEffect("magic_explode_01.ogg");
-                Notification::create(
-                    fmt::format("LEVEL UP!\n+{} Levels (Bonus Rewards Added)", levelsGained),
-                    NotificationIcon::Success
-                )->show();
-            }
+            // Level-up notification is handled inside handleServerLevelUp.
 
             if (isNewBadge && !badgeID.empty()) {
                 auto* badgeInfo = g_streakData.getBadgeInfo(badgeID);

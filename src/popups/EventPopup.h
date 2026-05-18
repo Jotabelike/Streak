@@ -1955,6 +1955,7 @@ protected:
     std::vector<std::string> m_fragmentBanners;
     std::set<int> m_claimedMilestones;
     std::vector<Milestone> m_milestones;
+    int m_totalEarned = 0;
     RoundedProgressBar* m_progressBar = nullptr;
     CCLabelBMFont* m_progressLabel = nullptr;
     std::function<void()> m_onChanged;
@@ -1969,11 +1970,13 @@ protected:
         const std::vector<std::string>& fragmentBanners,
         const std::vector<Milestone>& milestones,
         const std::set<int>& claimedMilestones,
+        int totalEarned,
         std::function<void()> onChanged) {
         if (!Popup::init(336.f, 256.f, "geode.loader/GE_square03.png")) return false;
         m_eventID = eventID;
         m_fragmentBanners = fragmentBanners;
         m_claimedMilestones = claimedMilestones;
+        m_totalEarned = totalEarned;
         m_onChanged = onChanged;
         m_milestones = milestones;
         if (m_milestones.empty()) buildDefaultMilestones();
@@ -2034,13 +2037,13 @@ protected:
         m_grid->removeAllChildren();
         m_bannerGradients.clear();
 
-        int fragments = g_streakData.fragments;
+        int earned = m_totalEarned;
         int maxFrags = totalThreshold();
-        float progress = std::min(1.0f, fragments / (float)std::max(1, maxFrags));
+        float progress = std::min(1.0f, earned / (float)std::max(1, maxFrags));
         if (m_progressBar) m_progressBar->setProgress(progress);
         if (m_progressLabel) {
             m_progressLabel->setString(
-                fmt::format("{}/{}", std::min(maxFrags, fragments), maxFrags).c_str());
+                fmt::format("{}/{}", std::min(maxFrags, earned), maxFrags).c_str());
         }
 
         const int cols = 3;
@@ -2062,7 +2065,7 @@ protected:
             int col = (int)(i % cols);
             float x = startX + col * cellW;
             float y = topY - row * cellH;
-            auto cell = makeCell(m_milestones[i], fragments);
+            auto cell = makeCell(m_milestones[i], earned);
             cell->setPosition({ x, y });
             menu->addChild(cell);
         }
@@ -2080,9 +2083,9 @@ protected:
             || isNameCosmetic(k);
     }
 
-    CCMenuItemSpriteExtra* makeCell(const Milestone& ms, int fragments) {
+    CCMenuItemSpriteExtra* makeCell(const Milestone& ms, int earned) {
         bool claimed = m_claimedMilestones.count(ms.frags) > 0;
-        bool reached = fragments >= ms.frags;
+        bool reached = earned >= ms.frags;
 
         bool owned = false;
         if (ms.kind == RewardKind::Banner) {
@@ -2232,7 +2235,7 @@ protected:
         }
 
      
-        int shown = std::min(fragments, ms.frags);
+        int shown = std::min(earned, ms.frags);
         auto cIcon = CCSprite::create("fragment.png"_spr);
         if (cIcon) {
             cIcon->setScale(9.f / std::max(1.f, cIcon->getContentSize().width));
@@ -2251,7 +2254,7 @@ protected:
         holder->addChild(cLabel, 8);
 
        
-        float pct = ms.frags > 0 ? std::min(1.f, (float)fragments / (float)ms.frags) : 0.f;
+        float pct = ms.frags > 0 ? std::min(1.f, (float)earned / (float)ms.frags) : 0.f;
         auto miniBar = RoundedProgressBar::create(74.f, 5.f);
         miniBar->setProgress(pct);
         if (claimed) {
@@ -2318,7 +2321,7 @@ protected:
         int milestone = static_cast<CCNode*>(sender)->getTag();
         if (milestone < 1 || milestone > 9) return;
         if (m_claimedMilestones.count(milestone)) return;
-        if (g_streakData.fragments < milestone) return;
+        if (m_totalEarned < milestone) return;
 
         m_isClaiming = true;
         m_pendingMilestone = milestone;
@@ -2468,9 +2471,10 @@ public:
         const std::vector<std::string>& fragmentBanners,
         const std::vector<Milestone>& milestones,
         const std::set<int>& claimedMilestones,
+        int totalEarned,
         std::function<void()> onChanged) {
         auto ret = new KeysGoalPopup();
-        if (ret && ret->init(eventID, fragmentBanners, milestones, claimedMilestones, onChanged)) {
+        if (ret && ret->init(eventID, fragmentBanners, milestones, claimedMilestones, totalEarned, onChanged)) {
             ret->autorelease();
             return ret;
         }
@@ -2508,6 +2512,7 @@ protected:
     std::string m_lastRewardID;
     matjson::Value m_lastRewardData;
     int m_lastFragmentsAfter = 0;
+    int m_keysEventTotalEarned = 0;
 
     bool init() override {
         if (!Popup::init(320.f, 248.f, "geode.loader/GE_square03.png")) return false;
@@ -2652,7 +2657,8 @@ protected:
             return;
         }
         auto popup = KeysGoalPopup::create(m_eventID, m_fragmentBanners,
-            m_milestones, m_claimedMilestones, [this]() { this->updateLabels(); });
+            m_milestones, m_claimedMilestones, m_keysEventTotalEarned,
+            [this]() { this->updateLabels(); });
         if (popup) popup->show();
     }
 
@@ -2788,6 +2794,8 @@ protected:
                 }
             }
         }
+
+        m_keysEventTotalEarned = data["keysEventTotalEarned"].as<int>().unwrapOr(0);
 
         this->setTitle(m_eventName.c_str());
 
@@ -2995,6 +3003,7 @@ protected:
             int gained = r["fragment"].as<int>().unwrapOr(1);
             int start = g_streakData.fragments;
             g_streakData.fragments = m_lastFragmentsAfter;
+            m_keysEventTotalEarned += gained;
             RewardNotification::show("fragment.png"_spr, start, gained, spawnPos);
         }
 

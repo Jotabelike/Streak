@@ -21,6 +21,7 @@ struct ProfileData {
     int currentXP = 0;
     int superStars = 0;
     int starTickets = 0;
+    int gems = 0;
     std::string bannerID;
     std::string streakID;
     int globalRank = 0;
@@ -164,8 +165,7 @@ protected:
         float dotScale = 0.12f;
 
         this->addStatItem(col1_X, row1_Y, "streak_point.png"_spr, fmt::format("{} SP", m_data.totalSP), dotScale);
-        int reqXP = m_data.level * 100;
-        this->addStatItem(col1_X, row2_Y, "xp.png"_spr, fmt::format("XP: {}/{}", m_data.currentXP, reqXP), statsScale);
+        this->addStatItem(col1_X, row2_Y, "gem.png"_spr, fmt::format("{}", m_data.gems), statsScale);
         this->addStatItem(col2_X, row1_Y, "super_star.png"_spr, fmt::format("{}", m_data.superStars), statsScale);
         this->addStatItem(col2_X, row2_Y, "star_tiket.png"_spr, fmt::format("{}", m_data.starTickets), statsScale);
 
@@ -196,6 +196,7 @@ protected:
                 m_data.currentXP = json["current_xp"].as<int>().unwrapOr(0);
                 m_data.superStars = json["super_stars"].as<int>().unwrapOr(0);
                 m_data.starTickets = json["star_tickets"].as<int>().unwrapOr(0);
+                m_data.gems = json["gems"].as<int>().unwrapOr(0);
                 m_data.bannerID = json["equipped_banner_id"].as<std::string>().unwrapOr("");
                 m_data.streakID = json["streakID"].as<std::string>().unwrapOr("???");
                 m_data.nameFont = json["equipped_name_font"].as<std::string>().unwrapOr("Default");

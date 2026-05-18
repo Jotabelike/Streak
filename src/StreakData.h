@@ -133,6 +133,10 @@ struct StreakData {
     std::string equippedNameEffect = "None";
 
     std::set<std::string> unlockedNameItems;
+    // Prizes already won in each roulette (tracked by prize ID so changing
+    // a slot's prize never auto-marks the new prize as already claimed).
+    std::set<std::string> claimedGemRoulettePrizes;
+    std::set<std::string> claimedStandardRoulettePrizes;
     bool isNameItemUnlocked(const std::string& item);
     void unlockNameItem(const std::string& item);
     int getNameItemPrice(const std::string& item);
@@ -142,6 +146,17 @@ struct StreakData {
 
     int currentXP = 0;
     int currentLevel = 1;
+
+    struct PendingLevelReward {
+        int level;
+        int stars;
+        int tickets;
+        int gems;
+        int shields = 0;
+        int chestRarity = 0;
+    };
+    std::vector<PendingLevelReward> pendingLevelRewards;
+    bool hasNewMessages = false;
 
 
     bool pointMission1Claimed;
@@ -157,6 +172,22 @@ struct StreakData {
     bool pointMission11Claimed;
     bool pointMission12Claimed;
     bool pointMission13Claimed;
+
+    int streakShields = 0;
+    bool shieldsEnabled = false;
+
+    int streakPointsThisWeek = 0;
+    std::string lastWeek = "";
+    bool weeklyMission1Claimed = false;
+    bool weeklyMission2Claimed = false;
+    bool weeklyMission3Claimed = false;
+    bool weeklyMission4Claimed = false;
+    bool weeklyMission5Claimed = false;
+    bool weeklyMission6Claimed = false;
+    bool weeklyMission7Claimed = false;
+    bool weeklyMission8Claimed = false;
+    bool weeklyMission9Claimed = false;
+    bool weeklyMission10Claimed = false;
 
     bool isDataLoaded;
     bool m_initialized = false;
@@ -453,6 +484,7 @@ struct StreakData {
     int getTicketValueForRarity(BadgeCategory category);
     void unlockBadge(const std::string& badgeID);
     std::string getCurrentDate();
+    std::string getCurrentWeek();
     void unequipBadge();
     bool isBadgeEquipped(const std::string& badgeID);
     void dailyUpdate();
@@ -487,8 +519,21 @@ struct StreakData {
         int stars;
         int tickets;
         int gems;
+        int shields = 0;
+        int chestRarity = 0;
     };
     LevelRewards getRewardsForLevel(int level);
+
+    bool hasPendingLevelRewards() const { return !pendingLevelRewards.empty(); }
+    void queuePendingLevelReward(int level);
+    bool isLevelRewardPending(int level) const;
+    bool claimPendingLevelReward(int level);
+    bool hasPendingDailyMissions() const;
+    bool hasPendingLevelMissions() const;
+
+    // Helper: when the server reports a level-up, hide the auto-applied rewards
+    // from the local balances and queue them so the player has to claim them.
+    void handleServerLevelUp(int previousLevel, int newLevel);
 };
 
 extern StreakData g_streakData;

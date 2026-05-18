@@ -17,4 +17,5 @@
 #include "popups/CollectionPopups.h" 
 #include "popups/StatsPopups.h"      
 #include "popups/InfoPopup.h"
+#include "popups/StreakMainLayer.h"
 

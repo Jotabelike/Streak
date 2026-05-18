@@ -292,7 +292,13 @@ class $modify(MyMenuLayer, MenuLayer) {
             this->onErrorButtonClick(nullptr);
             return;
         }
-        InfoPopup::create()->show();
+        if (g_streakData.needsRegistration) {
+            RegisterPopup::create()->show();
+            return;
+        }
+        auto scene = StreakMainLayer::scene();
+        auto transition = CCTransitionFade::create(0.5f, scene);
+        CCDirector::sharedDirector()->pushScene(transition);
     }
 };
 

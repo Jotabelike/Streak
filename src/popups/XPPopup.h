@@ -1,12 +1,142 @@
 #pragma once
 #include <Geode/Geode.hpp>
+#include <Geode/utils/web.hpp>
+#include <Geode/utils/async.hpp>
+#include <Geode/binding/GJAccountManager.hpp>
+#include <matjson.hpp>
 #include "../StreakData.h"
+#include "../RewardNotification.h"
+#include "../HMACAuth.h"
+#include "../utils/RoundedProgressBar.h"
+#include "StreakChestPopup.h"
 
 using namespace geode::prelude;
 
 class XPPopup : public Popup {
 protected:
     ScrollLayer* m_list = nullptr;
+    CCMenu* m_claimMenu = nullptr;
+    async::TaskHolder<web::WebResponse> m_claimListener;
+
+    void onClaimLevelReward(CCObject* sender) {
+        auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
+        int level = btn->getTag();
+        if (level <= 0) return;
+
+        auto am = GJAccountManager::sharedState();
+        if (!am || am->m_accountID == 0) return;
+        int accountID = am->m_accountID;
+
+        // disable while the request is in flight
+        btn->setEnabled(false);
+        if (auto img = dynamic_cast<CCRGBAProtocol*>(btn->getNormalImage())) img->setOpacity(120);
+
+        int startGems = g_streakData.gems;
+        int startStars = g_streakData.superStars;
+        int startTickets = g_streakData.starTickets;
+        int startShields = g_streakData.streakShields;
+
+        matjson::Value payload = matjson::Value::object();
+        payload.set("level", level);
+
+        auto req = web::WebRequest();
+        HMACAuth::signRequest(req, accountID, payload);
+
+        std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/claim-level-reward", accountID);
+
+        m_claimListener.spawn(
+            req.bodyJSON(payload).post(url),
+            [this, btn, level, startGems, startStars, startTickets, startShields](web::WebResponse res) {
+                if (!res.ok() || !res.json().isOk()) {
+                    btn->setEnabled(true);
+                    if (auto img = dynamic_cast<CCRGBAProtocol*>(btn->getNormalImage())) img->setOpacity(255);
+                    FLAlertLayer::create("Claim Failed", "Could not claim reward. Try again.", "OK")->show();
+                    return;
+                }
+
+                auto data = res.json().unwrap();
+                if (!data["success"].as<bool>().unwrapOr(false)) {
+                    btn->setEnabled(true);
+                    if (auto img = dynamic_cast<CCRGBAProtocol*>(btn->getNormalImage())) img->setOpacity(255);
+                    return;
+                }
+
+                // Apply server-confirmed balances
+                if (data.contains("balances")) {
+                    auto bal = data["balances"];
+                    g_streakData.superStars   = bal["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
+                    g_streakData.starTickets  = bal["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
+                    g_streakData.gems         = bal["gems"].as<int>().unwrapOr(g_streakData.gems);
+                    g_streakData.streakShields = bal["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields);
+                    g_streakData.currentXP    = bal["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
+                    g_streakData.currentLevel = bal["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);
+                }
+
+                // Sync pending list
+                g_streakData.pendingLevelRewards.clear();
+                if (data.contains("pending_level_rewards")) {
+                    auto arr = data["pending_level_rewards"].as<std::vector<matjson::Value>>();
+                    if (arr.isOk()) {
+                        for (const auto& item : arr.unwrap()) {
+                            int lvl = item["level"].as<int>().unwrapOr(0);
+                            if (lvl <= 0) continue;
+                            StreakData::PendingLevelReward p;
+                            p.level = lvl;
+                            p.stars       = item["stars"].as<int>().unwrapOr(0);
+                            p.tickets     = item["tickets"].as<int>().unwrapOr(0);
+                            p.gems        = item["gems"].as<int>().unwrapOr(0);
+                            p.shields     = item["shields"].as<int>().unwrapOr(0);
+                            p.chestRarity = item["chestRarity"].as<int>().unwrapOr(0);
+                            g_streakData.pendingLevelRewards.push_back(p);
+                        }
+                    }
+                }
+
+                int gainedGems = g_streakData.gems - startGems;
+                int gainedStars = g_streakData.superStars - startStars;
+                int gainedTickets = g_streakData.starTickets - startTickets;
+                int gainedShields = g_streakData.streakShields - startShields;
+
+                auto winSize = CCDirector::sharedDirector()->getWinSize();
+                CCPoint spawnPos = winSize / 2;
+
+                bool chestOpened = data.contains("chestRolled") && !data["chestRolled"].isNull();
+
+                if (chestOpened) {
+                    // Es un cofre: abrir StreakChestPopup con la animacion (igual que misiones diarias).
+                    int chestStars   = data["chestRolled"]["superStars"].as<int>().unwrapOr(0);
+                    int chestTickets = data["chestRolled"]["starTickets"].as<int>().unwrapOr(0);
+                    int chestGems    = data["chestRolled"]["gems"].as<int>().unwrapOr(0);
+                    int chestXP      = data["chestRolled"]["xp"].as<int>().unwrapOr(0);
+                    int rarity = (data.contains("claimed") && data["claimed"].contains("chestRarity"))
+                        ? data["claimed"]["chestRarity"].as<int>().unwrapOr(4)
+                        : 4;
+
+                    if (auto popup = StreakChestPopup::createOpen(chestStars, chestTickets, chestGems, chestXP, rarity, nullptr)) {
+                        popup->show();
+                    }
+                }
+                else {
+                    if (gainedGems > 0)    RewardNotification::show("gem.png"_spr,        startGems,    gainedGems,    spawnPos);
+                    if (gainedStars > 0)   RewardNotification::show("super_star.png"_spr, startStars,   gainedStars,   spawnPos);
+                    if (gainedTickets > 0) RewardNotification::show("star_tiket.png"_spr, startTickets, gainedTickets, spawnPos);
+                    if (gainedShields > 0) RewardNotification::show("heart.png"_spr,      startShields, gainedShields, spawnPos);
+                }
+
+                auto parent = btn->getParent();
+                if (parent) {
+                    auto pos = btn->getPosition();
+                    btn->removeFromParentAndCleanup(true);
+                    auto check = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
+                    if (check) {
+                        check->setScale(0.6f);
+                        check->setPosition(pos);
+                        parent->addChild(check);
+                    }
+                }
+            }
+        );
+    }
 
     bool init() override {
         if (!Popup::init(380.f, 260.f, "geode.loader/GE_square01.png")) return false;
@@ -42,6 +172,11 @@ protected:
 
         m_list->m_contentLayer->setContentSize({ listSize.width, totalHeight });
 
+        m_claimMenu = CCMenu::create();
+        m_claimMenu->setPosition({ 0, 0 });
+        m_claimMenu->setContentSize({ listSize.width, totalHeight });
+        m_list->m_contentLayer->addChild(m_claimMenu, 5);
+
         for (int i = 1; i <= maxLevel; i++) {
             float yPos = totalHeight - ((i - 1) * itemHeight) - (itemHeight / 2);
             bool isPast = i < g_streakData.currentLevel;
@@ -65,8 +200,18 @@ protected:
             auto rewards = g_streakData.getRewardsForLevel(i);
             float iconX = 90.f;
 
-          
-            if (rewards.gems > 0) {
+            // Niveles multiplos de 10: solo cofre, sin las demas recompensas.
+            if (rewards.chestRarity > 0) {
+                std::string chestPath = fmt::format("{}/ChestStar{}.png", Mod::get()->getID(), rewards.chestRarity);
+                auto chest = CCSprite::create(chestPath.c_str());
+                if (!chest) chest = CCSprite::createWithSpriteFrameName("chest_02_02_001.png");
+                if (chest) {
+                    chest->setScale(0.3f);
+                    chest->setPosition({ listSize.width / 2.f, yPos + 4.f });
+                    m_list->m_contentLayer->addChild(chest);
+                }
+            }
+            else if (rewards.gems > 0) {
 
                 auto gemIcon = CCSprite::create("gem.png"_spr);
                 gemIcon->setScale(0.25f);
@@ -79,11 +224,10 @@ protected:
                 gemTxt->setPosition({ iconX + 15.f, yPos });
                 m_list->m_contentLayer->addChild(gemTxt);
 
-                iconX += 70.f; 
+                iconX += 70.f;
             }
 
-          
-            if (rewards.stars > 0) {
+            if (rewards.chestRarity == 0 && rewards.stars > 0) {
                 auto starIcon = CCSprite::create("super_star.png"_spr);
                 starIcon->setScale(0.25f);
                 starIcon->setPosition({ iconX, yPos });
@@ -95,28 +239,40 @@ protected:
                 starTxt->setPosition({ iconX + 15.f, yPos });
                 m_list->m_contentLayer->addChild(starTxt);
 
-                iconX += 70.f;  
+                iconX += 70.f;
             }
 
-        
-            if (rewards.tickets > 0) {
-                auto tickIcon = CCSprite::create("star_tiket.png"_spr);
-                tickIcon->setScale(0.25f);
-                tickIcon->setPosition({ iconX, yPos });
-                m_list->m_contentLayer->addChild(tickIcon);
+            // 1 vida (shield) por nivel — reemplaza al antiguo ticket. Solo si no es chest.
+            if (rewards.chestRarity == 0 && rewards.shields > 0) {
+                auto heartIcon = CCSprite::create("heart.png"_spr);
+                if (!heartIcon) heartIcon = CCSprite::createWithSpriteFrameName("GJ_heartIcon_001.png");
+                if (heartIcon) {
+                    heartIcon->setScale(0.22f);
+                    heartIcon->setPosition({ iconX, yPos });
+                    m_list->m_contentLayer->addChild(heartIcon);
 
-                auto tickTxt = CCLabelBMFont::create(fmt::format("x{}", rewards.tickets).c_str(), "bigFont.fnt");
-                tickTxt->setScale(0.35f);
-                tickTxt->setAnchorPoint({ 0.f, 0.5f });
-                tickTxt->setPosition({ iconX + 15.f, yPos });
-                m_list->m_contentLayer->addChild(tickTxt);
-
-              
+                    auto heartTxt = CCLabelBMFont::create(fmt::format("x{}", rewards.shields).c_str(), "bigFont.fnt");
+                    heartTxt->setScale(0.35f);
+                    heartTxt->setAnchorPoint({ 0.f, 0.5f });
+                    heartTxt->setPosition({ iconX + 15.f, yPos });
+                    m_list->m_contentLayer->addChild(heartTxt);
+                    iconX += 50.f;
+                }
             }
            
             float indicatorX = listSize.width - 30.f;
 
-            if (isPast) {
+            if (g_streakData.isLevelRewardPending(i)) {
+                auto claimSpr = ButtonSprite::create("Claim", "bigFont.fnt", "GJ_button_01.png", 0.6f);
+                if (claimSpr) claimSpr->setScale(0.55f);
+                auto claimBtn = CCMenuItemSpriteExtra::create(
+                    claimSpr, this, menu_selector(XPPopup::onClaimLevelReward)
+                );
+                claimBtn->setTag(i);
+                claimBtn->setPosition({ indicatorX, yPos });
+                m_claimMenu->addChild(claimBtn);
+            }
+            else if (isPast) {
                 auto check = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
                 check->setScale(0.6f);
                 check->setPosition({ indicatorX, yPos });
@@ -187,27 +343,18 @@ protected:
      
 
         float centerX = popupSize.width / 2;
-        float barY = bottomHeight / 2 - 5.f;
         float barWidth = 220.0f;
-        float barHeight = 15.0f;
-
-        auto outer = CCLayerColor::create({ 0, 0, 0, 100 }, barWidth + 6, barHeight + 6);
-        outer->setPosition({ centerX - barWidth / 2 - 3, barY - 3 });
-        m_mainLayer->addChild(outer);
-
-        auto border = CCLayerColor::create({ 255, 255, 255, 100 }, barWidth + 2, barHeight + 2);
-        border->setPosition({ centerX - barWidth / 2 - 1, barY - 1 });
-        m_mainLayer->addChild(border);
-
-        auto bgBar = CCLayerColor::create({ 40, 40, 40, 255 }, barWidth, barHeight);
-        bgBar->setPosition({ centerX - barWidth / 2, barY });
-        m_mainLayer->addChild(bgBar);
+        float barHeight = 18.0f;
+        float barCenterY = bottomHeight / 2 + 2.f;
 
         float percentage = g_streakData.getXPPercentage();
-        auto fgBar = CCLayerGradient::create({ 0, 100, 255, 255 }, { 0, 200, 255, 255 });
-        fgBar->setContentSize({ barWidth * percentage, barHeight });
-        fgBar->setPosition({ centerX - barWidth / 2, barY });
-        m_mainLayer->addChild(fgBar);
+
+        auto xpBar = RoundedProgressBar::create(barWidth, barHeight);
+        xpBar->setPosition({ centerX, barCenterY });
+        xpBar->setGradientColors({ 0, 255, 255 }, { 0, 100, 255 });
+        xpBar->setBackgroundColor({ 20, 20, 40 });
+        xpBar->setProgress(percentage);
+        m_mainLayer->addChild(xpBar, 1);
 
         auto xpText = CCLabelBMFont::create(
             fmt::format("{} / {} ({:.1f}%)",
@@ -217,22 +364,14 @@ protected:
             ).c_str(),
             "bigFont.fnt"
         );
-        xpText->setPosition({ centerX, barY + barHeight / 2 + 2.f });
-        xpText->setScale(0.35f);
+        xpText->setPosition({ centerX, barCenterY });
+        xpText->setScale(0.4f);
         xpText->setZOrder(10);
-
-        auto shadow = CCLabelBMFont::create(xpText->getString(), "bigFont.fnt");
-        shadow->setPosition({ centerX + 1, barY + barHeight / 2 + 1.f });
-        shadow->setScale(0.35f);
-        shadow->setColor({ 0,0,0 });
-        shadow->setOpacity(150);
-        shadow->setZOrder(9);
-        m_mainLayer->addChild(shadow);
-        m_mainLayer->addChild(xpText);
+        m_mainLayer->addChild(xpText, 8);
 
         auto lvlTxt = CCLabelBMFont::create(fmt::format("Current: Level {}", g_streakData.currentLevel).c_str(), "goldFont.fnt");
         lvlTxt->setScale(0.5f);
-        lvlTxt->setPosition({ centerX, barY + barHeight + 15.f });
+        lvlTxt->setPosition({ centerX, barCenterY + barHeight + 12.f });
         m_mainLayer->addChild(lvlTxt);
 
         return true;

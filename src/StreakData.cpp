@@ -1,15 +1,17 @@
 ﻿#include "StreakData.h"
 #include "FirebaseManager.h"
-#include <Geode/utils/cocos.hpp> 
+#include <Geode/utils/cocos.hpp>
 #include <sstream>
 #include <iomanip>
 #include <ctime>
 #include <cmath>
-#include <Geode/binding/GJAccountManager.hpp> 
+#include <Geode/binding/GJAccountManager.hpp>
+#include <Geode/binding/GameLevelManager.hpp>
 #include <algorithm>
-#include <cctype>   
+#include <cctype>
 #include "SystemNotification.h"
 #include "RewardNotification.h"
+#include "popups/StreakCommon.h"
 #include <random>
 #include <set>
 
@@ -71,6 +73,21 @@ void StreakData::resetToDefault() {
     pointMission11Claimed = false;
     pointMission12Claimed = false;
     pointMission13Claimed = false;
+
+    streakShields = 0;
+    shieldsEnabled = false;
+    streakPointsThisWeek = 0;
+    lastWeek = "";
+    weeklyMission1Claimed = false;
+    weeklyMission2Claimed = false;
+    weeklyMission3Claimed = false;
+    weeklyMission4Claimed = false;
+    weeklyMission5Claimed = false;
+    weeklyMission6Claimed = false;
+    weeklyMission7Claimed = false;
+    weeklyMission8Claimed = false;
+    weeklyMission9Claimed = false;
+    weeklyMission10Claimed = false;
 
 
     if (unlockedBadges.size() != badges.size()) {
@@ -140,6 +157,10 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
         lastDay = data["last_day"].as<std::string>().unwrapOr(std::string(""));
     }
     streakPointsToday = safeInt(data, "streakPointsToday", 0);
+    streakPointsThisWeek = safeInt(data, "streakPointsThisWeek", 0);
+    lastWeek = data["lastWeek"].as<std::string>().unwrapOr(std::string(""));
+    streakShields = safeInt(data, "streak_shields", 0);
+    shieldsEnabled = data["shields_enabled"].as<bool>().unwrapOr(false);
     gems = safeInt(data, "gems", 0);
     fragments = safeInt(data, "fragments", 0);
     gemRouletteSpinCount = safeInt(data, "gem_roulette_spin_count", 0);
@@ -321,16 +342,99 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
         }
     }
 
+    weeklyMission1Claimed = false;
+    weeklyMission2Claimed = false;
+    weeklyMission3Claimed = false;
+    weeklyMission4Claimed = false;
+    weeklyMission5Claimed = false;
+    weeklyMission6Claimed = false;
+    weeklyMission7Claimed = false;
+    weeklyMission8Claimed = false;
+    weeklyMission9Claimed = false;
+    weeklyMission10Claimed = false;
+
+    if (data.contains("weeklyMissions")) {
+        auto wmResult = data["weeklyMissions"].as<std::map<std::string, matjson::Value>>();
+        if (wmResult.isOk()) {
+            auto wm = wmResult.unwrap();
+            if (wm.count("wm1"))  weeklyMission1Claimed  = wm.at("wm1").as<bool>().unwrapOr(false);
+            if (wm.count("wm2"))  weeklyMission2Claimed  = wm.at("wm2").as<bool>().unwrapOr(false);
+            if (wm.count("wm3"))  weeklyMission3Claimed  = wm.at("wm3").as<bool>().unwrapOr(false);
+            if (wm.count("wm4"))  weeklyMission4Claimed  = wm.at("wm4").as<bool>().unwrapOr(false);
+            if (wm.count("wm5"))  weeklyMission5Claimed  = wm.at("wm5").as<bool>().unwrapOr(false);
+            if (wm.count("wm6"))  weeklyMission6Claimed  = wm.at("wm6").as<bool>().unwrapOr(false);
+            if (wm.count("wm7"))  weeklyMission7Claimed  = wm.at("wm7").as<bool>().unwrapOr(false);
+            if (wm.count("wm8"))  weeklyMission8Claimed  = wm.at("wm8").as<bool>().unwrapOr(false);
+            if (wm.count("wm9"))  weeklyMission9Claimed  = wm.at("wm9").as<bool>().unwrapOr(false);
+            if (wm.count("wm10")) weeklyMission10Claimed = wm.at("wm10").as<bool>().unwrapOr(false);
+        }
+    }
+
     streakPointsHistory.clear();
     if (data.contains("history")) {
+        auto parseLeaf = [&](const std::string& date, const matjson::Value& val) {
+            if (val.isNumber()) streakPointsHistory[date] = val.as<int>().unwrapOr(0);
+            else if (val.isString()) {
+                try { streakPointsHistory[date] = std::stoi(val.as<std::string>().unwrapOr(std::string("0"))); }
+                catch (...) { streakPointsHistory[date] = 0; }
+            }
+        };
+
         auto h = data["history"].as<std::map<std::string, matjson::Value>>();
         if (h.isOk()) {
-            for (const auto& [date, val] : h.unwrap()) {
-                if (val.isNumber()) streakPointsHistory[date] = val.as<int>().unwrapOr(0);
-                else if (val.isString()) {
-                    try { streakPointsHistory[date] = std::stoi(val.as<std::string>().unwrapOr(std::string("0"))); }
-                    catch (...) { streakPointsHistory[date] = 0; }
+            for (const auto& [key, val] : h.unwrap()) {
+                if (val.isObject()) {
+                    auto inner = val.as<std::map<std::string, matjson::Value>>();
+                    if (inner.isOk()) {
+                        for (const auto& [date, dayVal] : inner.unwrap()) {
+                            parseLeaf(date, dayVal);
+                        }
+                    }
+                } else {
+                    parseLeaf(key, val);
                 }
+            }
+        }
+    }
+
+    claimedGemRoulettePrizes.clear();
+    if (data.contains("claimed_gem_roulette_prizes")) {
+        auto arr = data["claimed_gem_roulette_prizes"].as<std::vector<matjson::Value>>();
+        if (arr.isOk()) {
+            for (const auto& item : arr.unwrap()) {
+                std::string s = item.as<std::string>().unwrapOr(std::string(""));
+                if (!s.empty()) claimedGemRoulettePrizes.insert(s);
+            }
+        }
+    }
+
+    claimedStandardRoulettePrizes.clear();
+    if (data.contains("claimed_standard_roulette_prizes")) {
+        auto arr = data["claimed_standard_roulette_prizes"].as<std::vector<matjson::Value>>();
+        if (arr.isOk()) {
+            for (const auto& item : arr.unwrap()) {
+                std::string s = item.as<std::string>().unwrapOr(std::string(""));
+                if (!s.empty()) claimedStandardRoulettePrizes.insert(s);
+            }
+        }
+    }
+
+    pendingLevelRewards.clear();
+    if (data.contains("pending_level_rewards")) {
+        auto arr = data["pending_level_rewards"].as<std::vector<matjson::Value>>();
+        if (arr.isOk()) {
+            for (const auto& item : arr.unwrap()) {
+                int lvl = item["level"].as<int>().unwrapOr(0);
+                if (lvl <= 0) continue;
+                auto r = getRewardsForLevel(lvl);
+                PendingLevelReward p;
+                p.level = lvl;
+                p.stars       = item["stars"].as<int>().unwrapOr(r.stars);
+                p.tickets     = item["tickets"].as<int>().unwrapOr(r.tickets);
+                p.gems        = item["gems"].as<int>().unwrapOr(r.gems);
+                p.shields     = item["shields"].as<int>().unwrapOr(r.shields);
+                p.chestRarity = item["chestRarity"].as<int>().unwrapOr(r.chestRarity);
+                pendingLevelRewards.push_back(p);
             }
         }
     }
@@ -447,6 +551,24 @@ std::string StreakData::getCurrentDate() {
     return std::string(buf);
 }
 
+std::string StreakData::getCurrentWeek() {
+    time_t t = time(nullptr);
+    t -= 5 * 3600;
+    tm* now = gmtime(&t);
+    if (!now) return "";
+
+    int weekday = now->tm_wday;
+    int daysSinceMonday = (weekday == 0) ? 6 : (weekday - 1);
+
+    time_t monday = t - (time_t)daysSinceMonday * 86400;
+    tm* mondayTm = gmtime(&monday);
+    if (!mondayTm) return "";
+
+    char buf[16];
+    if (strftime(buf, sizeof(buf), "%F", mondayTm) == 0) return "";
+    return std::string(buf);
+}
+
 void StreakData::unequipBadge() {
     if (!equippedBadge.empty()) {
         equippedBadge = "";
@@ -462,7 +584,25 @@ void StreakData::dailyUpdate() {
     if (!isDataLoaded) return;
     time_t now_t = time(nullptr);
     std::string today = getCurrentDate();
+    std::string currentWeek = getCurrentWeek();
     if (today.empty()) return;
+
+    auto resetWeeklyIfNeeded = [&]() {
+        if (currentWeek.empty()) return;
+        if (lastWeek == currentWeek) return;
+        lastWeek = currentWeek;
+        streakPointsThisWeek = 0;
+        weeklyMission1Claimed = false;
+        weeklyMission2Claimed = false;
+        weeklyMission3Claimed = false;
+        weeklyMission4Claimed = false;
+        weeklyMission5Claimed = false;
+        weeklyMission6Claimed = false;
+        weeklyMission7Claimed = false;
+        weeklyMission8Claimed = false;
+        weeklyMission9Claimed = false;
+        weeklyMission10Claimed = false;
+    };
 
     if (lastDay.empty()) {
         lastDay = today;
@@ -474,11 +614,18 @@ void StreakData::dailyUpdate() {
         pointMission4Claimed = false;
         pointMission5Claimed = false;
         pointMission6Claimed = false;
+        resetWeeklyIfNeeded();
         save();
         return;
     }
 
-    if (lastDay == today) return;
+    if (lastDay == today) {
+        if (lastWeek != currentWeek) {
+            resetWeeklyIfNeeded();
+            save();
+        }
+        return;
+    }
 
    
     if (!lastDay.empty() && lastDay != today) {
@@ -499,20 +646,29 @@ void StreakData::dailyUpdate() {
                 double diffSeconds = std::difftime(todayTime, lastTime);
                 int diffDays = static_cast<int>(diffSeconds / 86400.0);
 
-                 
+                bool wouldBreak = false;
+                int daysLost = 0;
                 if (diffDays > 1) {
-                    
-                    log::info("Streak broken! Last day: {}, Today: {}, Gap: {} days", lastDay, today, diffDays);
-                    currentStreak = 0;
-                    hasNewStreak = false;
+                    wouldBreak = true;
+                    daysLost = diffDays - 1;
                 }
                 else if (diffDays == 1) {
-                     
                     int reqPoints = getRequiredPoints();
                     if (streakPointsToday < reqPoints && reqPoints > 0) {
-                        log::info("Streak broken! Yesterday's points ({}) didn't reach required ({})", streakPointsToday, reqPoints);
+                        wouldBreak = true;
+                        daysLost = 1;
+                    }
+                }
+
+                if (wouldBreak) {
+                    if (shieldsEnabled && streakShields >= daysLost && daysLost > 0) {
+                        streakShields -= daysLost;
+                        log::info("Streak saved by shields! Consumed {} (left: {})", daysLost, streakShields);
+                    } else {
+                        log::info("Streak broken! Last day: {}, Today: {}, Gap: {} days", lastDay, today, diffDays);
                         currentStreak = 0;
                         hasNewStreak = false;
+                        streakPointsHistory.clear();
                     }
                 }
             }
@@ -537,6 +693,8 @@ void StreakData::dailyUpdate() {
     pointMission11Claimed = false;
     pointMission12Claimed = false;
     pointMission13Claimed = false;
+
+    resetWeeklyIfNeeded();
 }
 
 void StreakData::checkRewards() {
@@ -944,6 +1102,7 @@ void StreakData::addPoints(int count) {
 
     streakPointsToday += count;
     totalStreakPoints += count;
+    streakPointsThisWeek += count;
 
     std::string today = getCurrentDate();
     if (!today.empty()) streakPointsHistory[today] = streakPointsToday;
@@ -974,64 +1133,117 @@ void StreakData::addXP(int amount) {
     int levelsGained = currentLevel - preLevel;
 
     if (levelsGained > 0) {
-        int totalStarsGained = 0;
-        int totalTicketsGained = 0;
-        int totalGemsGained = 0;
-
         for (int i = 1; i <= levelsGained; i++) {
-            auto rewards = getRewardsForLevel(preLevel + i);
-            totalStarsGained += rewards.stars;
-            totalTicketsGained += rewards.tickets;
-            totalGemsGained += rewards.gems;
+            queuePendingLevelReward(preLevel + i);
         }
 
-        int startGems = this->gems;
-        int startStars = this->superStars;
-        int startTickets = this->starTickets;
-
-        this->superStars += totalStarsGained;
-        this->starTickets += totalTicketsGained;
-        this->gems += totalGemsGained;
         this->save();
 
         SystemNotification::show(
             "LEVEL UP!",
-            fmt::format("Welcome to Level {}", currentLevel),
+            fmt::format("{} reward(s) ready to claim", levelsGained),
             "xp.png"_spr,
             0.3f
         );
-
-
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-        CCPoint spawnPos = winSize / 2;
-
-        if (totalGemsGained > 0) RewardNotification::show("gem.png"_spr, startGems, totalGemsGained, spawnPos);
-        if (totalStarsGained > 0) RewardNotification::show("super_star.png"_spr, startStars, totalStarsGained, spawnPos);
-        if (totalTicketsGained > 0) RewardNotification::show("star_tiket.png"_spr, startTickets, totalTicketsGained, spawnPos);
     }
     else {
         this->save();
     }
 }
 
+void StreakData::queuePendingLevelReward(int level) {
+    if (isLevelRewardPending(level)) return;
+    auto r = getRewardsForLevel(level);
+    PendingLevelReward p;
+    p.level = level;
+    p.stars = r.stars;
+    p.tickets = r.tickets;
+    p.gems = r.gems;
+    p.shields = r.shields;
+    p.chestRarity = r.chestRarity;
+    pendingLevelRewards.push_back(p);
+}
+
+bool StreakData::isLevelRewardPending(int level) const {
+    for (const auto& p : pendingLevelRewards) {
+        if (p.level == level) return true;
+    }
+    return false;
+}
+
+bool StreakData::claimPendingLevelReward(int level) {
+    for (auto it = pendingLevelRewards.begin(); it != pendingLevelRewards.end(); ++it) {
+        if (it->level == level) {
+            this->superStars += it->stars;
+            this->starTickets += it->tickets;
+            this->gems += it->gems;
+            pendingLevelRewards.erase(it);
+            this->save();
+            return true;
+        }
+    }
+    return false;
+}
+
+void StreakData::handleServerLevelUp(int previousLevel, int newLevel) {
+    if (newLevel <= previousLevel) return;
+    int levelsGained = newLevel - previousLevel;
+    // The server queued the pending rewards itself (and did NOT apply them to
+    // balances). We just mirror locally and show the notification.
+    for (int lvl = previousLevel + 1; lvl <= newLevel; lvl++) {
+        queuePendingLevelReward(lvl);
+    }
+    SystemNotification::show(
+        "LEVEL UP!",
+        fmt::format("{} reward(s) ready to claim", levelsGained),
+        "xp.png"_spr,
+        0.3f
+    );
+}
+
+bool StreakData::hasPendingDailyMissions() const {
+    int p = streakPointsToday;
+    if (p >= 5  && !pointMission1Claimed) return true;
+    if (p >= 10 && !pointMission2Claimed) return true;
+    if (p >= 15 && !pointMission3Claimed) return true;
+    if (p >= 20 && !pointMission4Claimed) return true;
+    if (p >= 25 && !pointMission5Claimed) return true;
+    if (p >= 30 && !pointMission6Claimed) return true;
+    return false;
+}
+
+bool StreakData::hasPendingLevelMissions() const {
+    for (const auto& mission : g_levelMissions) {
+        if (isLevelMissionClaimed(mission.levelID)) continue;
+        auto level = GameLevelManager::sharedState()->getSavedLevel(mission.levelID);
+        if (level && level->m_normalPercent >= 100) return true;
+    }
+    return false;
+}
+
 StreakData::LevelRewards StreakData::getRewardsForLevel(int level) {
-    int r_tickets = 0;
-    int r_stars = 0;
-    int r_gems = 0;
-    if (level < 10) r_tickets = 40;
-    else if (level < 20) r_tickets = 48;
+    LevelRewards rewards;
+    rewards.stars = 0;
+    rewards.tickets = 0;
+    rewards.gems = 0;
+    rewards.shields = 0;
+    rewards.chestRarity = 0;
+
+    // Niveles multiplos de 10: solo cofre.
+    if (level > 0 && level % 10 == 0) {
+        rewards.chestRarity = (level == 80 || level == 90 || level == 100) ? 5 : 4;
+        return rewards;
+    }
+
+    if (level < 10) rewards.stars = 5;
+    else if (level < 20) rewards.stars = 20;
     else {
         int tier = (level / 10) - 1;
-        r_tickets = 48 * static_cast<int>(std::pow(2, tier));
+        rewards.stars = 20 + (tier * 20);
     }
-    if (level < 10) r_stars = 5;
-    else if (level < 20) r_stars = 20;
-    else {
-        int tier = (level / 10) - 1;
-        r_stars = 20 + (tier * 20);
-    }
-    r_gems = ((level - 1) / 10) + 1;
-    return { r_stars, r_tickets, r_gems };
+    rewards.gems = ((level - 1) / 10) + 1;
+    rewards.shields = 1;
+    return rewards;
 }
 
 bool StreakData::isNameItemUnlocked(const std::string& item) {

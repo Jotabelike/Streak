@@ -200,18 +200,18 @@ protected:
         }
         else {
             m_roulettePrizes = {
-                { RewardType::Badge, "badge_pixel2", 1, "", "sakura flower", 1, StreakData::BadgeCategory::MYTHIC },
-                { RewardType::Badge, "badge_cherry", 1, "", "What can I say...", 3, StreakData::BadgeCategory::LEGENDARY },
-                { RewardType::Badge, "badge_cherry6", 1, "", "Ram", 5, StreakData::BadgeCategory::EPIC },
-                { RewardType::Badge, "badge_mc2", 1, "", "Minecraft Again again", 10, StreakData::BadgeCategory::SPECIAL},
-                { RewardType::Badge, "omega_badge", 1, "", "Omega", 70, StreakData::BadgeCategory::COMMON },
+                { RewardType::Badge, "super_star_badge", 1, "", "Super Star", 1, StreakData::BadgeCategory::MYTHIC },
+                { RewardType::Badge, "badge_cherry9", 1, "", "Tsukasa", 3, StreakData::BadgeCategory::LEGENDARY },
+                { RewardType::Badge, "moon_badge", 1, "", "Moon", 5, StreakData::BadgeCategory::EPIC },
+                { RewardType::Badge, "bagde_destello2", 1, "", "cat", 10, StreakData::BadgeCategory::SPECIAL},
+                { RewardType::Badge, "mc_badge_3", 1, "", "mmm", 70, StreakData::BadgeCategory::COMMON },
                 { RewardType::StarTicket, "star_tiket_0", 1, "tickets_pack.png"_spr, "1 star tiket", 70, StreakData::BadgeCategory::COMMON },
                 { RewardType::StarTicket, "star_tiket_1", 10, "tickets_pack.png"_spr, "10 star tiket", 70, StreakData::BadgeCategory::COMMON },
                 { RewardType::StarTicket, "star_tiket_3", 3, "tickets_pack.png"_spr, "3 star tiket", 70, StreakData::BadgeCategory::COMMON },
                 { RewardType::StarTicket, "star_ticket_15", 15, "tickets_pack.png"_spr, "15 Tickets", 70, StreakData::BadgeCategory::COMMON },
                 { RewardType::StarTicket, "star_ticket_30", 30, "tickets_pack.png"_spr, "30 Tickets", 10, StreakData::BadgeCategory::SPECIAL },
                 { RewardType::StarTicket, "star_ticket_600", 600, "tickets_pack.png"_spr, "60 Tickets", 5, StreakData::BadgeCategory::EPIC },
-                { RewardType::Badge, "badge_cherry10", 1, "", "I don't want to get up", 3, StreakData::BadgeCategory::LEGENDARY }
+                { RewardType::Badge, "badge_cherry4", 1, "", "I don't want to get up", 3, StreakData::BadgeCategory::LEGENDARY }
             };
         }
     }
@@ -304,8 +304,6 @@ protected:
             for (int i = 1; i < gridSize - 1; ++i) slotPositions.push_back({ startPos, startPos + i * (m_slotSize + spacing) });
         }
 
-        if (g_streakData.gemRouletteState.size() < 7) g_streakData.gemRouletteState.resize(7, false);
-
         for (size_t i = 0; i < slotPositions.size(); ++i) {
             if (i >= m_roulettePrizes.size()) continue;
             auto& currentPrize = m_roulettePrizes[i];
@@ -319,24 +317,8 @@ protected:
             qualitySprite->setScale((m_slotSize - 4.f) / qualitySprite->getContentSize().width);
             slotContainer->addChild(qualitySprite, 1);
 
-            bool isClaimedGem = false;
-
-            if (m_currentMode == RouletteMode::Gem && i < g_streakData.gemRouletteState.size() && g_streakData.gemRouletteState[i]) {
-                isClaimedGem = true;
-            }
-
-            if (currentPrize.type == RewardType::Badge && g_streakData.isBadgeUnlocked(currentPrize.id)) {
-                if (m_currentMode == RouletteMode::Gem) {
-                    isClaimedGem = true;
-                    if (i < g_streakData.gemRouletteState.size()) g_streakData.gemRouletteState[i] = true;
-                }
-            }
-            else if (currentPrize.type == RewardType::Banner && g_streakData.isBannerUnlocked(currentPrize.id)) {
-                if (m_currentMode == RouletteMode::Gem) {
-                    isClaimedGem = true;
-                    if (i < g_streakData.gemRouletteState.size()) g_streakData.gemRouletteState[i] = true;
-                }
-            }
+            bool isClaimedGem = (m_currentMode == RouletteMode::Gem)
+                && g_streakData.claimedGemRoulettePrizes.count(currentPrize.id) > 0;
 
             if (currentPrize.type == RewardType::Badge) {
                 auto* badgeInfo = g_streakData.getBadgeInfo(currentPrize.id);
@@ -345,7 +327,7 @@ protected:
                     rewardIcon->setScale(0.15f);
                     slotContainer->addChild(rewardIcon, 2);
 
-                    bool showCheck = (m_currentMode == RouletteMode::Standard && g_streakData.isBadgeUnlocked(badgeInfo->badgeID)) || isClaimedGem;
+                    bool showCheck = (m_currentMode == RouletteMode::Standard && g_streakData.claimedStandardRoulettePrizes.count(badgeInfo->badgeID) > 0) || isClaimedGem;
                     if (showCheck) {
                         auto claimedIcon = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
                         claimedIcon->setScale(0.5f); claimedIcon->setPosition({ m_slotSize / 2 - 5, -m_slotSize / 2 + 5 }); claimedIcon->setTag(199);
@@ -367,7 +349,7 @@ protected:
                     rewardIcon->setScale(scale);
                     slotContainer->addChild(rewardIcon, 2);
 
-                    bool showCheck = (m_currentMode == RouletteMode::Standard && g_streakData.isBannerUnlocked(bannerInfo->bannerID)) || isClaimedGem;
+                    bool showCheck = (m_currentMode == RouletteMode::Standard && g_streakData.claimedStandardRoulettePrizes.count(bannerInfo->bannerID) > 0) || isClaimedGem;
                     if (showCheck) {
                         auto claimedIcon = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
                         claimedIcon->setScale(0.5f); claimedIcon->setPosition({ m_slotSize / 2 - 5, -m_slotSize / 2 + 5 }); claimedIcon->setTag(199);
@@ -447,11 +429,7 @@ protected:
 
             int claimedCount = 0;
             for (size_t i = 0; i < 7 && i < m_roulettePrizes.size(); i++) {
-                bool isTaken = false;
-                if (i < g_streakData.gemRouletteState.size() && g_streakData.gemRouletteState[i]) isTaken = true;
-                if (m_roulettePrizes[i].type == RewardType::Badge && g_streakData.isBadgeUnlocked(m_roulettePrizes[i].id)) isTaken = true;
-                if (m_roulettePrizes[i].type == RewardType::Banner && g_streakData.isBannerUnlocked(m_roulettePrizes[i].id)) isTaken = true;
-                if (isTaken) claimedCount++;
+                if (g_streakData.claimedGemRoulettePrizes.count(m_roulettePrizes[i].id) > 0) claimedCount++;
             }
 
             if (claimedCount >= 7) {
@@ -510,7 +488,15 @@ protected:
         auto winSize = m_mainLayer->getContentSize();
         g_streakData.load();
 
-        std::string currentHash = "";
+        // One-time reset for players whose claimedStandardRoulettePrizes were
+        // polluted while the client/server IDs were out of sync.
+        if (!Mod::get()->getSavedValue<bool>("standard_roulette_v2_reset_done", false)) {
+            g_streakData.claimedStandardRoulettePrizes.clear();
+            Mod::get()->setSavedValue<bool>("standard_roulette_v2_reset_done", true);
+            g_streakData.save();
+        }
+
+        std::string currentHash = "v2|";
         auto prizes = GemRouletteConfig::getPrizes();
         for (const auto& p : prizes) {
             currentHash += fmt::format("{}:{}:{};", p.id, p.quantity, (int)p.type);
@@ -520,7 +506,51 @@ protected:
             g_streakData.gemRouletteSpinCount = 0;
             g_streakData.gemRouletteState.assign(7, false);
             g_streakData.gemRouletteHash = currentHash;
+            g_streakData.claimedGemRoulettePrizes.clear();
             g_streakData.save();
+        }
+
+        // Saneamiento: si quedan IDs en el set que ya no estan en la lista actual
+        // de premios (porque el dev cambio un slot), eliminarlos para que no
+        // aparezcan ghost-claims.
+        {
+            std::set<std::string> validIds;
+            for (const auto& p : prizes) validIds.insert(p.id);
+            bool changed = false;
+            for (auto it = g_streakData.claimedGemRoulettePrizes.begin();
+                 it != g_streakData.claimedGemRoulettePrizes.end();) {
+                if (validIds.find(*it) == validIds.end()) {
+                    it = g_streakData.claimedGemRoulettePrizes.erase(it);
+                    changed = true;
+                } else {
+                    ++it;
+                }
+            }
+            if (changed) g_streakData.save();
+        }
+
+        // Saneamiento equivalente para la ruleta Standard. Necesitamos la lista
+        // standard, asi que la construimos llamando getPrizesForCurrentMode con
+        // el modo temporal Standard y restaurando.
+        {
+            auto prevMode = m_currentMode;
+            m_currentMode = RouletteMode::Standard;
+            getPrizesForCurrentMode();
+            std::set<std::string> validStdIds;
+            for (const auto& p : m_roulettePrizes) validStdIds.insert(p.id);
+            bool changedStd = false;
+            for (auto it = g_streakData.claimedStandardRoulettePrizes.begin();
+                 it != g_streakData.claimedStandardRoulettePrizes.end();) {
+                if (validStdIds.find(*it) == validStdIds.end()) {
+                    it = g_streakData.claimedStandardRoulettePrizes.erase(it);
+                    changedStd = true;
+                } else {
+                    ++it;
+                }
+            }
+            m_currentMode = prevMode;
+            m_roulettePrizes.clear();
+            if (changedStd) g_streakData.save();
         }
 
         m_gradientColors = {
@@ -734,11 +764,8 @@ protected:
         if (m_currentMode == RouletteMode::Gem) {
             for (int i = 0; i < (int)m_orderedSlots.size(); i++) {
                 bool isTaken = false;
-                if (i < (int)g_streakData.gemRouletteState.size() && g_streakData.gemRouletteState[i]) isTaken = true;
                 if (i < (int)m_roulettePrizes.size()) {
-                    auto& p = m_roulettePrizes[i];
-                    if (p.type == RewardType::Badge && g_streakData.isBadgeUnlocked(p.id)) isTaken = true;
-                    if (p.type == RewardType::Banner && g_streakData.isBannerUnlocked(p.id)) isTaken = true;
+                    isTaken = g_streakData.claimedGemRoulettePrizes.count(m_roulettePrizes[i].id) > 0;
                 }
                 if (!isTaken || i == winningIndex) animationPathIndices.push_back(i);
             }
@@ -800,14 +827,10 @@ protected:
             }
         }
         else {
-            if (g_streakData.gemRouletteState.size() < 7) g_streakData.gemRouletteState.resize(7, false);
             for (int i = 0; i < 7; i++) {
                 bool isTaken = false;
-                if (i < (int)g_streakData.gemRouletteState.size() && g_streakData.gemRouletteState[i]) isTaken = true;
                 if (i < (int)m_roulettePrizes.size()) {
-                    auto& p = m_roulettePrizes[i];
-                    if (p.type == RewardType::Badge && g_streakData.isBadgeUnlocked(p.id)) isTaken = true;
-                    if (p.type == RewardType::Banner && g_streakData.isBannerUnlocked(p.id)) isTaken = true;
+                    isTaken = g_streakData.claimedGemRoulettePrizes.count(m_roulettePrizes[i].id) > 0;
                 }
                 if (!isTaken) logicalAvailableIndices.push_back(i);
             }
@@ -1001,6 +1024,19 @@ protected:
     void onMultiSpinEnd() {
         m_isSpinning = false;
         if (m_currentMode == RouletteMode::Standard) g_streakData.lastRouletteIndex = m_currentSelectorIndex;
+
+        // Marca cada premio ganado (por ID) en el set correspondiente.
+        for (const auto& r : m_multiSpinResults) {
+            if (r.id.empty()) continue;
+            if (r.type != RewardType::Badge && r.type != RewardType::Banner) continue;
+            if (m_currentMode == RouletteMode::Gem) {
+                g_streakData.claimedGemRoulettePrizes.insert(r.id);
+            }
+            else {
+                g_streakData.claimedStandardRoulettePrizes.insert(r.id);
+            }
+        }
+
         updatePlayerDataInFirebase();
         updateAllCheckmarks();
         m_pendingTotalTickets = 0;
@@ -1041,6 +1077,8 @@ protected:
 
         if (m_currentMode == RouletteMode::Gem) {
             m_lastGemIndex = m_currentSelectorIndex;
+            // Marcar el premio (por ID) como obtenido en la ruleta de gemas.
+            if (!prize.id.empty()) g_streakData.claimedGemRoulettePrizes.insert(prize.id);
             if (prize.type == RewardType::Badge) {
                 auto* bi = g_streakData.getBadgeInfo(prize.id);
                 if (bi) {
@@ -1080,6 +1118,10 @@ protected:
         }
         else {
             g_streakData.lastRouletteIndex = m_currentSelectorIndex;
+            // Marcar el premio como obtenido en la ruleta estandar (por ID).
+            if (!prize.id.empty() && (prize.type == RewardType::Badge || prize.type == RewardType::Banner)) {
+                g_streakData.claimedStandardRoulettePrizes.insert(prize.id);
+            }
 
             if (prize.type == RewardType::Badge) {
                 auto* bi = g_streakData.getBadgeInfo(prize.id);
@@ -1149,8 +1191,9 @@ protected:
 
         for (size_t i = 0; i < m_orderedSlots.size(); ++i) {
             if (i >= m_roulettePrizes.size()) continue;
-            if (m_roulettePrizes[i].type != RewardType::Badge) continue;
-            if (g_streakData.isBadgeUnlocked(m_roulettePrizes[i].id) && !m_orderedSlots[i]->getChildByTag(199)) {
+            const auto& p = m_roulettePrizes[i];
+            if (p.type != RewardType::Badge && p.type != RewardType::Banner) continue;
+            if (g_streakData.claimedStandardRoulettePrizes.count(p.id) > 0 && !m_orderedSlots[i]->getChildByTag(199)) {
                 auto cm = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
                 cm->setScale(0.5f);
                 cm->setPosition({ m_slotSize / 2 - 5, -m_slotSize / 2 + 5 });
@@ -1215,12 +1258,7 @@ protected:
             std::map<StreakData::BadgeCategory, int> weightsByCategory;
 
             for (size_t i = 0; i < m_roulettePrizes.size(); i++) {
-                bool isTaken = false;
-
-                if (i < g_streakData.gemRouletteState.size() && g_streakData.gemRouletteState[i]) isTaken = true;
-
-                if (m_roulettePrizes[i].type == RewardType::Badge && g_streakData.isBadgeUnlocked(m_roulettePrizes[i].id)) isTaken = true;
-                if (m_roulettePrizes[i].type == RewardType::Banner && g_streakData.isBannerUnlocked(m_roulettePrizes[i].id)) isTaken = true;
+                bool isTaken = g_streakData.claimedGemRoulettePrizes.count(m_roulettePrizes[i].id) > 0;
 
                 if (!isTaken) {
                     totalWeight += m_roulettePrizes[i].probabilityWeight;

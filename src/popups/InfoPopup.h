@@ -30,6 +30,7 @@
 #include "../utils/RoundedProgressBar.h"
 #include "DiscordGoalPopup.h"
 #include "RegisterPopup.h"
+#include "ShieldsPopup.h"
 
 class InfoPopup : public Popup {
 protected:
@@ -40,6 +41,7 @@ protected:
     CCLabelBMFont* m_xpLabel = nullptr;
     CCLabelBMFont* m_xpProgressLabel = nullptr;
     CCLabelBMFont* m_gemsLabel = nullptr;
+    CCLabelBMFont* m_shieldsLabel = nullptr;
 
     std::vector<CCMenu*> m_bottomPages;
     int m_currentPage = 0;
@@ -146,6 +148,12 @@ protected:
 
  
 
+    void onShieldsClick(CCObject*) {
+        if (auto popup = ShieldsPopup::create([this]() { this->updateDisplay(); })) {
+            popup->show();
+        }
+    }
+
     void onRankClick(CCObject* sender) {
         int rank = sender->getTag();
         std::string title = "Rank Info";
@@ -219,17 +227,25 @@ protected:
         this->setTitle("Streak");
 
       
-        auto gemSprite = CCSprite::create("gem.png"_spr);
-        if (gemSprite) {
-            gemSprite->setScale(0.2f);
-            gemSprite->setPosition({ 25.0f, winSize.height - 25.0f });
-            m_mainLayer->addChild(gemSprite, 10);
+        auto heartSpr = CCSprite::create("heart.png"_spr);
+        if (heartSpr) {
+            heartSpr->setScale(0.18f);
+            auto shieldsBtn = CCMenuItemSpriteExtra::create(
+                heartSpr, this, menu_selector(InfoPopup::onShieldsClick)
+            );
+            shieldsBtn->setPosition({ 25.0f, winSize.height - 25.0f });
 
-            m_gemsLabel = CCLabelBMFont::create("0", "goldFont.fnt");
-            m_gemsLabel->setScale(0.5f);
-            m_gemsLabel->setAnchorPoint({ 0.0f, 0.5f });
-            m_gemsLabel->setPosition({ 45.0f, winSize.height - 25.0f });
-            m_mainLayer->addChild(m_gemsLabel, 10);
+            auto shieldsMenu = CCMenu::create();
+            shieldsMenu->setPosition({ 0, 0 });
+            shieldsMenu->addChild(shieldsBtn);
+            m_mainLayer->addChild(shieldsMenu, 10);
+
+            m_shieldsLabel = CCLabelBMFont::create("0", "bigFont.fnt");
+            m_shieldsLabel->setScale(0.5f);
+            m_shieldsLabel->setAnchorPoint({ 0.0f, 0.5f });
+            m_shieldsLabel->setColor({ 255, 130, 130 });
+            m_shieldsLabel->setPosition({ 45.0f, winSize.height - 25.0f });
+            m_mainLayer->addChild(m_shieldsLabel, 10);
         }
 
         float contentCenterY = winSize.height / 2 + 30.0f;
@@ -656,8 +672,8 @@ protected:
 
         m_barText->setString(fmt::format("{}/{}", pointsToday, requiredPoints).c_str());
 
-        if (m_gemsLabel) {
-            m_gemsLabel->setString(std::to_string(g_streakData.gems).c_str());
+        if (m_shieldsLabel) {
+            m_shieldsLabel->setString(std::to_string(g_streakData.streakShields).c_str());
         }
 
         if (m_xpBar && m_xpLabel && m_xpProgressLabel) {
@@ -695,6 +711,7 @@ protected:
         myData.totalSP = g_streakData.totalStreakPoints;
         myData.superStars = g_streakData.superStars;
         myData.starTickets = g_streakData.starTickets;
+        myData.gems = g_streakData.gems;
         myData.bannerID = g_streakData.equippedBanner;
         myData.badgeID = g_streakData.equippedBadge;
         myData.streakID = g_streakData.streakID;

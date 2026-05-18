@@ -92,6 +92,7 @@ class $modify(MyProfilePage, ProfilePage) {
         myData.currentXP = g_streakData.currentXP;
         myData.superStars = g_streakData.superStars;
         myData.starTickets = g_streakData.starTickets;
+        myData.gems = g_streakData.gems;
         myData.bannerID = g_streakData.equippedBanner;
         myData.streakID = g_streakData.streakID;
         myData.globalRank = g_streakData.globalRank;

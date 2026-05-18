@@ -180,6 +180,21 @@ void updatePlayerDataInFirebase() {
     missions_obj.set("pm13", g_streakData.pointMission13Claimed);
     playerData.set("missions", missions_obj);
 
+    matjson::Value weekly_missions_obj = matjson::Value::object();
+    weekly_missions_obj.set("wm1",  g_streakData.weeklyMission1Claimed);
+    weekly_missions_obj.set("wm2",  g_streakData.weeklyMission2Claimed);
+    weekly_missions_obj.set("wm3",  g_streakData.weeklyMission3Claimed);
+    weekly_missions_obj.set("wm4",  g_streakData.weeklyMission4Claimed);
+    weekly_missions_obj.set("wm5",  g_streakData.weeklyMission5Claimed);
+    weekly_missions_obj.set("wm6",  g_streakData.weeklyMission6Claimed);
+    weekly_missions_obj.set("wm7",  g_streakData.weeklyMission7Claimed);
+    weekly_missions_obj.set("wm8",  g_streakData.weeklyMission8Claimed);
+    weekly_missions_obj.set("wm9",  g_streakData.weeklyMission9Claimed);
+    weekly_missions_obj.set("wm10", g_streakData.weeklyMission10Claimed);
+    playerData.set("weeklyMissions", weekly_missions_obj);
+
+    playerData.set("shields_enabled", g_streakData.shieldsEnabled);
+
     bool hasMythicEquipped = false;
     if (!g_streakData.equippedBadge.empty()) {
         if (auto* badgeInfo = g_streakData.getBadgeInfo(g_streakData.equippedBadge)) {
@@ -193,6 +208,27 @@ void updatePlayerDataInFirebase() {
         completed_levels_obj.set(std::to_string(levelID), true);
     }
     playerData.set("completedLevelMissions", completed_levels_obj);
+
+    std::vector<std::string> gemRouletteClaimed;
+    for (const auto& id : g_streakData.claimedGemRoulettePrizes) gemRouletteClaimed.push_back(id);
+    playerData.set("claimed_gem_roulette_prizes", gemRouletteClaimed);
+
+    std::vector<std::string> standardRouletteClaimed;
+    for (const auto& id : g_streakData.claimedStandardRoulettePrizes) standardRouletteClaimed.push_back(id);
+    playerData.set("claimed_standard_roulette_prizes", standardRouletteClaimed);
+
+    std::vector<matjson::Value> pending_rewards_vec;
+    for (const auto& p : g_streakData.pendingLevelRewards) {
+        matjson::Value item = matjson::Value::object();
+        item.set("level", p.level);
+        item.set("stars", p.stars);
+        item.set("tickets", p.tickets);
+        item.set("gems", p.gems);
+        item.set("shields", p.shields);
+        item.set("chestRarity", p.chestRarity);
+        pending_rewards_vec.push_back(item);
+    }
+    playerData.set("pending_level_rewards", pending_rewards_vec);
 
     std::vector<int> goalsArray;
     for (int index : g_streakData.claimedStreakGoals) {
@@ -274,6 +310,12 @@ void completeLevelInFirebase(int stars) {
                     g_streakData.gems = data["gems"].as<int>().unwrapOr(g_streakData.gems);
                 if (data.contains("streakPointsToday"))
                     g_streakData.streakPointsToday = data["streakPointsToday"].as<int>().unwrapOr(g_streakData.streakPointsToday);
+                if (data.contains("streakPointsThisWeek"))
+                    g_streakData.streakPointsThisWeek = data["streakPointsThisWeek"].as<int>().unwrapOr(g_streakData.streakPointsThisWeek);
+                if (data.contains("lastWeek"))
+                    g_streakData.lastWeek = data["lastWeek"].as<std::string>().unwrapOr(g_streakData.lastWeek);
+                if (data.contains("streak_shields"))
+                    g_streakData.streakShields = data["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields);
                 if (data.contains("total_streak_points"))
                     g_streakData.totalStreakPoints = data["total_streak_points"].as<int>().unwrapOr(g_streakData.totalStreakPoints);
                 if (data.contains("lastDay"))
@@ -291,20 +333,10 @@ void completeLevelInFirebase(int stars) {
 
                 if (data.contains("newRewards")) {
                     auto rewards = data["newRewards"];
-                    int starsGiven = rewards["stars"].as<int>().unwrapOr(0);
-                    int ticketsGiven = rewards["tickets"].as<int>().unwrapOr(0);
                     int levelsGained = rewards["levels"].as<int>().unwrapOr(0);
-
                     if (levelsGained > 0) {
-                        FMODAudioEngine::sharedEngine()->playEffect("magic_explode_01.ogg");
-                        Notification::create(
-                            fmt::format("LEVEL UP!\nWelcome to Level {}", g_streakData.currentLevel),
-                            NotificationIcon::Success
-                        )->show();
-                        if (starsGiven > 0) RewardNotification::show("super_star.png"_spr,
-                            g_streakData.superStars - starsGiven, starsGiven);
-                        if (ticketsGiven > 0) RewardNotification::show("star_tiket.png"_spr,
-                            g_streakData.starTickets - ticketsGiven, ticketsGiven);
+                        int newLevel = g_streakData.currentLevel;
+                        g_streakData.handleServerLevelUp(newLevel - levelsGained, newLevel);
                     }
                 }
 
@@ -326,6 +358,8 @@ void completeLevelInFirebase(int stars) {
 }
  
 static void applyServerBalances(const matjson::Value& data) {
+    int previousLevel = g_streakData.currentLevel;
+
     if (data.contains("balances")) {
         auto bal = data["balances"];
         g_streakData.superStars = bal["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
@@ -337,6 +371,8 @@ static void applyServerBalances(const matjson::Value& data) {
     }
     if (data.contains("totalSpins"))
         g_streakData.totalSpins = data["totalSpins"].as<int>().unwrapOr(g_streakData.totalSpins);
+
+    g_streakData.handleServerLevelUp(previousLevel, g_streakData.currentLevel);
 }
  
 static void applyServerUnlocks(const matjson::Value& data) {
@@ -462,6 +498,16 @@ void spinGemRouletteOnServer(std::function<void(bool, matjson::Value)> callback)
                 if (data.contains("gemRouletteSpinCount")) {
                     g_streakData.gemRouletteSpinCount =
                         data["gemRouletteSpinCount"].as<int>().unwrapOr(g_streakData.gemRouletteSpinCount);
+                }
+                if (data.contains("claimed_gem_roulette_prizes")) {
+                    auto arr = data["claimed_gem_roulette_prizes"].as<std::vector<matjson::Value>>();
+                    if (arr.isOk()) {
+                        g_streakData.claimedGemRoulettePrizes.clear();
+                        for (const auto& item : arr.unwrap()) {
+                            std::string s = item.as<std::string>().unwrapOr(std::string(""));
+                            if (!s.empty()) g_streakData.claimedGemRoulettePrizes.insert(s);
+                        }
+                    }
                 }
 
                 log::info("Gem roulette spin OK. Gems: {}, SpinCount: {}",
