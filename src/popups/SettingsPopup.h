@@ -2,11 +2,14 @@
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
 #include <Geode/utils/cocos.hpp>
-#include <Geode/utils/web.hpp> 
+#include <Geode/utils/web.hpp>
+#include <Geode/utils/file.hpp>
+#include <Geode/utils/async.hpp>
 #include "../StreakData.h"
-#include "HistoryPopup.h" 
+#include "HistoryPopup.h"
 #include <Geode/ui/TextInput.hpp>
 #include "RegisterPopup.h"
+#include <filesystem>
 
 using namespace geode::prelude;
 
@@ -149,6 +152,8 @@ protected:
     std::vector<std::string> m_listOptions = { "10", "50" };
     std::vector<std::string> m_pauseModes = { "On", "Off" };
     std::vector<std::string> m_animModes = { "None", "Bar", "Label" };
+
+    CCLabelBMFont* m_bgStatusLabel = nullptr;
 
     CCNode* createBaseCell(float height = 40.f) {
         auto cell = CCNode::create();
@@ -347,6 +352,123 @@ protected:
         int next = (current + 1) % m_animModes.size();
         Mod::get()->setSavedValue<int>(keyStr->getCString(), next);
         label->setString(m_animModes[next].c_str());
+    }
+
+    void addBgImageSetting(const std::string& name, const std::string& infoText) {
+        auto cell = createBaseCell();
+        auto menu = CCMenu::create();
+        menu->setPosition(0, 0);
+        cell->addChild(menu);
+
+        auto nameLabel = CCLabelBMFont::create(name.c_str(), "goldFont.fnt");
+        nameLabel->setAnchorPoint({ 0.0f, 0.5f });
+        nameLabel->setPosition({ 15.f, 20.f });
+        nameLabel->setScale(0.5f);
+        cell->addChild(nameLabel);
+
+        addInfoButton(cell, infoText, 15.f + nameLabel->getScaledContentSize().width);
+
+        std::string savedPath = Mod::get()->getSavedValue<std::string>("streak_layer_bg_path", "");
+        bool hasCustom = !savedPath.empty() && std::filesystem::exists(std::filesystem::path(savedPath));
+
+        m_bgStatusLabel = CCLabelBMFont::create(hasCustom ? "Custom" : "Default", "bigFont.fnt");
+        m_bgStatusLabel->setScale(0.35f);
+        m_bgStatusLabel->setColor(hasCustom ? ccColor3B{ 100, 255, 100 } : ccColor3B{ 200, 200, 200 });
+        m_bgStatusLabel->setAnchorPoint({ 1.0f, 0.5f });
+        m_bgStatusLabel->setPosition({ m_listWidth - 78.f, 20.f });
+        cell->addChild(m_bgStatusLabel);
+
+        auto pickSpr = ButtonSprite::create("Pick", 0, 0, "goldFont.fnt", "GJ_button_01.png", 0, 0.38f);
+        auto pickBtn = CCMenuItemSpriteExtra::create(pickSpr, this, menu_selector(SettingsPopup::onPickBackgroundImage));
+        pickBtn->setPosition({ m_listWidth - 50.f, 20.f });
+        menu->addChild(pickBtn);
+
+        auto resetSpr = CCSprite::createWithSpriteFrameName("GJ_deleteBtn_001.png");
+        if (!resetSpr) resetSpr = CCSprite::createWithSpriteFrameName("GJ_updateBtn_001.png");
+        if (resetSpr) resetSpr->setScale(0.45f);
+        auto resetBtn = CCMenuItemSpriteExtra::create(resetSpr, this, menu_selector(SettingsPopup::onResetBackgroundImage));
+        resetBtn->setPosition({ m_listWidth - 18.f, 20.f });
+        menu->addChild(resetBtn);
+
+        m_scrollLayer->m_contentLayer->addChild(cell);
+    }
+
+    void updateBgStatusLabel() {
+        if (!m_bgStatusLabel) return;
+        std::string savedPath = Mod::get()->getSavedValue<std::string>("streak_layer_bg_path", "");
+        bool hasCustom = !savedPath.empty() && std::filesystem::exists(std::filesystem::path(savedPath));
+        m_bgStatusLabel->setString(hasCustom ? "Custom" : "Default");
+        m_bgStatusLabel->setColor(hasCustom ? ccColor3B{ 100, 255, 100 } : ccColor3B{ 200, 200, 200 });
+    }
+
+    void onPickBackgroundImage(CCObject*) {
+        geode::utils::file::FilePickOptions opts;
+        opts.filters.push_back(geode::utils::file::FilePickOptions::Filter{
+            "Images",
+            { "*.png", "*.jpg", "*.jpeg", "*.bmp" }
+        });
+
+        geode::async::spawn(
+            geode::utils::file::pick(geode::utils::file::PickMode::OpenFile, opts),
+            [this](geode::Result<std::optional<std::filesystem::path>> result) {
+                if (!result.isOk()) {
+                    FLAlertLayer::create("Background", result.unwrapErr().c_str(), "OK")->show();
+                    return;
+                }
+                auto opt = result.unwrap();
+                if (!opt.has_value()) return; // user cancelled
+
+                std::filesystem::path src = opt.value();
+                if (!std::filesystem::exists(src)) {
+                    FLAlertLayer::create("Background", "Selected file does not exist.", "OK")->show();
+                    return;
+                }
+
+                std::error_code ec;
+                auto saveDir = Mod::get()->getSaveDir();
+                std::filesystem::create_directories(saveDir, ec);
+
+                std::string ext = src.extension().string();
+                if (ext.empty()) ext = ".png";
+                auto dest = saveDir / ("custom_bg" + ext);
+
+                // Remove previous bg files with other extensions to avoid leftovers
+                for (const auto& e : { ".png", ".jpg", ".jpeg", ".bmp" }) {
+                    auto p = saveDir / (std::string("custom_bg") + e);
+                    if (p != dest) std::filesystem::remove(p, ec);
+                }
+
+                std::filesystem::copy_file(src, dest, std::filesystem::copy_options::overwrite_existing, ec);
+                if (ec) {
+                    FLAlertLayer::create("Background", fmt::format("Could not copy file: {}", ec.message()).c_str(), "OK")->show();
+                    return;
+                }
+
+                Mod::get()->setSavedValue<std::string>("streak_layer_bg_path", dest.string());
+
+                // Drop any cached texture for this path so the next layer open reads the new file
+                if (auto cache = CCTextureCache::sharedTextureCache()) {
+                    cache->removeTextureForKey(dest.string().c_str());
+                }
+
+                this->updateBgStatusLabel();
+                Notification::create("Background set", NotificationIcon::Success)->show();
+            }
+        );
+    }
+
+    void onResetBackgroundImage(CCObject*) {
+        std::string savedPath = Mod::get()->getSavedValue<std::string>("streak_layer_bg_path", "");
+        if (!savedPath.empty()) {
+            std::error_code ec;
+            std::filesystem::remove(std::filesystem::path(savedPath), ec);
+            if (auto cache = CCTextureCache::sharedTextureCache()) {
+                cache->removeTextureForKey(savedPath.c_str());
+            }
+        }
+        Mod::get()->setSavedValue<std::string>("streak_layer_bg_path", std::string(""));
+        this->updateBgStatusLabel();
+        Notification::create("Background reset", NotificationIcon::Success)->show();
     }
 
     void addToggleSetting(const std::string& name, const std::string& saveKey, const std::string& infoText) {
@@ -684,6 +806,7 @@ protected:
         addImageButtonSetting("History", "historial_btn.png"_spr, menu_selector(SettingsPopup::onOpenHistory), "Check your daily points history");
         addImageButtonSetting("Need Help?", "discord_btn.png"_spr, menu_selector(SettingsPopup::onJoinDiscord), "Join our Discord Server!");
         addArrowSetting("Expand Top List", "leaderboard_capacity_idx", "Show 10 or 50 players");
+        addBgImageSetting("Background", "Pick an image from your device to use as the Streak layer background.");
         addPauseModeSetting("Streak counter", "pause_hud_mode", "Streak counter in the pause menu");
         addAnimModeSetting("End Animation", "end_level_anim_mode", "Choose the streak animation at the end of a level.");
         addToggleSetting("Comments Colors", "enable_rainbow_effect", "Toggle the multicolor effect for Mythic badges.");

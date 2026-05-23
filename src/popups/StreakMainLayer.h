@@ -31,6 +31,7 @@
 #include "DiscordGoalPopup.h"
 #include "RegisterPopup.h"
 #include "ShieldsPopup.h"
+#include "UpdatePopup.h"
 #include "../NameModifiers.h"
 
 class StreakMainLayer : public cocos2d::CCLayer {
@@ -278,12 +279,37 @@ protected:
         m_size = CCDirector::sharedDirector()->getWinSize();
         this->setKeypadEnabled(true);
 
-        auto bg = CCSprite::create("game_bg_01_001.png");
+        CCSprite* bg = nullptr;
+        bool tintBg = true;
+
+        std::string customBg = Mod::get()->getSavedValue<std::string>("streak_layer_bg_path", "");
+        if (!customBg.empty()) {
+            std::error_code ec;
+            auto path = std::filesystem::path(customBg);
+            if (std::filesystem::exists(path, ec)) {
+                if (auto cache = CCTextureCache::sharedTextureCache()) {
+                    auto tex = cache->addImage(customBg.c_str(), false);
+                    if (tex) {
+                        bg = CCSprite::createWithTexture(tex);
+                        if (bg) tintBg = false;
+                    }
+                }
+            }
+        }
+
+        if (!bg) {
+            bg = CCSprite::create("game_bg_01_001.png");
+            tintBg = true;
+        }
+
         if (bg) {
             bg->setPosition(m_size / 2);
-            bg->setScaleX(m_size.width / bg->getContentSize().width);
-            bg->setScaleY(m_size.height / bg->getContentSize().height);
-            bg->setColor({ 40, 40, 60 });
+            auto bgSize = bg->getContentSize();
+            if (bgSize.width > 0 && bgSize.height > 0) {
+                bg->setScaleX(m_size.width / bgSize.width);
+                bg->setScaleY(m_size.height / bgSize.height);
+            }
+            if (tintBg) bg->setColor({ 40, 40, 60 });
             this->addChild(bg, -10);
         }
 
@@ -386,6 +412,16 @@ protected:
         NameModifiers::applyAnimation(nameLabel, g_streakData.equippedNameAnimation);
         NameModifiers::applyEffect(nameLabel, g_streakData.equippedNameEffect);
 
+        // invisible hit area over the whole profile box → opens the profile card
+        auto profileHit = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
+        profileHit->setContentSize({ profileBgW, profileBgH });
+        profileHit->setOpacity(0);
+        auto profileBtn = CCMenuItemSpriteExtra::create(
+            profileHit, this, menu_selector(StreakMainLayer::onOpenAccount)
+        );
+        profileBtn->setPosition({ profileBgX, rowY });
+        topMenu->addChild(profileBtn);
+
         m_countersStartX = profileBgX + profileBgW / 2 + 6.f;
         m_countersY = rowY;
 
@@ -465,13 +501,14 @@ protected:
             cornerMenu->addChild(rankBtn);
         }
 
-        auto accountIcon = CCSprite::create("account_btn.png"_spr);
-        accountIcon->setScale(0.7f);
-        auto accountBtn = CCMenuItemSpriteExtra::create(
-            accountIcon, this, menu_selector(StreakMainLayer::onOpenAccount)
+        auto downloadIcon = CCSprite::create("download_btn.png"_spr);
+        if (!downloadIcon) downloadIcon = ButtonSprite::create("Update");
+        else downloadIcon->setScale(0.75f);
+        auto downloadBtn = CCMenuItemSpriteExtra::create(
+            downloadIcon, this, menu_selector(StreakMainLayer::onOpenUpdate)
         );
-        accountBtn->setPosition({ m_size.width - 60.f, m_size.height - 22.f });
-        cornerMenu->addChild(accountBtn);
+        downloadBtn->setPosition({ m_size.width - 60.f, m_size.height - 22.f });
+        cornerMenu->addChild(downloadBtn);
 
         auto settingsIcon = CCSprite::createWithSpriteFrameName("accountBtn_settings_001.png");
         settingsIcon->setScale(0.75f);
@@ -904,6 +941,7 @@ protected:
     void onOpenDailyShop(CCObject*)  { DailyShopPopup::create()->show(); }
     void onOpenAchievements(CCObject*) { AchievementsPopup::create()->show(); }
     void onOpenTrending(CCObject*)   { TrendLevelsPopup::create()->show(); }
+    void onOpenUpdate(CCObject*)     { UpdatePopup::create()->show(); }
 
     void onOpenRoulette(CCObject*) {
         if (g_streakData.currentStreak < 1) {
