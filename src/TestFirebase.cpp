@@ -191,6 +191,7 @@ void updatePlayerDataInFirebase() {
     weekly_missions_obj.set("wm8",  g_streakData.weeklyMission8Claimed);
     weekly_missions_obj.set("wm9",  g_streakData.weeklyMission9Claimed);
     weekly_missions_obj.set("wm10", g_streakData.weeklyMission10Claimed);
+    weekly_missions_obj.set("wm11", g_streakData.weeklyMission11Claimed);
     playerData.set("weeklyMissions", weekly_missions_obj);
 
     playerData.set("shields_enabled", g_streakData.shieldsEnabled);

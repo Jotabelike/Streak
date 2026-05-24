@@ -88,6 +88,7 @@ void StreakData::resetToDefault() {
     weeklyMission8Claimed = false;
     weeklyMission9Claimed = false;
     weeklyMission10Claimed = false;
+    weeklyMission11Claimed = false;
 
 
     if (unlockedBadges.size() != badges.size()) {
@@ -352,6 +353,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     weeklyMission8Claimed = false;
     weeklyMission9Claimed = false;
     weeklyMission10Claimed = false;
+    weeklyMission11Claimed = false;
 
     if (data.contains("weeklyMissions")) {
         auto wmResult = data["weeklyMissions"].as<std::map<std::string, matjson::Value>>();
@@ -367,6 +369,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
             if (wm.count("wm8"))  weeklyMission8Claimed  = wm.at("wm8").as<bool>().unwrapOr(false);
             if (wm.count("wm9"))  weeklyMission9Claimed  = wm.at("wm9").as<bool>().unwrapOr(false);
             if (wm.count("wm10")) weeklyMission10Claimed = wm.at("wm10").as<bool>().unwrapOr(false);
+            if (wm.count("wm11")) weeklyMission11Claimed = wm.at("wm11").as<bool>().unwrapOr(false);
         }
     }
 
@@ -602,6 +605,7 @@ void StreakData::dailyUpdate() {
         weeklyMission8Claimed = false;
         weeklyMission9Claimed = false;
         weeklyMission10Claimed = false;
+        weeklyMission11Claimed = false;
     };
 
     if (lastDay.empty()) {
@@ -997,7 +1001,7 @@ std::vector<StreakData::ConsumableItem> StreakData::getDailyConsumableSelection(
 
     std::mt19937 gen(seed + 77777);
 
-    // ---- All consumable options by rarity ----
+    //All consumable options by rarity 
     std::vector<ConsumableItem> pool = {
         // Common Star Tickets
         { true, 100,  5, BadgeCategory::COMMON },
@@ -1188,8 +1192,6 @@ bool StreakData::claimPendingLevelReward(int level) {
 void StreakData::handleServerLevelUp(int previousLevel, int newLevel) {
     if (newLevel <= previousLevel) return;
     int levelsGained = newLevel - previousLevel;
-    // The server queued the pending rewards itself (and did NOT apply them to
-    // balances). We just mirror locally and show the notification.
     for (int lvl = previousLevel + 1; lvl <= newLevel; lvl++) {
         queuePendingLevelReward(lvl);
     }
@@ -1229,7 +1231,7 @@ StreakData::LevelRewards StreakData::getRewardsForLevel(int level) {
     rewards.shields = 0;
     rewards.chestRarity = 0;
 
-    // Niveles multiplos de 10: solo cofre.
+    
     if (level > 0 && level % 10 == 0) {
         rewards.chestRarity = (level == 80 || level == 90 || level == 100) ? 5 : 4;
         return rewards;

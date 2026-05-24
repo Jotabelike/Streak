@@ -21,7 +21,7 @@ protected:
     CCMenuItemToggler* m_weeklyTabBtn = nullptr;
     CCLabelBMFont* m_timerLabel = nullptr;
 
-    // Both timers tick on the UTC-5 boundary (same offset the server uses).
+    
     static long long secondsUntilDailyReset() {
         time_t t = time(nullptr) - 5 * 3600;
         tm* now = gmtime(&t);
@@ -36,8 +36,8 @@ protected:
         time_t t = time(nullptr) - 5 * 3600;
         tm* now = gmtime(&t);
         if (!now) return 0;
-        int weekday = now->tm_wday; // 0 = Sunday
-        int daysToMonday = (weekday == 0) ? 1 : (8 - weekday); // 1..7
+        int weekday = now->tm_wday;  
+        int daysToMonday = (weekday == 0) ? 1 : (8 - weekday);  
         long long passed = (long long)now->tm_hour * 3600 + (long long)now->tm_min * 60 + now->tm_sec;
         long long remaining = (long long)daysToMonday * 86400 - passed;
         if (remaining < 0) remaining = 0;
@@ -97,6 +97,7 @@ protected:
         case 7: return { 1700, 4 };
         case 8: return { 1900, 5 };
         case 9: return { 2100, 5 };
+        case 10: return { 3000, 6 };
         }
         return { 0, 1 };
     }
@@ -150,6 +151,7 @@ protected:
         case 7: return g_streakData.weeklyMission8Claimed;
         case 8: return g_streakData.weeklyMission9Claimed;
         case 9: return g_streakData.weeklyMission10Claimed;
+        case 10: return g_streakData.weeklyMission11Claimed;
         }
         return true;
     }
@@ -166,6 +168,7 @@ protected:
         case 7: g_streakData.weeklyMission8Claimed = true; break;
         case 8: g_streakData.weeklyMission9Claimed = true; break;
         case 9: g_streakData.weeklyMission10Claimed = true; break;
+        case 10: g_streakData.weeklyMission11Claimed = true; break;
         }
     }
 
@@ -179,7 +182,7 @@ protected:
 
     std::vector<int> getAvailableWeeklyMissionIDs() {
         std::vector<int> ids;
-        for (int i = 0; i <= 9; ++i) {
+        for (int i = 0; i <= 10; ++i) {
             if (!isWeeklyMissionClaimed(i)) ids.push_back(i);
         }
         return ids;
@@ -192,6 +195,7 @@ protected:
         case 3: return { 245, 215, 110 };
         case 4: return { 255, 175, 80 };
         case 5: return { 255, 110, 110 };
+        case 6: return { 255, 80, 140 };
         }
         return { 255, 255, 255 };
     }
@@ -203,6 +207,7 @@ protected:
         case 3: outA = { 255, 220, 90 };  outB = { 230, 170, 40 }; break;
         case 4: outA = { 255, 180, 80 };  outB = { 220, 130, 30 }; break;
         case 5: outA = { 255, 130, 130 }; outB = { 220, 70, 70 };  break;
+        case 6: outA = { 255, 100, 160 }; outB = { 220, 40, 100 }; break;
         default: outA = { 255, 255, 255 }; outB = { 200, 200, 200 }; break;
         }
     }
@@ -481,7 +486,8 @@ protected:
                 "Resets every Monday.\n\n"
                 "<cy>300 - 500 points</c>  -  <cy>3-Star Chest</c>\n"
                 "<co>700 - 1700 points</c>  -  <co>4-Star Chest</c>\n"
-                "<cr>1900 - 2100 points</c>  -  <cr>5-Star Chest</c>";
+                "<cr>1900 - 2100 points</c>  -  <cr>5-Star Chest</c>\n"
+                "<cp>3000 points</c>  -  <cp>6-Star Chest</c>";
         } else {
             title = "Daily Missions";
             body =

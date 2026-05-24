@@ -1,6 +1,7 @@
 #pragma once
 #include "StreakCommon.h"
 #include "../StatusSpinner.h"
+#include "../utils/RoundedProgressBar.h"
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/MDTextArea.hpp>
 #include <Geode/utils/web.hpp>
@@ -27,11 +28,17 @@ protected:
 
     VersionInfo m_currentVer = Mod::get()->getVersion();
     VersionInfo m_latestVer  = Mod::get()->getVersion();
+    std::string m_latestVerStr;
     std::string m_downloadUrl;
     std::string m_changelog;
 
+    RoundedProgressBar* m_progressBar = nullptr;
+    CCLabelBMFont*      m_progressLabel = nullptr;
+
     async::TaskHolder<web::WebResponse> m_versionTask;
     async::TaskHolder<web::WebResponse> m_downloadTask;
+
+    static constexpr const char* PENDING_UPDATE_KEY = "pending_update_version";
 
     bool init() override {
         if (!Popup::init(330.f, 240.f, "geode.loader/GE_square03.png")) {
@@ -88,6 +95,7 @@ protected:
 
     void showUpToDateState() {
         m_state = State::UpToDate;
+        Mod::get()->setSavedValue<std::string>(PENDING_UPDATE_KEY, "");
         clearContent();
         auto sz = contentSize();
         float cx = sz.width / 2.f;
@@ -166,20 +174,42 @@ protected:
 
     void showDownloadingState() {
         m_state = State::Downloading;
+        m_progressBar = nullptr;
+        m_progressLabel = nullptr;
         clearContent();
         auto sz = contentSize();
         float cx = sz.width / 2.f;
         float cy = sz.height / 2.f;
 
-        if (auto sp = addStatusSpinner(cx, cy + 15.f)) {
-            sp->setLoading("Downloading update...");
-        }
+        auto label = CCLabelBMFont::create("Downloading update...", "bigFont.fnt");
+        label->setScale(0.6f);
+        label->setPosition({ cx, cy + 30.f });
+        m_content->addChild(label);
+
+        float barW = 220.f;
+        float barH = 20.f;
+        m_progressBar = RoundedProgressBar::create(barW, barH);
+        m_progressBar->setPosition({ cx, cy });
+        m_progressBar->setGradientColors({ 100, 220, 255 }, { 50, 130, 255 });
+        m_progressBar->setBackgroundColor({ 30, 30, 45 });
+        m_content->addChild(m_progressBar);
+
+        m_progressLabel = CCLabelBMFont::create("0%", "bigFont.fnt");
+        m_progressLabel->setScale(0.45f);
+        m_progressLabel->setPosition({ cx, cy });
+        m_content->addChild(m_progressLabel);
 
         auto sub = CCLabelBMFont::create("Please don't close GD", "chatFont.fnt");
         sub->setScale(0.5f);
         sub->setOpacity(180);
-        sub->setPosition({ cx, cy - 55.f });
+        sub->setPosition({ cx, cy - 35.f });
         m_content->addChild(sub);
+    }
+
+    void updateDownloadProgress(float pct) {
+        float frac = std::clamp(pct / 100.f, 0.f, 1.f);
+        if (m_progressBar)   m_progressBar->setProgress(frac);
+        if (m_progressLabel) m_progressLabel->setString(fmt::format("{}%", (int)pct).c_str());
     }
 
     void showDoneState() {
@@ -268,10 +298,16 @@ protected:
             return;
         }
         m_latestVer = parsed.unwrap();
+        m_latestVerStr = verStr;
         m_downloadUrl = url;
         m_changelog = changelog;
 
         if (m_latestVer > m_currentVer) {
+            std::string pending = Mod::get()->getSavedValue<std::string>(PENDING_UPDATE_KEY, "");
+            if (!pending.empty() && pending == m_latestVerStr) {
+                showDoneState();
+                return;
+            }
             showUpdateAvailableState();
         } else {
             showUpToDateState();
@@ -282,6 +318,10 @@ protected:
         showDownloadingState();
         auto req = web::WebRequest();
         req.timeout(std::chrono::seconds(120));
+        req.onProgress([this](web::WebProgress const& p) {
+            float pct = p.downloadProgress().value_or(0.f);
+            this->updateDownloadProgress(pct);
+        });
         m_downloadTask.spawn(
             req.get(m_downloadUrl),
             [this](web::WebResponse res) {
@@ -336,6 +376,7 @@ protected:
         }
 
         std::filesystem::remove(backup, ec);
+        Mod::get()->setSavedValue<std::string>(PENDING_UPDATE_KEY, m_latestVerStr);
         showDoneState();
     }
 

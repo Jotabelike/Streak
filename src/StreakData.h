@@ -133,8 +133,6 @@ struct StreakData {
     std::string equippedNameEffect = "None";
 
     std::set<std::string> unlockedNameItems;
-    // Prizes already won in each roulette (tracked by prize ID so changing
-    // a slot's prize never auto-marks the new prize as already claimed).
     std::set<std::string> claimedGemRoulettePrizes;
     std::set<std::string> claimedStandardRoulettePrizes;
     bool isNameItemUnlocked(const std::string& item);
@@ -188,6 +186,7 @@ struct StreakData {
     bool weeklyMission8Claimed = false;
     bool weeklyMission9Claimed = false;
     bool weeklyMission10Claimed = false;
+    bool weeklyMission11Claimed = false;
 
     bool isDataLoaded;
     bool m_initialized = false;
@@ -530,9 +529,6 @@ struct StreakData {
     bool claimPendingLevelReward(int level);
     bool hasPendingDailyMissions() const;
     bool hasPendingLevelMissions() const;
-
-    // Helper: when the server reports a level-up, hide the auto-applied rewards
-    // from the local balances and queue them so the player has to claim them.
     void handleServerLevelUp(int previousLevel, int newLevel);
 };
 

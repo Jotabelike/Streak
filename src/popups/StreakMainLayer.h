@@ -412,7 +412,6 @@ protected:
         NameModifiers::applyAnimation(nameLabel, g_streakData.equippedNameAnimation);
         NameModifiers::applyEffect(nameLabel, g_streakData.equippedNameEffect);
 
-        // invisible hit area over the whole profile box → opens the profile card
         auto profileHit = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
         profileHit->setContentSize({ profileBgW, profileBgH });
         profileHit->setOpacity(0);

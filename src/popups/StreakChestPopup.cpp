@@ -10,6 +10,7 @@ static cocos2d::ccColor3B chestGlowColorForRarity(int rarity) {
     case 3: return { 80, 180, 255 };
     case 4: return { 200, 120, 255 };
     case 5: return { 255, 200, 60 };
+    case 6: return { 255, 60, 100 };
     }
     return { 50, 200, 255 };
 }
@@ -19,7 +20,10 @@ static std::string modSpritePath(const std::string& filename) {
 }
 
 std::string StreakChestPopup::getChestFrameName(int frameIdx) const {
-    int set = (m_rarity <= 2) ? 1 : 2;
+    int set;
+    if (m_rarity <= 2)      set = 1;
+    else if (m_rarity <= 5) set = 2;
+    else                    set = 3;
     return fmt::format("Chest{}_{}.png", set, frameIdx);
 }
 
@@ -40,7 +44,7 @@ bool StreakChestPopup::init(int superStars, int starTickets, int gems, int rewar
 
     if (m_closeBtn) m_closeBtn->setVisible(false);
 
-    m_rarity = std::clamp(rarity, 1, 5);
+    m_rarity = std::clamp(rarity, 1, 6);
     m_testMode = testMode;
     m_superStars = superStars;
     m_starTickets = starTickets;
@@ -66,7 +70,7 @@ bool StreakChestPopup::init(int superStars, int starTickets, int gems, int rewar
         m_mainLayer->addChild(cornerTR, 2);
     }
 
-    // Esquina inferior-izquierda eliminada: ahí van las estrellas de categoría
+     
 
     auto cornerBR = CCSprite::createWithSpriteFrameName("rewardCorner_001.png");
     if (cornerBR) {
@@ -120,7 +124,7 @@ bool StreakChestPopup::init(int superStars, int starTickets, int gems, int rewar
 }
 
 void StreakChestPopup::addStarCategory(float /*chestY*/) {
-    int rarity = std::max(1, std::min(5, m_rarity));
+    int rarity = std::max(1, std::min(6, m_rarity));
 
     struct Slot { int row; int col; int rowCount; };
     std::vector<Slot> slots;
@@ -130,6 +134,7 @@ void StreakChestPopup::addStarCategory(float /*chestY*/) {
     case 3: slots = { {0,0,3}, {0,1,3}, {0,2,3} }; break;
     case 4: slots = { {0,0,2}, {0,1,2}, {1,0,2}, {1,1,2} }; break;
     case 5: slots = { {0,0,2}, {0,1,2}, {1,0,3}, {1,1,3}, {1,2,3} }; break;
+    case 6: slots = { {0,0,3}, {0,1,3}, {0,2,3}, {1,0,3}, {1,1,3}, {1,2,3} }; break;
     }
 
     const float starScale = 0.156f;
@@ -185,7 +190,6 @@ void StreakChestPopup::playOpenAnimation() {
     auto delay2 = CCDelayTime::create(0.15f);
 
     auto frame3 = CallFuncExt::create([this]() {
-        // Cambia el sprite principal al frame 4 (base del cofre abierto)
         setChestTextureFromFile(m_chestSpr, this->getChestFrameName(4));
 
         const float lipW = m_chestSpr->getContentSize().width;
@@ -376,17 +380,18 @@ void StreakChestPopup::showRewards() {
 void StreakChestPopup::rollRewardsForRarity(int rarity,
                                             int& outStars, int& outTickets, int& outGems, int& outXP) {
     outStars = outTickets = outGems = outXP = 0;
-    rarity = std::clamp(rarity, 1, 5);
+    rarity = std::clamp(rarity, 1, 6);
 
     static std::mt19937 gen(std::random_device{}());
 
     struct Range { int lo, hi; };
-    Range ranges[5][4] = {
-        {{1, 3},   {58, 173},    {1, 2},   {20, 60}},
-        {{3, 8},   {110, 330},   {2, 5},   {50, 150}},
-        {{6, 16},  {300, 720},   {4, 11},  {170, 425}},
-        {{19, 43}, {1260, 3080}, {15, 29}, {490, 980}},
-        {{47, 95}, {2860, 5850},{31, 61}, {1120, 2240}}
+    Range ranges[6][4] = {
+        {{1, 3},     {58, 173},     {1, 2},    {20, 60}},
+        {{3, 8},     {110, 330},    {2, 5},    {50, 150}},
+        {{6, 16},    {300, 720},    {4, 11},   {170, 425}},
+        {{19, 43},   {1260, 3080},  {15, 29},  {490, 980}},
+        {{47, 95},   {2860, 5850},  {31, 61},  {1120, 2240}},
+        {{95, 180},  {5400, 9900},  {62, 115}, {2300, 4200}}
     };
 
     int idx = rarity - 1;
@@ -399,6 +404,7 @@ void StreakChestPopup::rollRewardsForRarity(int rarity,
     case 3: minPick = 2; maxPick = 3; break;
     case 4: minPick = 3; maxPick = 3; break;
     case 5: minPick = 3; maxPick = 4; break;
+    case 6: minPick = 4; maxPick = 4; break;
     }
 
     int picks = std::uniform_int_distribution<>(minPick, maxPick)(gen);
@@ -430,6 +436,12 @@ void StreakChestPopup::rollRewardsForRarity(int rarity,
         outGems    = std::max(outGems,    rollIn(44, 77));
         outTickets = std::max(outTickets, rollIn(3900, 6500));
         outXP      = std::max(outXP,      rollIn(1760, 2800));
+    }
+    if (rarity == 6 && std::uniform_int_distribution<>(0, 99)(gen) < 70) {
+        outStars   = std::max(outStars,   rollIn(150, 260));
+        outGems    = std::max(outGems,    rollIn(90, 160));
+        outTickets = std::max(outTickets, rollIn(7800, 12500));
+        outXP      = std::max(outXP,      rollIn(3500, 4900));
     }
 }
 

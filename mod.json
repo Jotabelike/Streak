@@ -8,7 +8,7 @@
 	},
 	"id": "jotabelike.gd_racha",
 	"name": "Streak!",
-	"version": "v1.10.48",
+	"version": "v1.10.50",
 	"developer": "XJotabelikeX",
 	"description": "Personal Streak! Prove you're the best and start a streak!",
 	"links": {
@@ -23,7 +23,8 @@
 	"dependencies": {
 		"jouca.badgesapi": ">=v1.4.1",
 		"geode.node-ids": ">=v1.23.3",
-		"prevter.imageplus": ">=v1.1.0"
+		"prevter.imageplus": ">=v1.1.0",
+		"alphalaneous.happy_textures": ">=v2.1.11"
 	},
 	"resources": {
 		"files": [

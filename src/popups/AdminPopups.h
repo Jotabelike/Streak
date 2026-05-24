@@ -12,6 +12,7 @@
 #include "SharedVisuals.h"
 #include "../BannerNotification.h"
 #include "../HMACAuth.h"
+#include "StreakChestPopup.h"
 
 using namespace geode::prelude;
 
@@ -353,6 +354,7 @@ protected:
     TextInput* m_xpInput = nullptr;
     TextInput* m_gemsInput = nullptr;
     TextInput* m_shieldsInput = nullptr;
+    TextInput* m_chestInput = nullptr;
 
     CCLabelBMFont* m_badgeLabel = nullptr;
     CCLabelBMFont* m_bannerLabel = nullptr;
@@ -368,7 +370,7 @@ protected:
     int m_pendingShields = 0;
 
     bool init() {
-        if (!Popup::init(440.f, 230.f)) return false;
+        if (!Popup::init(500.f, 230.f)) return false;
         this->setTitle("Create Code");
         auto winSize = m_mainLayer->getContentSize();
 
@@ -436,7 +438,7 @@ protected:
 
         float row2Y = winSize.height / 2 - 20.f;
         float iconOffset = 20.f;
-        float startX = winSize.width / 2 - 140.f;
+        float startX = winSize.width / 2 - 175.f;
         float gap = 70.f;
 
         auto starIcon = CCSprite::create("super_star.png"_spr);
@@ -492,6 +494,21 @@ protected:
         m_shieldsInput->setPosition({ startX + (gap * 4), row2Y - 8.f });
         m_shieldsInput->setFilter("0123456789");
         m_mainLayer->addChild(m_shieldsInput);
+
+        std::string chestIconPath = fmt::format("{}/Chest1_1.png", Mod::get()->getID());
+        auto chestIcon = CCSprite::create(chestIconPath.c_str());
+        if (!chestIcon) chestIcon = CCSprite::createWithSpriteFrameName("chest_02_02_001.png");
+        if (chestIcon) {
+            chestIcon->setScale(0.18f);
+            chestIcon->setPosition({ startX + (gap * 5), row2Y + iconOffset });
+            m_mainLayer->addChild(chestIcon);
+        }
+
+        m_chestInput = TextInput::create(60.f, "Chest", "chatFont.fnt");
+        m_chestInput->setPosition({ startX + (gap * 5), row2Y - 8.f });
+        m_chestInput->setFilter("0123456");
+        m_chestInput->setMaxCharCount(1);
+        m_mainLayer->addChild(m_chestInput);
 
         auto createBtnSpr = ButtonSprite::create(
             "Create Code", 0, 0, "goldFont.fnt", "GJ_button_01.png", 0, 0.8f
@@ -558,6 +575,11 @@ protected:
         int amountPerPersonXP = m_xpInput ? numFromString<int>(m_xpInput->getString()).unwrapOrDefault() : 0;
         int amountPerPersonGems = m_gemsInput ? numFromString<int>(m_gemsInput->getString()).unwrapOrDefault() : 0;
         int amountPerPersonShields = m_shieldsInput ? numFromString<int>(m_shieldsInput->getString()).unwrapOrDefault() : 0;
+        int chestRarity = m_chestInput ? numFromString<int>(m_chestInput->getString()).unwrapOrDefault() : 0;
+        if (chestRarity < 0 || chestRarity > 6) {
+            Notification::create("Chest must be 1-6", NotificationIcon::Error)->show();
+            return;
+        }
 
         m_pendingStars = amountPerPersonStars * uses;
         m_pendingTickets = amountPerPersonTickets * uses;
@@ -565,7 +587,7 @@ protected:
         m_pendingGems = amountPerPersonGems * uses;
         m_pendingShields = amountPerPersonShields * uses;
 
-        if (m_pendingStars == 0 && m_pendingTickets == 0 && m_pendingXP == 0 && m_pendingGems == 0 && m_pendingShields == 0 && m_selectedBadgeID.empty() && m_selectedBannerID.empty()) {
+        if (m_pendingStars == 0 && m_pendingTickets == 0 && m_pendingXP == 0 && m_pendingGems == 0 && m_pendingShields == 0 && m_selectedBadgeID.empty() && m_selectedBannerID.empty() && chestRarity == 0) {
             Notification::create("Add at least one reward", NotificationIcon::Error)->show();
             return;
         }
@@ -585,6 +607,7 @@ protected:
 
         if (!m_selectedBadgeID.empty()) rewards.set("badge", m_selectedBadgeID);
         if (!m_selectedBannerID.empty()) rewards.set("banner", m_selectedBannerID);
+        if (chestRarity >= 1 && chestRarity <= 6) rewards.set("chest", chestRarity);
 
         matjson::Value payload = matjson::Value::object();
         payload.set("modAccountID", GJAccountManager::sharedState()->m_accountID);
@@ -751,6 +774,19 @@ protected:
                 if (r.contains("banner")) bannerID = r["banner"].as<std::string>().unwrapOr("");
             }
 
+            int chestRarity = 0;
+            int chestStars = 0, chestTickets = 0, chestGems = 0, chestXP = 0;
+            if (json.contains("chestRarity")) {
+                chestRarity = json["chestRarity"].as<int>().unwrapOr(0);
+            }
+            if (chestRarity > 0 && json.contains("chestRolled") && !json["chestRolled"].isNull()) {
+                auto cr = json["chestRolled"];
+                chestStars   = cr["superStars"].as<int>().unwrapOr(0);
+                chestTickets = cr["starTickets"].as<int>().unwrapOr(0);
+                chestGems    = cr["gems"].as<int>().unwrapOr(0);
+                chestXP      = cr["xp"].as<int>().unwrapOr(0);
+            }
+
             int levelStars = 0;
             int levelTickets = 0;
             int levelGems = 0;
@@ -820,6 +856,27 @@ protected:
             CCPoint spawnPos = winSize / 2;
 
             auto showSideNotifications = [=]() {
+                if (chestRarity > 0) {
+                    if (auto chestPopup = StreakChestPopup::createOpen(
+                        chestStars, chestTickets, chestGems, chestXP, chestRarity, nullptr
+                    )) {
+                        chestPopup->show();
+                    }
+                    if (isNewBanner && !bannerID.empty()) {
+                        auto info = g_streakData.getBannerInfo(bannerID);
+                        if (info) {
+                            BannerNotification::show(
+                                bannerID,
+                                info->spriteName,
+                                info->displayName,
+                                g_streakData.getCategoryName(info->rarity),
+                                g_streakData.getCategoryColor(info->rarity)
+                            );
+                        }
+                    }
+                    return;
+                }
+
                 if (codeXP > 0) {
                     RewardNotification::show("xp.png"_spr, xpStart, codeXP, spawnPos);
                 }
