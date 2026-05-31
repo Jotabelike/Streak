@@ -460,23 +460,6 @@ protected:
             cell->addChild(particles, 1);
         } else {
             CC_SAFE_DELETE(particles);
-            auto fb = CCParticleFlower::createWithTotalParticles(25);
-            if (fb) {
-                fb->setDuration(-1.f);
-                fb->setLife(0.7f);
-                fb->setLifeVar(0.2f);
-                fb->setEmissionRate(18);
-                fb->setSpeed(15.f);
-                fb->setSpeedVar(8.f);
-                fb->setStartColor(ccc4f(1.f, 1.f, 0.4f, 1.f));
-                fb->setEndColor(ccc4f(1.f, 0.6f, 0.f, 0.f));
-                fb->setGravity({ 0, 0 });
-                fb->setStartSize(6.f);
-                fb->setStartSizeVar(2.f);
-                fb->setEndSize(0.f);
-                fb->setPosition({ colWidth / 2.f, rowY });
-                cell->addChild(fb, 1);
-            }
         }
 
         icon->runAction(CCRepeatForever::create(CCSequence::create(
