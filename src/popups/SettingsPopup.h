@@ -148,6 +148,8 @@ protected:
     CCLabelBMFont* m_sliderScaleLabel = nullptr;
     Slider* m_opacitySlider = nullptr;
     CCLabelBMFont* m_opacityLabel = nullptr;
+    Slider* m_musicVolSlider = nullptr;
+    CCLabelBMFont* m_musicVolLabel = nullptr;
 
     std::vector<std::string> m_listOptions = { "10", "50" };
     std::vector<std::string> m_pauseModes = { "On", "Off" };
@@ -536,6 +538,52 @@ protected:
         if (m_opacityLabel) m_opacityLabel->setString(fmt::format("{}%", static_cast<int>(clamped * 100)).c_str());
     }
 
+    void addMusicVolumeSetting(const std::string& name, const std::string& saveKey, const std::string& infoText) {
+        float cellHeight = 70.0f;
+        auto cell = createBaseCell(cellHeight);
+
+        float topY = cellHeight - 20.0f;
+        auto nameLabel = CCLabelBMFont::create(name.c_str(), "goldFont.fnt");
+        nameLabel->setAnchorPoint({ 0.0f, 0.5f });
+        nameLabel->setPosition({ 15.f, topY });
+        nameLabel->setScale(0.5f);
+        cell->addChild(nameLabel);
+        addInfoButton(cell, infoText, 15.f + nameLabel->getScaledContentSize().width, topY);
+
+        float bottomY = 22.0f;
+        double saved = Mod::get()->getSavedValue<double>(saveKey, 0.5);
+
+        m_musicVolSlider = Slider::create(this, menu_selector(SettingsPopup::onMenuMusicVolumeSlider), 0.6f);
+        m_musicVolSlider->setPosition({ 85.f, bottomY });
+        m_musicVolSlider->setValue(static_cast<float>(saved));
+        m_musicVolSlider->setBarVisibility(true);
+        cell->addChild(m_musicVolSlider);
+
+        m_musicVolLabel = CCLabelBMFont::create(fmt::format("{}%", static_cast<int>(saved * 100)).c_str(), "bigFont.fnt");
+        m_musicVolLabel->setAnchorPoint({ 0.0f, 0.5f });
+        m_musicVolLabel->setPosition({ 155.f, bottomY });
+        m_musicVolLabel->setScale(0.35f);
+        m_musicVolLabel->setColor({ 255, 255, 0 });
+        cell->addChild(m_musicVolLabel);
+
+        m_scrollLayer->m_contentLayer->addChild(cell);
+    }
+
+    void onMenuMusicVolumeSlider(CCObject* sender) {
+        auto slider = static_cast<SliderThumb*>(sender);
+        float val = slider->getValue();
+        double clamped = std::clamp(static_cast<double>(val), 0.0, 1.0);
+        Mod::get()->setSavedValue<double>(STREAK_MENU_MUSIC_VOLUME_KEY, clamped);
+        if (m_musicVolLabel) m_musicVolLabel->setString(fmt::format("{}%", static_cast<int>(clamped * 100)).c_str());
+        if (auto eng = FMODAudioEngine::sharedEngine()) {
+            eng->setChannelVolume(
+                STREAK_MENU_MUSIC_CHANNEL,
+                AudioTargetType::SFXChannel,
+                static_cast<float>(clamped)
+            );
+        }
+    }
+
     void addVersionSetting(const std::string& name, const std::string& versionText) {
         auto cell = createBaseCell();
         auto nameLabel = CCLabelBMFont::create(name.c_str(), "goldFont.fnt");
@@ -816,6 +864,7 @@ protected:
         addToggleSetting("Banners in Comments", "enable_comment_banners", "Show player banners in level comments.");
         addBannerOpacitySetting("Banner Opacity", "banner_opacity", "Adjust the transparency of the banners in comments.");
         addToggleSetting("Name Effects", "enable_name_effects", "Show custom name effects and colors in comments.");
+        addMusicVolumeSetting("Menu Music Volume", STREAK_MENU_MUSIC_VOLUME_KEY, "Volume of the Streak room background music.");
         addVersionSetting("Mod Version", fmt::format("{}", Mod::get()->getVersion()));
 
         content->updateLayout();

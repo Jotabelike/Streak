@@ -108,6 +108,11 @@ namespace NameModifiers {
                     g = wave * 150 + 105;
                     b = (1.0f - wave) * 100 + 155;
                 }
+                else if (m_style == "Crazy Wave") {
+                    r = (1.0f - wave) * 205.f + 50.f;
+                    g = wave * 170.f + 50.f;
+                    b = 40.f;
+                }
                 else if (m_style == "Galaxy Wave") {
                     float w1 = sinf(phase) * 0.5f + 0.5f;
                     float w2 = sinf(phase + 2.094f) * 0.5f + 0.5f;
@@ -154,7 +159,7 @@ namespace NameModifiers {
             colorID == "Cyberpunk Wave" || colorID == "Sunset Wave" || colorID == "Toxic Wave" ||
             colorID == "Ice Wave" || colorID == "Royal Wave" || colorID == "Golden Wave" ||
             colorID == "Abyss Wave" || colorID == "Synthwave" || colorID == "Pastel Wave" ||
-            colorID == "Aurora Wave" || colorID == "Galaxy Wave") {
+            colorID == "Aurora Wave" || colorID == "Galaxy Wave" || colorID == "Crazy Wave") {
             label->setCascadeColorEnabled(false);
             auto updater = GradientUpdater::create(label, colorID);
             updater->setTag(8888);

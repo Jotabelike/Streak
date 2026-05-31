@@ -11,6 +11,10 @@
 
 using namespace geode::prelude;
 
+inline constexpr int STREAK_MENU_MUSIC_CHANNEL = 7777;
+inline constexpr const char* STREAK_MENU_MUSIC_VOLUME_KEY = "streak_menu_music_volume";
+
+inline constexpr const char* EXPECTED_PASS_ID = "season_2026_05";
 
 struct DiscordMilestone {
     int requirement;
@@ -176,6 +180,25 @@ struct StreakData {
 
     int streakPointsThisWeek = 0;
     std::string lastWeek = "";
+
+    int streakPointsThisMonth = 0;
+    std::string lastMonth = "";
+    std::string premiumPassMonth = "";
+    std::set<int> claimedFreePassTiers;
+    std::set<int> claimedPaidPassTiers;
+
+    std::string activePassID = "";
+    bool passEnabled = true;
+    int passPrice = 1999;
+
+    struct PassRewardDef {
+        std::string type;
+        int amount = 0;
+        std::string itemID;
+    };
+    std::vector<PassRewardDef> freePassRewards;
+    std::vector<PassRewardDef> paidPassRewards;
+
     bool weeklyMission1Claimed = false;
     bool weeklyMission2Claimed = false;
     bool weeklyMission3Claimed = false;
@@ -450,11 +473,14 @@ struct StreakData {
             {"banner_58", "banner58.png"_spr, "RamRem", BadgeCategory::MYTHIC, ""},
             {"banner_59", "banner59.png"_spr, "Cristal Banner", BadgeCategory::LEGENDARY, "XJotaBeLikeX" },
             {"banner_60", "banner60.png"_spr, "Cristal Banner II", BadgeCategory::LEGENDARY, "XJotaBeLikeX" },
-            {"banner_61", "banner61.png"_spr, "Limbo", BadgeCategory::EPIC, "XJotaBeLikeX"}
-           
-
-
-    };
+            {"banner_61", "banner61.png"_spr, "Limbo", BadgeCategory::EPIC, "XJotaBeLikeX"},
+            {"banner_62", "banner62.png"_spr, "Car", BadgeCategory::MYTHIC, "XJotaBeLikeX"},
+            {"banner_63", "banner63.png"_spr, "red and yellow", BadgeCategory::LEGENDARY, ""},
+            {"banner_64", "banner64.png"_spr, "ok fine", BadgeCategory::MYTHIC, ""},
+            {"banner_65", "banner65.png"_spr, "Mc v....idk", BadgeCategory::COMMON, ""},
+            {"banner_66", "banner66.png"_spr, "Dungeons", BadgeCategory::EPIC, ""},
+            {"banner_67", "banner67.png"_spr, "Pass", BadgeCategory::MYTHIC, "XJotaBeLikeX"}
+        };
 
 
     std::vector<bool> unlockedBadges;
@@ -484,6 +510,14 @@ struct StreakData {
     void unlockBadge(const std::string& badgeID);
     std::string getCurrentDate();
     std::string getCurrentWeek();
+    std::string getCurrentMonth();
+    bool isPremiumPassActive();
+    bool isFreePassTierClaimed(int tier) const;
+    bool isPaidPassTierClaimed(int tier) const;
+    void setFreePassTierClaimed(int tier);
+    void setPaidPassTierClaimed(int tier);
+    bool isPassActive() const;
+    long long getSeasonEndTime() const { return seasonEndTime; }
     void unequipBadge();
     bool isBadgeEquipped(const std::string& badgeID);
     void dailyUpdate();

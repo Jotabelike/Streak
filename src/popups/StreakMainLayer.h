@@ -60,6 +60,7 @@ protected:
     CCMenuItemSpriteExtra* m_missionsBtnRef = nullptr;
     CCMenuItemSpriteExtra* m_levelProgBtnRef = nullptr;
     CCMenuItemSpriteExtra* m_msgBtnRef = nullptr;
+    CCMenuItemSpriteExtra* m_passBtnRef = nullptr;
 
     std::vector<CCMenu*> m_bottomPages;
     int m_currentPage = 0;
@@ -102,11 +103,28 @@ protected:
         }
     }
 
+    bool hasClaimablePassTiers() {
+        if (!g_streakData.isPassActive()) return false;
+        int sp = g_streakData.streakPointsThisMonth;
+        int freeMax = (int)g_streakData.freePassRewards.size();
+        int paidMax = (int)g_streakData.paidPassRewards.size();
+        for (int t = 1; t <= freeMax; ++t) {
+            if (!g_streakData.isFreePassTierClaimed(t) && sp >= t * 100) return true;
+        }
+        if (g_streakData.isPremiumPassActive()) {
+            for (int t = 1; t <= paidMax; ++t) {
+                if (!g_streakData.isPaidPassTierClaimed(t) && sp >= t * 50) return true;
+            }
+        }
+        return false;
+    }
+
     void refreshRedTags() {
         applyRedTag(m_xpBtnRef, g_streakData.hasPendingLevelRewards());
         applyRedTag(m_missionsBtnRef, g_streakData.hasPendingDailyMissions());
         applyRedTag(m_levelProgBtnRef, g_streakData.hasPendingLevelMissions());
         applyRedTag(m_msgBtnRef, g_streakData.hasNewMessages);
+        applyRedTag(m_passBtnRef, hasClaimablePassTiers());
     }
 
     void fitLabelToWidth(CCLabelBMFont* label, float maxW, float baseScale) {
@@ -670,12 +688,14 @@ protected:
             keysEventIcon, this, menu_selector(StreakMainLayer::onOpenKeysEvent)
         ));
 
-        auto stIcon = CCSprite::create("st_progress.png"_spr);
+        auto stIcon = CCSprite::create("pass_btn.png"_spr);
         if (!stIcon) stIcon = ButtonSprite::create("St");
         else stIcon->setScale(0.9f);
-        allBottomBtns.push_back(CCMenuItemSpriteExtra::create(
+        auto stBtn = CCMenuItemSpriteExtra::create(
             stIcon, this, menu_selector(StreakMainLayer::onOpenStProgress)
-        ));
+        );
+        m_passBtnRef = stBtn;
+        allBottomBtns.push_back(stBtn);
 
         auto levelProgIcon = CCSprite::create("level_progess_btn.png"_spr);
         if (!levelProgIcon) levelProgIcon = ButtonSprite::create("Lvls");
@@ -907,7 +927,25 @@ protected:
         ProfileCardPopup::create(myData)->show();
     }
 
-    void onOpenStProgress(CCObject*) { StProgressPopup::create()->show(); }
+    void onOpenStProgress(CCObject*) {
+        if (!g_streakData.passEnabled) {
+            FLAlertLayer::create(
+                "Streak Pass",
+                "The pass is currently <cy>under maintenance</c>.\nCheck back in a moment.",
+                "OK"
+            )->show();
+            return;
+        }
+        if (!g_streakData.isPassActive()) {
+            FLAlertLayer::create(
+                "Streak Pass",
+                "The current pass isn't available for this version. <cy>Update the mod</c> to access the latest pass.",
+                "OK"
+            )->show();
+            return;
+        }
+        StProgressPopup::create()->show();
+    }
     void onOpenStats(CCObject*)      { DayProgressPopup::create()->show(); }
     void onOpenRewards(CCObject*)    { RewardsPopup::create()->show(); }
     void onOpenTasks(CCObject*)      { TaskPopup::create()->show(); }
@@ -1099,6 +1137,36 @@ protected:
 
     void keyBackClicked() override {
         onBack(nullptr);
+    }
+
+    void onEnter() override {
+        CCLayer::onEnter();
+        auto eng = FMODAudioEngine::sharedEngine();
+        if (!eng) return;
+        eng->pauseAllMusic(true);
+        double vol = Mod::get()->getSavedValue<double>(STREAK_MENU_MUSIC_VOLUME_KEY, 0.5);
+        float volF = static_cast<float>(std::clamp(vol, 0.0, 1.0));
+
+        eng->stopChannel(STREAK_MENU_MUSIC_CHANNEL, AudioTargetType::SFXChannel, false, 0.f);
+        eng->playEffectAdvanced(
+            std::string("streak_meu_loop.mp3"_spr),
+            1.0f, 1.0f, volF, 1.0f,
+            false, false,
+            0, 0, 0, 0,
+            true,
+            0, true, false,
+            STREAK_MENU_MUSIC_CHANNEL,
+            0, 0.0f, 0
+        );
+        eng->setChannelVolume(STREAK_MENU_MUSIC_CHANNEL, AudioTargetType::SFXChannel, volF);
+    }
+
+    void onExit() override {
+        if (auto eng = FMODAudioEngine::sharedEngine()) {
+            eng->stopChannel(STREAK_MENU_MUSIC_CHANNEL, AudioTargetType::SFXChannel, false, 0.f);
+            eng->resumeAllMusic();
+        }
+        CCLayer::onExit();
     }
 
 public:

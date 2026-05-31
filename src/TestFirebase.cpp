@@ -21,6 +21,7 @@ static async::TaskHolder<web::WebResponse> s_completeLevelListener;
 static async::TaskHolder<web::WebResponse> s_rouletteSpinListener;
 static async::TaskHolder<web::WebResponse> s_gemRouletteSpinListener;
 static async::TaskHolder<web::WebResponse> s_claimListener;
+static async::TaskHolder<web::WebResponse> s_pendingRewardsListener;
 
 static const std::string SERVER_URL = "https://streak-servidor.onrender.com";
 
@@ -237,6 +238,18 @@ void updatePlayerDataInFirebase() {
     }
     playerData.set("claimed_streak_goals", goalsArray);
 
+    playerData.set("streakPointsThisMonth", g_streakData.streakPointsThisMonth);
+    playerData.set("lastMonth", g_streakData.lastMonth);
+    playerData.set("premium_pass_month", g_streakData.premiumPassMonth);
+
+    std::vector<int> freePassTiersArr;
+    for (int t : g_streakData.claimedFreePassTiers) freePassTiersArr.push_back(t);
+    playerData.set("claimed_free_pass_tiers", freePassTiersArr);
+
+    std::vector<int> paidPassTiersArr;
+    for (int t : g_streakData.claimedPaidPassTiers) paidPassTiersArr.push_back(t);
+    playerData.set("claimed_paid_pass_tiers", paidPassTiersArr);
+
     std::vector<int> discordGoalsArray;
     for (int req : g_streakData.claimedDiscordMilestones) {
         discordGoalsArray.push_back(req);
@@ -315,6 +328,10 @@ void completeLevelInFirebase(int stars) {
                     g_streakData.streakPointsThisWeek = data["streakPointsThisWeek"].as<int>().unwrapOr(g_streakData.streakPointsThisWeek);
                 if (data.contains("lastWeek"))
                     g_streakData.lastWeek = data["lastWeek"].as<std::string>().unwrapOr(g_streakData.lastWeek);
+                if (data.contains("streakPointsThisMonth"))
+                    g_streakData.streakPointsThisMonth = data["streakPointsThisMonth"].as<int>().unwrapOr(g_streakData.streakPointsThisMonth);
+                if (data.contains("lastMonth"))
+                    g_streakData.lastMonth = data["lastMonth"].as<std::string>().unwrapOr(g_streakData.lastMonth);
                 if (data.contains("streak_shields"))
                     g_streakData.streakShields = data["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields);
                 if (data.contains("total_streak_points"))
@@ -338,6 +355,26 @@ void completeLevelInFirebase(int stars) {
                     if (levelsGained > 0) {
                         int newLevel = g_streakData.currentLevel;
                         g_streakData.handleServerLevelUp(newLevel - levelsGained, newLevel);
+                    }
+                }
+
+                if (data.contains("pending_level_rewards")) {
+                    auto arr = data["pending_level_rewards"].as<std::vector<matjson::Value>>();
+                    if (arr.isOk()) {
+                        g_streakData.pendingLevelRewards.clear();
+                        for (const auto& item : arr.unwrap()) {
+                            int lvl = item["level"].as<int>().unwrapOr(0);
+                            if (lvl <= 0) continue;
+                            auto r = g_streakData.getRewardsForLevel(lvl);
+                            StreakData::PendingLevelReward p;
+                            p.level       = lvl;
+                            p.stars       = item["stars"].as<int>().unwrapOr(r.stars);
+                            p.tickets     = item["tickets"].as<int>().unwrapOr(r.tickets);
+                            p.gems        = item["gems"].as<int>().unwrapOr(r.gems);
+                            p.shields     = item["shields"].as<int>().unwrapOr(r.shields);
+                            p.chestRarity = item["chestRarity"].as<int>().unwrapOr(r.chestRarity);
+                            g_streakData.pendingLevelRewards.push_back(p);
+                        }
                     }
                 }
 
@@ -425,6 +462,55 @@ void claimOnServer(const std::string& endpoint, const matjson::Value& payload, s
                 }
                 callback(false);
             }
+        }
+    );
+}
+
+void refreshPendingLevelRewardsFromServer(std::function<void(bool)> callback) {
+    auto am = GJAccountManager::sharedState();
+    if (!am || am->m_accountID == 0) { if (callback) callback(false); return; }
+    if (HMACAuth::getSessionToken().empty()) { if (callback) callback(false); return; }
+
+    int accountID = am->m_accountID;
+    std::string url = fmt::format("{}/players/{}/pending-level-rewards", SERVER_URL, accountID);
+
+    auto req = web::WebRequest();
+    HMACAuth::signGetRequest(req, accountID);
+
+    s_pendingRewardsListener.spawn(
+        req.get(url),
+        [callback](web::WebResponse res) {
+            if (!res.ok() || !res.json().isOk()) {
+                log::error("pending-level-rewards fetch failed: {}", res.code());
+                if (res.code() == 401) {
+                    HMACAuth::clearSessionToken();
+                    loadPlayerDataFromServer();
+                }
+                if (callback) callback(false);
+                return;
+            }
+            auto data = res.json().unwrap();
+            g_streakData.pendingLevelRewards.clear();
+            if (data.contains("list")) {
+                auto arr = data["list"].as<std::vector<matjson::Value>>();
+                if (arr.isOk()) {
+                    for (const auto& item : arr.unwrap()) {
+                        int lvl = item["level"].as<int>().unwrapOr(0);
+                        if (lvl <= 0) continue;
+                        auto r = g_streakData.getRewardsForLevel(lvl);
+                        StreakData::PendingLevelReward p;
+                        p.level       = lvl;
+                        p.stars       = item["stars"].as<int>().unwrapOr(r.stars);
+                        p.tickets     = item["tickets"].as<int>().unwrapOr(r.tickets);
+                        p.gems        = item["gems"].as<int>().unwrapOr(r.gems);
+                        p.shields     = item["shields"].as<int>().unwrapOr(r.shields);
+                        p.chestRarity = item["chestRarity"].as<int>().unwrapOr(r.chestRarity);
+                        g_streakData.pendingLevelRewards.push_back(p);
+                    }
+                }
+            }
+            log::info("pending-level-rewards refreshed: {} entries", (int)g_streakData.pendingLevelRewards.size());
+            if (callback) callback(true);
         }
     );
 }

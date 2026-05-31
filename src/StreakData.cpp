@@ -78,6 +78,13 @@ void StreakData::resetToDefault() {
     shieldsEnabled = false;
     streakPointsThisWeek = 0;
     lastWeek = "";
+
+    streakPointsThisMonth = 0;
+    lastMonth = "";
+    premiumPassMonth = "";
+    claimedFreePassTiers.clear();
+    claimedPaidPassTiers.clear();
+
     weeklyMission1Claimed = false;
     weeklyMission2Claimed = false;
     weeklyMission3Claimed = false;
@@ -160,6 +167,64 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     streakPointsToday = safeInt(data, "streakPointsToday", 0);
     streakPointsThisWeek = safeInt(data, "streakPointsThisWeek", 0);
     lastWeek = data["lastWeek"].as<std::string>().unwrapOr(std::string(""));
+    streakPointsThisMonth = safeInt(data, "streakPointsThisMonth", 0);
+    lastMonth = data["lastMonth"].as<std::string>().unwrapOr(std::string(""));
+    premiumPassMonth = data["premium_pass_month"].as<std::string>().unwrapOr(std::string(""));
+    activePassID = data["active_pass_id"].as<std::string>().unwrapOr(std::string(""));
+    passEnabled = data["pass_enabled"].as<bool>().unwrapOr(true);
+    passPrice = data["pass_price"].as<int>().unwrapOr(1999);
+    if (passPrice < 0) passPrice = 0;
+    if (data.contains("season_end_time")) {
+        auto v = data["season_end_time"];
+        if (v.isNumber()) seasonEndTime = v.as<long long>().unwrapOr(seasonEndTime);
+    }
+
+    freePassRewards.clear();
+    paidPassRewards.clear();
+    if (data.contains("pass_rewards")) {
+        auto pr = data["pass_rewards"];
+        auto parseList = [&](const matjson::Value& list, std::vector<PassRewardDef>& out) {
+            if (!list.isArray()) return;
+            auto vec = list.as<std::vector<matjson::Value>>();
+            if (!vec.isOk()) return;
+            for (const auto& item : vec.unwrap()) {
+                PassRewardDef d;
+                d.type = item["type"].as<std::string>().unwrapOr(std::string(""));
+                d.amount = item["amount"].as<int>().unwrapOr(0);
+                d.itemID = item["item_id"].as<std::string>().unwrapOr(std::string(""));
+                out.push_back(d);
+            }
+        };
+        if (pr.contains("free")) parseList(pr["free"], freePassRewards);
+        if (pr.contains("paid")) parseList(pr["paid"], paidPassRewards);
+    }
+
+    claimedFreePassTiers.clear();
+    if (data.contains("claimed_free_pass_tiers")) {
+        auto v = data["claimed_free_pass_tiers"];
+        if (v.isArray()) {
+            for (const auto& val : v.as<std::vector<matjson::Value>>().unwrap()) {
+                claimedFreePassTiers.insert(val.as<int>().unwrapOr(-1));
+            }
+        } else if (v.isObject()) {
+            for (const auto& [k, _] : v.as<std::map<std::string, matjson::Value>>().unwrap()) {
+                try { claimedFreePassTiers.insert(std::stoi(k)); } catch (...) {}
+            }
+        }
+    }
+    claimedPaidPassTiers.clear();
+    if (data.contains("claimed_paid_pass_tiers")) {
+        auto v = data["claimed_paid_pass_tiers"];
+        if (v.isArray()) {
+            for (const auto& val : v.as<std::vector<matjson::Value>>().unwrap()) {
+                claimedPaidPassTiers.insert(val.as<int>().unwrapOr(-1));
+            }
+        } else if (v.isObject()) {
+            for (const auto& [k, _] : v.as<std::map<std::string, matjson::Value>>().unwrap()) {
+                try { claimedPaidPassTiers.insert(std::stoi(k)); } catch (...) {}
+            }
+        }
+    }
     streakShields = safeInt(data, "streak_shields", 0);
     shieldsEnabled = data["shields_enabled"].as<bool>().unwrapOr(false);
     gems = safeInt(data, "gems", 0);
@@ -554,6 +619,43 @@ std::string StreakData::getCurrentDate() {
     return std::string(buf);
 }
 
+std::string StreakData::getCurrentMonth() {
+    time_t t = time(nullptr);
+    t -= 5 * 3600;
+    tm* now = gmtime(&t);
+    if (!now) return "";
+    char buf[16];
+    if (strftime(buf, sizeof(buf), "%Y-%m", now) == 0) return "";
+    return std::string(buf);
+}
+
+bool StreakData::isPremiumPassActive() {
+    if (premiumPassMonth.empty()) return false;
+    return premiumPassMonth == getCurrentMonth();
+}
+
+bool StreakData::isPassActive() const {
+    if (!passEnabled) return false;
+    if (activePassID.empty()) return false;
+    return activePassID == std::string(EXPECTED_PASS_ID);
+}
+
+bool StreakData::isFreePassTierClaimed(int tier) const {
+    return claimedFreePassTiers.count(tier) > 0;
+}
+
+bool StreakData::isPaidPassTierClaimed(int tier) const {
+    return claimedPaidPassTiers.count(tier) > 0;
+}
+
+void StreakData::setFreePassTierClaimed(int tier) {
+    claimedFreePassTiers.insert(tier);
+}
+
+void StreakData::setPaidPassTierClaimed(int tier) {
+    claimedPaidPassTiers.insert(tier);
+}
+
 std::string StreakData::getCurrentWeek() {
     time_t t = time(nullptr);
     t -= 5 * 3600;
@@ -588,6 +690,7 @@ void StreakData::dailyUpdate() {
     time_t now_t = time(nullptr);
     std::string today = getCurrentDate();
     std::string currentWeek = getCurrentWeek();
+    std::string currentMonth = getCurrentMonth();
     if (today.empty()) return;
 
     auto resetWeeklyIfNeeded = [&]() {
@@ -608,6 +711,18 @@ void StreakData::dailyUpdate() {
         weeklyMission11Claimed = false;
     };
 
+    auto resetMonthlyIfNeeded = [&]() {
+        if (currentMonth.empty()) return;
+        if (lastMonth == currentMonth) return;
+        lastMonth = currentMonth;
+        streakPointsThisMonth = 0;
+        claimedFreePassTiers.clear();
+        claimedPaidPassTiers.clear();
+        if (premiumPassMonth != currentMonth) {
+            premiumPassMonth = "";
+        }
+    };
+
     if (lastDay.empty()) {
         lastDay = today;
         streakPointsToday = 0;
@@ -619,15 +734,22 @@ void StreakData::dailyUpdate() {
         pointMission5Claimed = false;
         pointMission6Claimed = false;
         resetWeeklyIfNeeded();
+        resetMonthlyIfNeeded();
         save();
         return;
     }
 
     if (lastDay == today) {
+        bool needSave = false;
         if (lastWeek != currentWeek) {
             resetWeeklyIfNeeded();
-            save();
+            needSave = true;
         }
+        if (lastMonth != currentMonth) {
+            resetMonthlyIfNeeded();
+            needSave = true;
+        }
+        if (needSave) save();
         return;
     }
 
@@ -699,6 +821,7 @@ void StreakData::dailyUpdate() {
     pointMission13Claimed = false;
 
     resetWeeklyIfNeeded();
+    resetMonthlyIfNeeded();
 }
 
 void StreakData::checkRewards() {
@@ -1107,6 +1230,7 @@ void StreakData::addPoints(int count) {
     streakPointsToday += count;
     totalStreakPoints += count;
     streakPointsThisWeek += count;
+    streakPointsThisMonth += count;
 
     std::string today = getCurrentDate();
     if (!today.empty()) streakPointsHistory[today] = streakPointsToday;
@@ -1205,12 +1329,32 @@ void StreakData::handleServerLevelUp(int previousLevel, int newLevel) {
 
 bool StreakData::hasPendingDailyMissions() const {
     int p = streakPointsToday;
-    if (p >= 5  && !pointMission1Claimed) return true;
-    if (p >= 10 && !pointMission2Claimed) return true;
-    if (p >= 15 && !pointMission3Claimed) return true;
-    if (p >= 20 && !pointMission4Claimed) return true;
-    if (p >= 25 && !pointMission5Claimed) return true;
-    if (p >= 30 && !pointMission6Claimed) return true;
+    if (p >= 5   && !pointMission1Claimed)  return true;
+    if (p >= 10  && !pointMission2Claimed)  return true;
+    if (p >= 15  && !pointMission3Claimed)  return true;
+    if (p >= 20  && !pointMission4Claimed)  return true;
+    if (p >= 25  && !pointMission5Claimed)  return true;
+    if (p >= 30  && !pointMission6Claimed)  return true;
+    if (p >= 35  && !pointMission7Claimed)  return true;
+    if (p >= 45  && !pointMission8Claimed)  return true;
+    if (p >= 55  && !pointMission9Claimed)  return true;
+    if (p >= 60  && !pointMission10Claimed) return true;
+    if (p >= 75  && !pointMission11Claimed) return true;
+    if (p >= 90  && !pointMission12Claimed) return true;
+    if (p >= 100 && !pointMission13Claimed) return true;
+
+    int w = streakPointsThisWeek;
+    if (w >= 300  && !weeklyMission1Claimed)  return true;
+    if (w >= 500  && !weeklyMission2Claimed)  return true;
+    if (w >= 700  && !weeklyMission3Claimed)  return true;
+    if (w >= 900  && !weeklyMission4Claimed)  return true;
+    if (w >= 1100 && !weeklyMission5Claimed)  return true;
+    if (w >= 1300 && !weeklyMission6Claimed)  return true;
+    if (w >= 1500 && !weeklyMission7Claimed)  return true;
+    if (w >= 1700 && !weeklyMission8Claimed)  return true;
+    if (w >= 1900 && !weeklyMission9Claimed)  return true;
+    if (w >= 2100 && !weeklyMission10Claimed) return true;
+    if (w >= 3000 && !weeklyMission11Claimed) return true;
     return false;
 }
 

@@ -8,6 +8,7 @@
 #include "../RewardNotification.h"
 #include "../HMACAuth.h"
 #include "../utils/RoundedProgressBar.h"
+#include "../StatusSpinner.h"
 #include "StreakChestPopup.h"
 
 using namespace geode::prelude;
@@ -16,6 +17,8 @@ class XPPopup : public Popup {
 protected:
     ScrollLayer* m_list = nullptr;
     CCMenu* m_claimMenu = nullptr;
+    CCNode* m_listContainer = nullptr;
+    StatusSpinner* m_spinner = nullptr;
     async::TaskHolder<web::WebResponse> m_claimListener;
 
     void onClaimLevelReward(CCObject* sender) {
@@ -47,10 +50,30 @@ protected:
         m_claimListener.spawn(
             req.bodyJSON(payload).post(url),
             [this, btn, level, startGems, startStars, startTickets, startShields](web::WebResponse res) {
+                int httpCode = res.code();
                 if (!res.ok() || !res.json().isOk()) {
                     btn->setEnabled(true);
                     if (auto img = dynamic_cast<CCRGBAProtocol*>(btn->getNormalImage())) img->setOpacity(255);
-                    FLAlertLayer::create("Claim Failed", "Could not claim reward. Try again.", "OK")->show();
+
+                    if (httpCode == 404) {
+                        for (auto it = g_streakData.pendingLevelRewards.begin();
+                             it != g_streakData.pendingLevelRewards.end(); ) {
+                            if (it->level == level) it = g_streakData.pendingLevelRewards.erase(it);
+                            else ++it;
+                        }
+                        btn->setVisible(false);
+                        FLAlertLayer::create(
+                            "Already Claimed",
+                            "This level reward was already claimed. Refreshing list.",
+                            "OK"
+                        )->show();
+                    } else {
+                        FLAlertLayer::create(
+                            "Claim Failed",
+                            fmt::format("Could not claim reward (code {}). Try again.", httpCode).c_str(),
+                            "OK"
+                        )->show();
+                    }
                     return;
                 }
 
@@ -138,21 +161,68 @@ protected:
         );
     }
 
+    void rebuildList() {
+        if (!m_claimMenu) return;
+        m_claimMenu->removeAllChildren();
+
+        int maxLevel = 100;
+        float itemHeight = 40.f;
+        auto contentSize = m_claimMenu->getContentSize();
+        float totalHeight = contentSize.height;
+        float listWidth = contentSize.width;
+
+        for (int i = 1; i <= maxLevel; i++) {
+            float yPos = totalHeight - ((i - 1) * itemHeight) - (itemHeight / 2);
+            if (g_streakData.isLevelRewardPending(i)) {
+                auto claimSpr = ButtonSprite::create("Claim", "bigFont.fnt", "GJ_button_01.png", 0.6f);
+                if (claimSpr) claimSpr->setScale(0.55f);
+                auto claimBtn = CCMenuItemSpriteExtra::create(
+                    claimSpr, this, menu_selector(XPPopup::onClaimLevelReward)
+                );
+                claimBtn->setTag(i);
+                claimBtn->setPosition({ listWidth - 30.f, yPos });
+                m_claimMenu->addChild(claimBtn);
+            }
+        }
+    }
+
     bool init() override {
         if (!Popup::init(380.f, 260.f, "geode.loader/GE_square01.png")) return false;
         this->setTitle("Level Rewards");
 
         auto winSize = CCDirector::sharedDirector()->getWinSize();
         auto popupSize = m_mainLayer->getContentSize();
-        auto gm = GameManager::sharedState();  
+        auto gm = GameManager::sharedState();
 
-    
+
         float bottomHeight = 80.f;
         float topMargin = 50.f;
 
         CCSize listSize = { 340.f, popupSize.height - bottomHeight - topMargin };
 
-       
+        m_listContainer = CCNode::create();
+        m_listContainer->setContentSize(popupSize);
+        m_listContainer->setPosition({ 0.f, 0.f });
+        m_listContainer->setVisible(false);
+        m_mainLayer->addChild(m_listContainer);
+
+        m_spinner = StatusSpinner::create();
+        if (m_spinner) {
+            float listCenter = bottomHeight + (listSize.height / 2) + 5.f;
+            m_spinner->setPosition({ popupSize.width / 2.f, listCenter });
+            m_mainLayer->addChild(m_spinner, 10);
+            m_spinner->setLoading("Loading rewards...");
+        }
+
+        refreshPendingLevelRewardsFromServer([this](bool ok) {
+            if (m_spinner) m_spinner->hide();
+            if (m_listContainer) m_listContainer->setVisible(true);
+            if (!ok) {
+                if (m_spinner) m_spinner->setError("Connection failed");
+                return;
+            }
+            this->rebuildList();
+        });
 
         auto listBg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
         listBg->setContentSize(listSize + CCSize{ 10.f, 10.f });
@@ -161,7 +231,7 @@ protected:
 
         float listCenterY = bottomHeight + (listSize.height / 2) + 5.f;
         listBg->setPosition({ popupSize.width / 2, listCenterY });
-        m_mainLayer->addChild(listBg);
+        m_listContainer->addChild(listBg);
 
         m_list = ScrollLayer::create(listSize);
         m_list->setPosition({ (popupSize.width - listSize.width) / 2, bottomHeight + 5.f });
@@ -337,10 +407,10 @@ protected:
         else {
             m_list->moveToTop();
         }
-        m_mainLayer->addChild(m_list);
+        m_listContainer->addChild(m_list);
 
 
-     
+
 
         float centerX = popupSize.width / 2;
         float barWidth = 220.0f;

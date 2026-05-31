@@ -672,6 +672,7 @@ protected:
                 "Default", "Black", "Blue", "Brown", "Cyan", "Gold", "Green",
                 "Lime", "Magenta", "Maroon", "Mint", "Navy", "Orange",
                 "Peach", "Pink", "Purple", "Red", "Silver", "Teal", "Yellow",
+                "Crazy Wave",
                 "Cyberpunk Wave", "Fire Wave", "Galaxy Wave", "Golden Wave", "Ice Wave", "Ocean Wave",
                 "Rainbow", "Rainbow Wave", "Royal Wave", "Sunset Wave", "Toxic Wave",
                 "Abyss Wave","Disco Blink", "Synthwave", "Pastel Wave", "Aurora Wave",
