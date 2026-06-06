@@ -6,6 +6,7 @@
 #include <Geode/utils/file.hpp>
 #include <Geode/utils/async.hpp>
 #include "../StreakData.h"
+#include "../StreakMusic.h"
 #include "HistoryPopup.h"
 #include <Geode/ui/TextInput.hpp>
 #include "RegisterPopup.h"
@@ -154,6 +155,7 @@ protected:
     std::vector<std::string> m_listOptions = { "10", "50" };
     std::vector<std::string> m_pauseModes = { "On", "Off" };
     std::vector<std::string> m_animModes = { "None", "Bar", "Label" };
+    std::vector<std::string> m_musicModes = { "Normal", "Off", "Persistent" };
 
     CCLabelBMFont* m_bgStatusLabel = nullptr;
 
@@ -354,6 +356,80 @@ protected:
         int next = (current + 1) % m_animModes.size();
         Mod::get()->setSavedValue<int>(keyStr->getCString(), next);
         label->setString(m_animModes[next].c_str());
+    }
+
+    void addMusicModeSetting(const std::string& name, const std::string& saveKey, const std::string& infoText) {
+        auto cell = createBaseCell();
+        auto menu = CCMenu::create();
+        menu->setPosition(0, 0);
+        cell->addChild(menu);
+
+        auto nameLabel = CCLabelBMFont::create(name.c_str(), "goldFont.fnt");
+        nameLabel->setAnchorPoint({ 0.0f, 0.5f });
+        nameLabel->setPosition({ 15.f, 20.f });
+        nameLabel->setScale(0.5f);
+        cell->addChild(nameLabel);
+
+        addInfoButton(cell, infoText, 15.f + nameLabel->getScaledContentSize().width);
+
+        float leftX = m_listWidth - 92.f;
+        float rightX = m_listWidth - 12.f;
+
+        int currentVal = std::clamp(Mod::get()->getSavedValue<int>(saveKey, 0), 0, (int)m_musicModes.size() - 1);
+        auto valLabel = CCLabelBMFont::create(m_musicModes[currentVal].c_str(), "bigFont.fnt");
+        valLabel->setColor({ 255, 255, 0 });
+        valLabel->limitLabelWidth(58.f, 0.4f, 0.18f);
+        valLabel->setPosition({ (leftX + rightX) / 2.f, 20.f });
+        cell->addChild(valLabel);
+
+        auto arrowL = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        arrowL->setScale(0.35f);
+        auto btnL = CCMenuItemSpriteExtra::create(arrowL, this, menu_selector(SettingsPopup::onMusicArrowLeft));
+        btnL->setPosition({ leftX, 20.f });
+        btnL->setUserObject(CCString::create(saveKey));
+        btnL->setUserData(valLabel);
+        menu->addChild(btnL);
+
+        auto arrowR = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        arrowR->setFlipX(true);
+        arrowR->setScale(0.35f);
+        auto btnR = CCMenuItemSpriteExtra::create(arrowR, this, menu_selector(SettingsPopup::onMusicArrowRight));
+        btnR->setPosition({ rightX, 20.f });
+        btnR->setUserObject(CCString::create(saveKey));
+        btnR->setUserData(valLabel);
+        menu->addChild(btnR);
+
+        m_scrollLayer->m_contentLayer->addChild(cell);
+    }
+
+    void onMusicArrowLeft(CCObject* sender) {
+        auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
+        auto keyStr = static_cast<CCString*>(btn->getUserObject());
+        auto label = static_cast<CCLabelBMFont*>(btn->getUserData());
+        if (!keyStr) return;
+        int current = Mod::get()->getSavedValue<int>(keyStr->getCString(), 0);
+        int next = (current - 1 + m_musicModes.size()) % m_musicModes.size();
+        Mod::get()->setSavedValue<int>(keyStr->getCString(), next);
+        if (label) {
+            label->setString(m_musicModes[next].c_str());
+            label->limitLabelWidth(58.f, 0.4f, 0.18f);
+        }
+        StreakMusic::applyModeChange();
+    }
+
+    void onMusicArrowRight(CCObject* sender) {
+        auto btn = static_cast<CCMenuItemSpriteExtra*>(sender);
+        auto keyStr = static_cast<CCString*>(btn->getUserObject());
+        auto label = static_cast<CCLabelBMFont*>(btn->getUserData());
+        if (!keyStr) return;
+        int current = Mod::get()->getSavedValue<int>(keyStr->getCString(), 0);
+        int next = (current + 1) % m_musicModes.size();
+        Mod::get()->setSavedValue<int>(keyStr->getCString(), next);
+        if (label) {
+            label->setString(m_musicModes[next].c_str());
+            label->limitLabelWidth(58.f, 0.4f, 0.18f);
+        }
+        StreakMusic::applyModeChange();
     }
 
     void addBgImageSetting(const std::string& name, const std::string& infoText) {
@@ -864,6 +940,7 @@ protected:
         addToggleSetting("Banners in Comments", "enable_comment_banners", "Show player banners in level comments.");
         addBannerOpacitySetting("Banner Opacity", "banner_opacity", "Adjust the transparency of the banners in comments.");
         addToggleSetting("Name Effects", "enable_name_effects", "Show custom name effects and colors in comments.");
+        addMusicModeSetting("Music Mode", "streak_music_mode", "Normal: plays only in the Streak menu.\nOff: keeps GD's song and never plays the Streak music.\nPersistent: keeps the Streak music playing across the whole game.");
         addMusicVolumeSetting("Menu Music Volume", STREAK_MENU_MUSIC_VOLUME_KEY, "Volume of the Streak room background music.");
         addVersionSetting("Mod Version", fmt::format("{}", Mod::get()->getVersion()));
 

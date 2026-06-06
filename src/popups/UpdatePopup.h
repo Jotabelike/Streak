@@ -1,5 +1,6 @@
 #pragma once
 #include "StreakCommon.h"
+#include "../UpdateState.h"
 #include "../StatusSpinner.h"
 #include "../utils/RoundedProgressBar.h"
 #include <Geode/ui/Popup.hpp>
@@ -308,8 +309,10 @@ protected:
                 showDoneState();
                 return;
             }
+            StreakUpdate::markAvailable(m_latestVerStr, m_downloadUrl, m_changelog);
             showUpdateAvailableState();
         } else {
+            StreakUpdate::clearAvailable();
             showUpToDateState();
         }
     }
@@ -377,6 +380,7 @@ protected:
 
         std::filesystem::remove(backup, ec);
         Mod::get()->setSavedValue<std::string>(PENDING_UPDATE_KEY, m_latestVerStr);
+        StreakUpdate::clearAvailable();
         showDoneState();
     }
 

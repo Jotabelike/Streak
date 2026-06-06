@@ -1,6 +1,8 @@
 #pragma once
 #include "StreakCommon.h"
 #include "../StreakData.h"
+#include "../StreakMusic.h"
+#include "../UpdateState.h"
 #include "../FirebaseManager.h"
 #include <Geode/utils/async.hpp>
 #include <Geode/ui/Popup.hpp>
@@ -58,6 +60,7 @@ protected:
 
     CCMenuItemSpriteExtra* m_xpBtnRef = nullptr;
     CCMenuItemSpriteExtra* m_missionsBtnRef = nullptr;
+    CCMenuItemSpriteExtra* m_updateBtnRef = nullptr;
     CCMenuItemSpriteExtra* m_levelProgBtnRef = nullptr;
     CCMenuItemSpriteExtra* m_msgBtnRef = nullptr;
     CCMenuItemSpriteExtra* m_passBtnRef = nullptr;
@@ -125,6 +128,7 @@ protected:
         applyRedTag(m_levelProgBtnRef, g_streakData.hasPendingLevelMissions());
         applyRedTag(m_msgBtnRef, g_streakData.hasNewMessages);
         applyRedTag(m_passBtnRef, hasClaimablePassTiers());
+        applyRedTag(m_updateBtnRef, StreakUpdate::isAvailable());
     }
 
     void fitLabelToWidth(CCLabelBMFont* label, float maxW, float baseScale) {
@@ -526,6 +530,7 @@ protected:
         );
         downloadBtn->setPosition({ m_size.width - 60.f, m_size.height - 22.f });
         cornerMenu->addChild(downloadBtn);
+        m_updateBtnRef = downloadBtn;
 
         auto settingsIcon = CCSprite::createWithSpriteFrameName("accountBtn_settings_001.png");
         settingsIcon->setScale(0.75f);
@@ -1141,31 +1146,11 @@ protected:
 
     void onEnter() override {
         CCLayer::onEnter();
-        auto eng = FMODAudioEngine::sharedEngine();
-        if (!eng) return;
-        eng->pauseAllMusic(true);
-        double vol = Mod::get()->getSavedValue<double>(STREAK_MENU_MUSIC_VOLUME_KEY, 0.5);
-        float volF = static_cast<float>(std::clamp(vol, 0.0, 1.0));
-
-        eng->stopChannel(STREAK_MENU_MUSIC_CHANNEL, AudioTargetType::SFXChannel, false, 0.f);
-        eng->playEffectAdvanced(
-            std::string("streak_meu_loop.mp3"_spr),
-            1.0f, 1.0f, volF, 1.0f,
-            false, false,
-            0, 0, 0, 0,
-            true,
-            0, true, false,
-            STREAK_MENU_MUSIC_CHANNEL,
-            0, 0.0f, 0
-        );
-        eng->setChannelVolume(STREAK_MENU_MUSIC_CHANNEL, AudioTargetType::SFXChannel, volF);
+        StreakMusic::onMenuEnter();
     }
 
     void onExit() override {
-        if (auto eng = FMODAudioEngine::sharedEngine()) {
-            eng->stopChannel(STREAK_MENU_MUSIC_CHANNEL, AudioTargetType::SFXChannel, false, 0.f);
-            eng->resumeAllMusic();
-        }
+        StreakMusic::onMenuExit();
         CCLayer::onExit();
     }
 

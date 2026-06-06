@@ -1,7 +1,11 @@
 ﻿#include "StreakData.h"
+#include "StreakMusic.h"
+#include "UpdateState.h"
+#include "SystemNotification.h"
 #include "Popups.h"
 #include "FirebaseManager.h"
 #include <Geode/modify/MenuLayer.hpp>
+#include <Geode/modify/AppDelegate.hpp>
 #include <Geode/modify/CommentCell.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/PauseLayer.hpp>
@@ -20,6 +24,13 @@
 #include "WelcomeNotification.h"
 #include "RewardNotification.h"
 #include "HMACAuth.h"
+
+class $modify(StreakAppDelegate, AppDelegate) {
+    void applicationWillEnterForeground() {
+        AppDelegate::applicationWillEnterForeground();
+        StreakMusic::resync();
+    }
+};
 
 class $modify(MyPlayLayer, PlayLayer) {
     struct Fields {
@@ -77,6 +88,17 @@ class $modify(MyMenuLayer, MenuLayer) {
 
         this->createStreakButton(ButtonState::Loading);
         this->loadPlayerData();
+
+        StreakMusic::resync();
+
+        StreakUpdate::checkOnce([] {
+            SystemNotification::show(
+                "New Update",
+                fmt::format("v{}", StreakUpdate::s_latestVersion),
+                "download_btn.png"_spr,
+                0.5f
+            );
+        });
 
         return true;
     }

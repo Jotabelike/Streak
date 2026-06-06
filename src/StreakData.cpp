@@ -85,6 +85,17 @@ void StreakData::resetToDefault() {
     claimedFreePassTiers.clear();
     claimedPaidPassTiers.clear();
 
+    goldTickets = 0;
+    passDailyLevels = 0;
+    passWeeklyLevels = 0;
+    passSeasonLevels = 0;
+    passDailyMissions.clear();
+    passWeeklyMissions.clear();
+    passSeasonMissions.clear();
+    claimedPassDailyMissions.clear();
+    claimedPassWeeklyMissions.clear();
+    claimedPassSeasonMissions.clear();
+
     weeklyMission1Claimed = false;
     weeklyMission2Claimed = false;
     weeklyMission3Claimed = false;
@@ -225,6 +236,54 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
             }
         }
     }
+    goldTickets = safeInt(data, "gold_tickets", 0);
+    passDailyLevels = safeInt(data, "pass_daily_levels", 0);
+    passWeeklyLevels = safeInt(data, "pass_weekly_levels", 0);
+    passSeasonLevels = safeInt(data, "pass_season_levels", 0);
+
+    auto parseMissionDefs = [&](const matjson::Value& list, std::vector<PassMissionDef>& out) {
+        out.clear();
+        if (!list.isArray()) return;
+        auto vec = list.as<std::vector<matjson::Value>>();
+        if (!vec.isOk()) return;
+        for (const auto& item : vec.unwrap()) {
+            PassMissionDef d;
+            d.id = item["id"].as<std::string>().unwrapOr(std::string(""));
+            d.target = item["target"].as<int>().unwrapOr(0);
+            d.reward = item["reward"].as<int>().unwrapOr(0);
+            if (!d.id.empty() && d.target > 0) out.push_back(d);
+        }
+    };
+    passDailyMissions.clear();
+    passWeeklyMissions.clear();
+    passSeasonMissions.clear();
+    if (data.contains("pass_missions")) {
+        auto pm = data["pass_missions"];
+        if (pm.contains("daily"))  parseMissionDefs(pm["daily"], passDailyMissions);
+        if (pm.contains("weekly")) parseMissionDefs(pm["weekly"], passWeeklyMissions);
+        if (pm.contains("season")) parseMissionDefs(pm["season"], passSeasonMissions);
+    }
+
+    auto parseClaimedMissions = [&](const matjson::Value& v, std::set<std::string>& out) {
+        out.clear();
+        if (v.isArray()) {
+            for (const auto& val : v.as<std::vector<matjson::Value>>().unwrap()) {
+                out.insert(val.as<std::string>().unwrapOr(std::string("")));
+            }
+        } else if (v.isObject()) {
+            for (const auto& [k, _] : v.as<std::map<std::string, matjson::Value>>().unwrap()) {
+                out.insert(k);
+            }
+        }
+        out.erase("");
+    };
+    if (data.contains("claimed_pass_daily_missions"))  parseClaimedMissions(data["claimed_pass_daily_missions"], claimedPassDailyMissions);
+    else claimedPassDailyMissions.clear();
+    if (data.contains("claimed_pass_weekly_missions")) parseClaimedMissions(data["claimed_pass_weekly_missions"], claimedPassWeeklyMissions);
+    else claimedPassWeeklyMissions.clear();
+    if (data.contains("claimed_pass_season_missions")) parseClaimedMissions(data["claimed_pass_season_missions"], claimedPassSeasonMissions);
+    else claimedPassSeasonMissions.clear();
+
     streakShields = safeInt(data, "streak_shields", 0);
     shieldsEnabled = data["shields_enabled"].as<bool>().unwrapOr(false);
     gems = safeInt(data, "gems", 0);
@@ -637,7 +696,31 @@ bool StreakData::isPremiumPassActive() {
 bool StreakData::isPassActive() const {
     if (!passEnabled) return false;
     if (activePassID.empty()) return false;
-    return activePassID == std::string(EXPECTED_PASS_ID);
+    return true;
+}
+
+const std::vector<StreakData::PassMissionDef>& StreakData::getPassMissions(const std::string& scope) const {
+    if (scope == "weekly") return passWeeklyMissions;
+    if (scope == "season") return passSeasonMissions;
+    return passDailyMissions;
+}
+
+int StreakData::getPassMissionProgress(const std::string& scope) const {
+    if (scope == "weekly") return passWeeklyLevels;
+    if (scope == "season") return passSeasonLevels;
+    return passDailyLevels;
+}
+
+bool StreakData::isPassMissionClaimed(const std::string& scope, const std::string& id) const {
+    if (scope == "weekly") return claimedPassWeeklyMissions.count(id) > 0;
+    if (scope == "season") return claimedPassSeasonMissions.count(id) > 0;
+    return claimedPassDailyMissions.count(id) > 0;
+}
+
+void StreakData::markPassMissionClaimed(const std::string& scope, const std::string& id) {
+    if (scope == "weekly") claimedPassWeeklyMissions.insert(id);
+    else if (scope == "season") claimedPassSeasonMissions.insert(id);
+    else claimedPassDailyMissions.insert(id);
 }
 
 bool StreakData::isFreePassTierClaimed(int tier) const {
@@ -716,11 +799,6 @@ void StreakData::dailyUpdate() {
         if (lastMonth == currentMonth) return;
         lastMonth = currentMonth;
         streakPointsThisMonth = 0;
-        claimedFreePassTiers.clear();
-        claimedPaidPassTiers.clear();
-        if (premiumPassMonth != currentMonth) {
-            premiumPassMonth = "";
-        }
     };
 
     if (lastDay.empty()) {

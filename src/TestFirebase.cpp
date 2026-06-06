@@ -338,6 +338,12 @@ void completeLevelInFirebase(int stars) {
                     g_streakData.totalStreakPoints = data["total_streak_points"].as<int>().unwrapOr(g_streakData.totalStreakPoints);
                 if (data.contains("lastDay"))
                     g_streakData.lastDay = data["lastDay"].as<std::string>().unwrapOr(std::string(""));
+                if (data.contains("pass_daily_levels"))
+                    g_streakData.passDailyLevels = data["pass_daily_levels"].as<int>().unwrapOr(g_streakData.passDailyLevels);
+                if (data.contains("pass_weekly_levels"))
+                    g_streakData.passWeeklyLevels = data["pass_weekly_levels"].as<int>().unwrapOr(g_streakData.passWeeklyLevels);
+                if (data.contains("pass_season_levels"))
+                    g_streakData.passSeasonLevels = data["pass_season_levels"].as<int>().unwrapOr(g_streakData.passSeasonLevels);
 
                 int reqPoints = g_streakData.getRequiredPoints();
                 if (g_streakData.streakPointsToday >= reqPoints && reqPoints > 0) {
@@ -406,6 +412,7 @@ static void applyServerBalances(const matjson::Value& data) {
         g_streakData.fragments = bal["fragments"].as<int>().unwrapOr(g_streakData.fragments);
         g_streakData.currentXP = bal["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
         g_streakData.currentLevel = bal["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);
+        g_streakData.goldTickets = bal["gold_tickets"].as<int>().unwrapOr(g_streakData.goldTickets);
     }
     if (data.contains("totalSpins"))
         g_streakData.totalSpins = data["totalSpins"].as<int>().unwrapOr(g_streakData.totalSpins);

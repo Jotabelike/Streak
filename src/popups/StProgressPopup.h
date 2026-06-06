@@ -10,6 +10,8 @@
 #include "../utils/RoundedProgressBar.h"
 #include "StreakChestPopup.h"
 #include "PremiumUnlockAnim.h"
+#include "GoldTicketMissionsPopup.h"
+#include "PassPurchasePopup.h"
 #include "../NameModifiers.h"
 
 using namespace geode::prelude;
@@ -42,6 +44,7 @@ protected:
 
     ScrollLayer* m_scrollLayer = nullptr;
     CCLabelBMFont* m_countdownLabel = nullptr;
+    CCLabelBMFont* m_goldLabel = nullptr;
     RoundedProgressBar* m_progressBar = nullptr;
     CCNode* m_premiumStatusNode = nullptr;
     CCMenuItemSpriteExtra* m_claimAllBtn = nullptr;
@@ -307,7 +310,7 @@ protected:
         if (tier <= 0 || tier > TOTAL_PAID_TIERS / 2) return;
         if (g_streakData.isFreePassTierClaimed(tier)) return;
         int requiredSP = tier * FREE_TIER_STEP;
-        if (g_streakData.streakPointsThisMonth < requiredSP) return;
+        if (g_streakData.goldTickets < requiredSP) return;
 
         auto reward = getFreeReward(tier);
         grantReward(reward, spawnPos);
@@ -333,7 +336,7 @@ protected:
         if (tier <= 0 || tier > TOTAL_PAID_TIERS) return;
         if (g_streakData.isPaidPassTierClaimed(tier)) return;
         int requiredSP = tier * PAID_TIER_STEP;
-        if (g_streakData.streakPointsThisMonth < requiredSP) return;
+        if (g_streakData.goldTickets < requiredSP) return;
         auto reward = getPaidReward(tier);
         grantReward(reward, spawnPos);
         g_streakData.setPaidPassTierClaimed(tier);
@@ -343,7 +346,7 @@ protected:
         if (m_passEnded) return;
         auto btn = static_cast<CCNode*>(sender);
         CCPoint spawnPos = btn->convertToWorldSpaceAR(CCPointZero);
-        int sp = g_streakData.streakPointsThisMonth;
+        int sp = g_streakData.goldTickets;
         bool any = false;
 
         for (int t = 1; t <= TOTAL_PAID_TIERS / 2; ++t) {
@@ -373,50 +376,44 @@ protected:
         }
     }
 
+    void onMissions(CCObject*) {
+        if (auto popup = GoldTicketMissionsPopup::create([this]() {
+            this->refreshHeader();
+            this->refreshTrack();
+        })) {
+            popup->show();
+        }
+    }
+
     void onBuyPremium(CCObject*) {
         if (m_passEnded) return;
         if (g_streakData.isPremiumPassActive()) return;
 
         int price = std::max(0, g_streakData.passPrice);
-        if (price > 0 && g_streakData.gems < price) {
-            FLAlertLayer::create(
-                "Not enough gems",
-                fmt::format("You need <cy>{}</c> gems to unlock the Premium Pass.", price).c_str(),
-                "OK"
-            )->show();
-            return;
-        }
 
-        std::string msg = (price == 0)
-            ? "Unlock the Premium Pass <cg>FREE</c>?\nUnlocks the paid track and all premium rewards this month."
-            : fmt::format(
-                "Unlock the Premium Pass for <cy>{}</c> gems?\nUnlocks the paid track and all premium rewards this month.",
-                price
-            );
-        const char* btnLabel = (price == 0) ? "Claim" : "Buy";
-
-        createQuickPopup(
-            "Premium Pass",
-            msg,
-            "Cancel",
-            btnLabel,
-            [this, price](FLAlertLayer*, bool btn2) {
-                if (!btn2) return;
-                if (price > 0 && g_streakData.gems < price) return;
-                if (g_streakData.isPremiumPassActive()) return;
-                matjson::Value payload = matjson::Value::object();
-                claimOnServer("/streak-pass/buy-premium", payload, [this](bool ok) {
-                    if (!ok) {
-                        FLAlertLayer::create("Error", "Purchase failed. Try again.", "OK")->show();
-                        return;
-                    }
-                    g_streakData.premiumPassMonth = g_streakData.getCurrentMonth();
-                    PremiumUnlockAnim::show();
-                    refreshHeader();
-                    refreshTrack();
-                });
+        auto popup = PassPurchasePopup::create(price, [this, price]() {
+            if (g_streakData.isPremiumPassActive()) return;
+            if (price > 0 && g_streakData.gems < price) {
+                FLAlertLayer::create(
+                    "Not enough gems",
+                    fmt::format("You need <cy>{}</c> gems to unlock the Premium Pass.", price).c_str(),
+                    "OK"
+                )->show();
+                return;
             }
-        );
+            matjson::Value payload = matjson::Value::object();
+            claimOnServer("/streak-pass/buy-premium", payload, [this](bool ok) {
+                if (!ok) {
+                    FLAlertLayer::create("Error", "Purchase failed. Try again.", "OK")->show();
+                    return;
+                }
+                g_streakData.premiumPassMonth = g_streakData.getCurrentMonth();
+                PremiumUnlockAnim::show();
+                refreshHeader();
+                refreshTrack();
+            });
+        });
+        if (popup) popup->show();
     }
 
     enum class TierState { Locked, Claimable, Claimed };
@@ -424,7 +421,7 @@ protected:
     TierState freeTierState(int tier) const {
         int reqSP = tier * FREE_TIER_STEP;
         if (g_streakData.isFreePassTierClaimed(tier)) return TierState::Claimed;
-        if (g_streakData.streakPointsThisMonth >= reqSP) return TierState::Claimable;
+        if (g_streakData.goldTickets >= reqSP) return TierState::Claimable;
         return TierState::Locked;
     }
 
@@ -432,12 +429,12 @@ protected:
         int reqSP = tier * PAID_TIER_STEP;
         if (g_streakData.isPaidPassTierClaimed(tier)) return TierState::Claimed;
         if (!g_streakData.isPremiumPassActive()) return TierState::Locked;
-        if (g_streakData.streakPointsThisMonth >= reqSP) return TierState::Claimable;
+        if (g_streakData.goldTickets >= reqSP) return TierState::Claimable;
         return TierState::Locked;
     }
 
     bool hasAnyClaimable() {
-        int sp = g_streakData.streakPointsThisMonth;
+        int sp = g_streakData.goldTickets;
         for (int t = 1; t <= TOTAL_PAID_TIERS / 2; ++t) {
             if (!g_streakData.isFreePassTierClaimed(t) && sp >= t * FREE_TIER_STEP) return true;
         }
@@ -670,6 +667,9 @@ protected:
 
     void refreshHeader() {
         refreshClaimAll();
+        if (m_goldLabel) {
+            m_goldLabel->setString(fmt::format("x{}", g_streakData.goldTickets).c_str());
+        }
     }
 
     void refreshClaimAll() {
@@ -710,6 +710,17 @@ protected:
         }
     }
 
+    float passProgressPct() const {
+        float g = (float)std::clamp(g_streakData.goldTickets, 0, MONTHLY_GOAL_SP);
+        float goal = (float)MONTHLY_GOAL_SP;
+        float step = (float)PAID_TIER_STEP;
+        float halfCol = 0.5f / (float)TOTAL_PAID_TIERS;
+        float pct = (g <= step)
+            ? (g / step) * halfCol
+            : (g / goal) - halfCol;
+        return std::clamp(pct, 0.f, 1.f);
+    }
+
     void refreshTrack() {
         refreshHeader();
         if (!m_scrollLayer) return;
@@ -739,8 +750,7 @@ protected:
         } else {
             m_progressBar->setGradientColors({ 250, 225, 60 }, { 255, 165, 0 });
         }
-        float pct = std::clamp((float)g_streakData.streakPointsThisMonth / (float)MONTHLY_GOAL_SP, 0.f, 1.f);
-        m_progressBar->setProgress(pct);
+        m_progressBar->setProgress(passProgressPct());
         m_scrollLayer->m_contentLayer->addChild(m_progressBar, 1);
 
         auto intro = buildIntroCell(introWidth, cellHeight);
@@ -758,7 +768,7 @@ protected:
 
         float maxScrollX = std::max(0.f, totalWidth - listSize.width);
         if (!m_initialScrollDone) {
-            int currentTier = std::clamp(g_streakData.streakPointsThisMonth / PAID_TIER_STEP, 0, TOTAL_PAID_TIERS);
+            int currentTier = std::clamp(g_streakData.goldTickets / PAID_TIER_STEP, 0, TOTAL_PAID_TIERS);
             float scrollX = std::max(0.f, introWidth + (currentTier - 2) * colWidth);
             scrollX = std::min(scrollX, maxScrollX);
             m_scrollLayer->m_contentLayer->setPositionX(-scrollX);
@@ -851,6 +861,24 @@ protected:
         m_countdownLabel->setPosition({ winSize.width / 2.f, winSize.height - 40.f });
         m_mainLayer->addChild(m_countdownLabel, 2);
 
+        {
+            auto goldIcon = CCSprite::create("gold_ticket.png"_spr);
+            float iconW = 0.f;
+            if (goldIcon) {
+                goldIcon->setScale(0.16f);
+                goldIcon->setPosition({ winSize.width / 2.f - 20.f, winSize.height - 56.f });
+                m_mainLayer->addChild(goldIcon, 2);
+                iconW = goldIcon->getScaledContentSize().width;
+            }
+            m_goldLabel = CCLabelBMFont::create(
+                fmt::format("x{}", g_streakData.goldTickets).c_str(), "bigFont.fnt"
+            );
+            m_goldLabel->setScale(0.4f);
+            m_goldLabel->setAnchorPoint({ 0.f, 0.5f });
+            m_goldLabel->setPosition({ winSize.width / 2.f - 20.f + iconW / 2.f + 4.f, winSize.height - 56.f });
+            m_mainLayer->addChild(m_goldLabel, 2);
+        }
+
         auto claimAllSpr = ButtonSprite::create("Claim All", 0, 0, "bigFont.fnt", "GJ_button_01.png", 0, 0.6f);
         claimAllSpr->setScale(0.5f);
         m_claimAllBtn = CCMenuItemSpriteExtra::create(
@@ -859,6 +887,19 @@ protected:
         auto claimMenu = CCMenu::createWithItem(m_claimAllBtn);
         claimMenu->setPosition({ 60.f, winSize.height - 30.f });
         m_mainLayer->addChild(claimMenu, 2);
+
+        auto missionsSpr = CCSprite::create("gold_ticket_btn.png"_spr);
+        if (!missionsSpr) missionsSpr = CCSprite::createWithSpriteFrameName("GJ_button_01.png");
+        if (missionsSpr) {
+            float maxH = 34.f;
+            missionsSpr->setScale(maxH / std::max(missionsSpr->getContentSize().height, 1.f));
+        }
+        auto missionsBtn = CCMenuItemSpriteExtra::create(
+            missionsSpr, this, menu_selector(StProgressPopup::onMissions)
+        );
+        auto missionsMenu = CCMenu::createWithItem(missionsBtn);
+        missionsMenu->setPosition({ winSize.width - 36.f, winSize.height - 30.f });
+        m_mainLayer->addChild(missionsMenu, 2);
 
         auto listSize = CCSize{ 420.f, 200.f };
         auto bg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");

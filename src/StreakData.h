@@ -14,8 +14,6 @@ using namespace geode::prelude;
 inline constexpr int STREAK_MENU_MUSIC_CHANNEL = 7777;
 inline constexpr const char* STREAK_MENU_MUSIC_VOLUME_KEY = "streak_menu_music_volume";
 
-inline constexpr const char* EXPECTED_PASS_ID = "season_2026_05";
-
 struct DiscordMilestone {
     int requirement;
     int tickets;
@@ -191,6 +189,8 @@ struct StreakData {
     bool passEnabled = true;
     int passPrice = 1999;
 
+    int goldTickets = 0;
+
     struct PassRewardDef {
         std::string type;
         int amount = 0;
@@ -198,6 +198,23 @@ struct StreakData {
     };
     std::vector<PassRewardDef> freePassRewards;
     std::vector<PassRewardDef> paidPassRewards;
+
+    struct PassMissionDef {
+        std::string id;
+        int target = 0;
+        int reward = 0;
+    };
+    std::vector<PassMissionDef> passDailyMissions;
+    std::vector<PassMissionDef> passWeeklyMissions;
+    std::vector<PassMissionDef> passSeasonMissions;
+
+    int passDailyLevels = 0;
+    int passWeeklyLevels = 0;
+    int passSeasonLevels = 0;
+
+    std::set<std::string> claimedPassDailyMissions;
+    std::set<std::string> claimedPassWeeklyMissions;
+    std::set<std::string> claimedPassSeasonMissions;
 
     bool weeklyMission1Claimed = false;
     bool weeklyMission2Claimed = false;
@@ -517,6 +534,10 @@ struct StreakData {
     void setFreePassTierClaimed(int tier);
     void setPaidPassTierClaimed(int tier);
     bool isPassActive() const;
+    const std::vector<PassMissionDef>& getPassMissions(const std::string& scope) const;
+    int getPassMissionProgress(const std::string& scope) const;
+    bool isPassMissionClaimed(const std::string& scope, const std::string& id) const;
+    void markPassMissionClaimed(const std::string& scope, const std::string& id);
     long long getSeasonEndTime() const { return seasonEndTime; }
     void unequipBadge();
     bool isBadgeEquipped(const std::string& badgeID);

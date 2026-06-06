@@ -28,4 +28,13 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     DISABLE_PRECOMPILE_HEADERS ON
 )
 
+# Install the compiled .geode into a secondary GD installation used for testing
+set(EXTRA_GD_MODS_DIR "C:/Users/josue/OneDrive/Escritorio/Geometry Dash 2.2081 - CreceGames/Geometry Dash/geode/mods")
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.geode"
+        "${EXTRA_GD_MODS_DIR}/${PROJECT_NAME}.geode"
+    COMMENT "Installing ${PROJECT_NAME}.geode to test GD installation"
+)
+
 
