@@ -155,7 +155,7 @@ protected:
     std::vector<std::string> m_listOptions = { "10", "50" };
     std::vector<std::string> m_pauseModes = { "On", "Off" };
     std::vector<std::string> m_animModes = { "None", "Bar", "Label" };
-    std::vector<std::string> m_musicModes = { "Normal", "Off", "Persistent" };
+    std::vector<std::string> m_musicModes = { "Normal", "Off" };
 
     CCLabelBMFont* m_bgStatusLabel = nullptr;
 
@@ -940,7 +940,7 @@ protected:
         addToggleSetting("Banners in Comments", "enable_comment_banners", "Show player banners in level comments.");
         addBannerOpacitySetting("Banner Opacity", "banner_opacity", "Adjust the transparency of the banners in comments.");
         addToggleSetting("Name Effects", "enable_name_effects", "Show custom name effects and colors in comments.");
-        addMusicModeSetting("Music Mode", "streak_music_mode", "Normal: plays only in the Streak menu.\nOff: keeps GD's song and never plays the Streak music.\nPersistent: keeps the Streak music playing across the whole game.");
+        addMusicModeSetting("Music Mode", "streak_music_mode", "Normal: plays only in the Streak menu.\nOff: keeps GD's song and never plays the Streak music.");
         addMusicVolumeSetting("Menu Music Volume", STREAK_MENU_MUSIC_VOLUME_KEY, "Volume of the Streak room background music.");
         addVersionSetting("Mod Version", fmt::format("{}", Mod::get()->getVersion()));
 

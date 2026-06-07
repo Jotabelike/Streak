@@ -5,7 +5,7 @@
 using namespace geode::prelude;
 
 namespace StreakMusic {
-    enum Mode { Normal = 0, Off = 1, Persistent = 2 };
+    enum Mode { Normal = 0, Off = 1 };
 
     inline bool s_playing = false;
     inline bool s_inStreakMenu = false;
@@ -64,15 +64,13 @@ namespace StreakMusic {
 
     inline void onMenuExit() {
         s_inStreakMenu = false;
-        if (getMode() == Persistent) return;
         stop();
     }
 
     inline void applyModeChange() {
-        int mode = getMode();
-        if (mode == Off) {
+        if (getMode() == Off) {
             stop();
-        } else if (s_inStreakMenu || mode == Persistent) {
+        } else if (s_inStreakMenu) {
             if (s_playing) resync();
             else start();
         }

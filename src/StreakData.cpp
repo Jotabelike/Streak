@@ -1105,46 +1105,22 @@ std::vector<StreakData::ShopItem> StreakData::getDailyShopSelection() {
     std::mt19937 gen(seed);
 
 
-    std::set<std::string> excludedIDs = {
-        "ncs_badge", "super_star_badge", "beta_badge", "magic_flower_badge",
-        "diamond_streak_badge", "past1_badge", "marshmello_badge", "alan_walker_badge",
-        "shiver_badge", "dual_badge", "ttv_badge", "tsukasa_badge",
-        "funhouse_badge", "miku_badge", "nantendo_badge", "youtube_badge",
-        "tiktok_badge", "Skeletal_Shenanigans_badge", "bh_badge_7", "winter_badge",
-        "freddy_badge", "chica_badge", "bonnie_badge", "foxy_badge",
-        "banner_5", "banner_15", "banner_21", "banner_22",
-        "banner_23", "banner_33", "banner_40", "banner_41",
-        "banner_44", "banner_45", "banner_19", "banner_26",
-        "banner_32", "banner_16", "banner_29", "banner_42",
-        "banner_51", "banner_52", "banner_53", "badge_5",
-        "badge_10", "badge_30", "badge_50", "badge_70",
-        "badge_100", "badge_150", "badge_300", "badge_365",
-        "moderator_badge", "creator_badge", "vip_badge", "stellar_badge",
-        "cube_mastery_badge", "ship_mastery_badge", "ufo_mastery_badge", "ball_mastery_badge",
-        "spider_mastery_badge", "wave_mastery_badge", "robot_mastery_badge", "memory_mastery_badge",
-        "swingcopter_mastery_badge", "xl_mastery_badge", "dual_mastery_badge", "achievement_badge3",
-        "achievement_badge2", "achievement_badge1", "teto_badge",     
-        "badge_destello1", "badge_destello2", "badge_mc1", "badge_mc2",
-        "badge_pixel1", "badge_pixel2", "badge_cherry", "badge_cherry3",
-        "badge_cherry4", "badge_cherry5", "badge_cherry6", "badge_cherry8",
-        "badge_cherry9", "badge_cherry10","limbo_badge", "banner_61","banner_60","banner_59"
-    };
-
     std::vector<ShopItem> candidates;
 
     auto addCandidate = [&](const std::string& id,
         bool isBadge,
         BadgeCategory cat,
         const std::string& name,
-        const std::string& spr, int daysReq) {
+        const std::string& spr, int daysReq,
+        bool excludeFromShop) {
             if (cat == BadgeCategory::MYTHIC) return;
-            if (excludedIDs.count(id)) return;
+            if (excludeFromShop) return;
             if (daysReq > 0) return;
             candidates.push_back({ id, isBadge, getPriceForRarity(cat), cat, name, spr });
         };
 
-    for (const auto& b : badges) addCandidate(b.badgeID, true, b.category, b.displayName, b.spriteName, b.daysRequired);
-    for (const auto& b : banners) addCandidate(b.bannerID, false, b.rarity, b.displayName, b.spriteName, 0);
+    for (const auto& b : badges) addCandidate(b.badgeID, true, b.category, b.displayName, b.spriteName, b.daysRequired, b.excludeFromShop);
+    for (const auto& b : banners) addCandidate(b.bannerID, false, b.rarity, b.displayName, b.spriteName, 0, b.excludeFromShop);
 
 
     if (!candidates.empty()) {

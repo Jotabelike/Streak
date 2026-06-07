@@ -409,6 +409,7 @@ static void applyServerBalances(const matjson::Value& data) {
         g_streakData.superStars = bal["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
         g_streakData.starTickets = bal["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
         g_streakData.gems = bal["gems"].as<int>().unwrapOr(g_streakData.gems);
+        g_streakData.streakShields = bal["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields);
         g_streakData.fragments = bal["fragments"].as<int>().unwrapOr(g_streakData.fragments);
         g_streakData.currentXP = bal["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
         g_streakData.currentLevel = bal["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);

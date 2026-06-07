@@ -300,21 +300,7 @@ protected:
         auto btn = static_cast<CCNode*>(sender);
         int tier = btn->getTag();
         CCPoint spawnPos = btn->convertToWorldSpaceAR(CCPointZero);
-        claimFreeTier(tier, spawnPos);
-        g_streakData.save();
-        FMODAudioEngine::sharedEngine()->playEffect("dummyDestroy.ogg");
-        refreshTrack();
-    }
-
-    void claimFreeTier(int tier, CCPoint spawnPos) {
-        if (tier <= 0 || tier > TOTAL_PAID_TIERS / 2) return;
-        if (g_streakData.isFreePassTierClaimed(tier)) return;
-        int requiredSP = tier * FREE_TIER_STEP;
-        if (g_streakData.goldTickets < requiredSP) return;
-
-        auto reward = getFreeReward(tier);
-        grantReward(reward, spawnPos);
-        g_streakData.setFreePassTierClaimed(tier);
+        requestClaimTier("free", tier, spawnPos);
     }
 
     void onClaimPaid(CCObject* sender) {
@@ -326,54 +312,110 @@ protected:
             FLAlertLayer::create("Premium Pass", "Unlock the Premium Pass to claim this reward.", "OK")->show();
             return;
         }
-        claimPaidTier(tier, spawnPos);
-        g_streakData.save();
-        FMODAudioEngine::sharedEngine()->playEffect("dummyDestroy.ogg");
-        refreshTrack();
+        requestClaimTier("paid", tier, spawnPos);
     }
 
-    void claimPaidTier(int tier, CCPoint spawnPos) {
-        if (tier <= 0 || tier > TOTAL_PAID_TIERS) return;
-        if (g_streakData.isPaidPassTierClaimed(tier)) return;
-        int requiredSP = tier * PAID_TIER_STEP;
-        if (g_streakData.goldTickets < requiredSP) return;
-        auto reward = getPaidReward(tier);
-        grantReward(reward, spawnPos);
-        g_streakData.setPaidPassTierClaimed(tier);
+    // Plays the currency gain animation for a reward whose balance was already
+    // updated from the server response.
+    void showPassRewardAnim(const PassReward& reward, CCPoint spawnPos) {
+        const char* spr = spriteForReward(reward.type);
+        if (!spr || reward.amount <= 0) return;
+        int current = 0;
+        switch (reward.type) {
+            case PassRewardType::Tickets: current = g_streakData.starTickets; break;
+            case PassRewardType::Stars:   current = g_streakData.superStars; break;
+            case PassRewardType::Gems:    current = g_streakData.gems; break;
+            case PassRewardType::Shields: current = g_streakData.streakShields; break;
+            default: return;
+        }
+        int start = std::max(0, current - reward.amount);
+        RewardNotification::show(spr, start, reward.amount, spawnPos);
     }
 
-    void onClaimAll(CCObject* sender) {
+    // Pass rewards are granted and recorded by the server so they actually persist.
+    // The claimed-tier lists are server-authoritative; we only mirror them locally
+    // for the UI. Chest tiers are recorded by the server too, then their contents are
+    // delivered through the interactive chest flow (/chest/claim).
+    void requestClaimTier(const std::string& track, int tier, CCPoint spawnPos) {
+        const bool isFree = (track == "free");
+        if (isFree) {
+            if (tier <= 0 || tier > TOTAL_PAID_TIERS / 2) return;
+            if (g_streakData.isFreePassTierClaimed(tier)) return;
+            if (g_streakData.goldTickets < tier * FREE_TIER_STEP) return;
+        } else {
+            if (tier <= 0 || tier > TOTAL_PAID_TIERS) return;
+            if (g_streakData.isPaidPassTierClaimed(tier)) return;
+            if (g_streakData.goldTickets < tier * PAID_TIER_STEP) return;
+        }
+
+        PassReward reward = isFree ? getFreeReward(tier) : getPaidReward(tier);
+
+        matjson::Value payload = matjson::Value::object();
+        payload.set("track", track);
+        payload.set("tier", tier);
+
+        claimOnServer("/streak-pass/tier/claim", payload,
+            [this, isFree, tier, reward, spawnPos](bool ok) {
+                if (!ok) {
+                    FLAlertLayer::create("Pass",
+                        "Could not claim the reward. Check your connection and try again.", "OK")->show();
+                    return;
+                }
+                if (isFree) g_streakData.setFreePassTierClaimed(tier);
+                else        g_streakData.setPaidPassTierClaimed(tier);
+
+                bool isCurrency = reward.type == PassRewardType::Tickets
+                               || reward.type == PassRewardType::Stars
+                               || reward.type == PassRewardType::Gems
+                               || reward.type == PassRewardType::Shields;
+                if (isCurrency) {
+                    // Balance already updated from the server response.
+                    showPassRewardAnim(reward, spawnPos);
+                } else {
+                    // Chest / Banner / NameItem: grantReward opens the chest popup or
+                    // unlocks the item locally (server already recorded the unlock).
+                    grantReward(reward, spawnPos);
+                }
+                FMODAudioEngine::sharedEngine()->playEffect("dummyDestroy.ogg");
+                refreshTrack();
+            });
+    }
+
+    void onClaimAll(CCObject*) {
         if (m_passEnded) return;
-        auto btn = static_cast<CCNode*>(sender);
-        CCPoint spawnPos = btn->convertToWorldSpaceAR(CCPointZero);
-        int sp = g_streakData.goldTickets;
-        bool any = false;
 
-        for (int t = 1; t <= TOTAL_PAID_TIERS / 2; ++t) {
-            if (g_streakData.isFreePassTierClaimed(t)) continue;
-            if (sp < t * FREE_TIER_STEP) break;
-            auto r = getFreeReward(t);
-            if (r.type == PassRewardType::Chest || r.type == PassRewardType::Banner || r.type == PassRewardType::NameItem) continue;
-            grantReward(r, spawnPos);
-            g_streakData.setFreePassTierClaimed(t);
-            any = true;
-        }
-        if (g_streakData.isPremiumPassActive()) {
-            for (int t = 1; t <= TOTAL_PAID_TIERS; ++t) {
-                if (g_streakData.isPaidPassTierClaimed(t)) continue;
-                if (sp < t * PAID_TIER_STEP) break;
-                auto r = getPaidReward(t);
-                if (r.type == PassRewardType::Chest || r.type == PassRewardType::Banner || r.type == PassRewardType::NameItem) continue;
-                grantReward(r, spawnPos);
-                g_streakData.setPaidPassTierClaimed(t);
-                any = true;
+        matjson::Value payload = matjson::Value::object();
+        claimOnServer("/streak-pass/claim-all", payload, [this](bool ok) {
+            if (!ok) {
+                FLAlertLayer::create("Pass",
+                    "Could not claim the rewards. Check your connection and try again.", "OK")->show();
+                return;
             }
-        }
-        if (any) {
-            g_streakData.save();
+            // The server grants and persists every eligible currency tier; mirror the
+            // same selection locally so the UI marks them claimed. Chest/banner/name
+            // tiers are skipped and stay claimable individually.
+            auto isCurrency = [](PassRewardType t) {
+                return t == PassRewardType::Tickets || t == PassRewardType::Stars
+                    || t == PassRewardType::Gems || t == PassRewardType::Shields;
+            };
+            int sp = g_streakData.goldTickets;
+            for (int t = 1; t <= TOTAL_PAID_TIERS / 2; ++t) {
+                if (sp < t * FREE_TIER_STEP) break;
+                if (g_streakData.isFreePassTierClaimed(t)) continue;
+                if (!isCurrency(getFreeReward(t).type)) continue;
+                g_streakData.setFreePassTierClaimed(t);
+            }
+            if (g_streakData.isPremiumPassActive()) {
+                for (int t = 1; t <= TOTAL_PAID_TIERS; ++t) {
+                    if (sp < t * PAID_TIER_STEP) break;
+                    if (g_streakData.isPaidPassTierClaimed(t)) continue;
+                    if (!isCurrency(getPaidReward(t).type)) continue;
+                    g_streakData.setPaidPassTierClaimed(t);
+                }
+            }
             FMODAudioEngine::sharedEngine()->playEffect("dummyDestroy.ogg");
             refreshTrack();
-        }
+        });
     }
 
     void onMissions(CCObject*) {
