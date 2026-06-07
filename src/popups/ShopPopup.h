@@ -448,7 +448,7 @@ protected:
             if (g_streakData.starTickets >= price) {
                 matjson::Value payload = matjson::Value::object();
                 payload.set("itemID", itemID);
-                claimOnServer("/shop/purchase", payload, [this, itemID, category, isBadge](bool ok) {
+                claimOnServer("/shop/purchase", payload, [this, itemID, category, isBadge, keepAlive = Ref<CCNode>(this)](bool ok) {
                     if (!ok) {
                         FLAlertLayer::create("Error", "Purchase failed. Try again.", "OK")->show();
                         return;

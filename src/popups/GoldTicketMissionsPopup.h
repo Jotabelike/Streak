@@ -252,7 +252,7 @@ protected:
         payload.set("mission_id", missionID);
 
         claimOnServer("/streak-pass/mission/claim", payload,
-            [this, scope, missionID, reward, startTickets](bool ok) {
+            [this, scope, missionID, reward, startTickets, keepAlive = Ref<CCNode>(this)](bool ok) {
                 m_busy = false;
                 if (!ok) {
                     FLAlertLayer::create("Error", "Could not claim this mission. Try again.", "OK")->show();

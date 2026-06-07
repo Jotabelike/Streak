@@ -17,6 +17,7 @@ using namespace geode::prelude;
 
 static async::TaskHolder<web::WebResponse> s_updateListener;
 static async::TaskHolder<web::WebResponse> s_loadListener;
+static async::TaskHolder<web::WebResponse> s_refreshListener;
 static async::TaskHolder<web::WebResponse> s_completeLevelListener;
 static async::TaskHolder<web::WebResponse> s_rouletteSpinListener;
 static async::TaskHolder<web::WebResponse> s_gemRouletteSpinListener;
@@ -31,6 +32,7 @@ void loadPlayerDataFromServer() {
         g_streakData.resetToDefault();
         g_streakData.isDataLoaded = true;
         g_streakData.m_initialized = true;
+        g_streakData.loadedAccountID = 0;
         return;
     }
 
@@ -62,6 +64,7 @@ void loadPlayerDataFromServer() {
                 geode::Mod::get()->setSavedValue<bool>(gdpsKey, g_streakData.isGDPS);
                 g_streakData.isDataLoaded = true;
                 g_streakData.m_initialized = true;
+                g_streakData.loadedAccountID = accountID;
                 log::info("Data received and processed.");
             }
             else if (res.code() == 404) {
@@ -91,6 +94,45 @@ void loadPlayerDataFromServer() {
                 log::warn("Load failed (Code: {}). Maintaining error state.", res.code());
                 g_streakData.isDataLoaded = false;
                 g_streakData.m_initialized = false;
+            }
+        }
+    );
+}
+
+void refreshPlayerDataFromServer(std::function<void(bool)> callback) {
+    auto am = GJAccountManager::sharedState();
+    if (!am || am->m_accountID == 0) { if (callback) callback(false); return; }
+
+    int accountID = am->m_accountID;
+    std::string url = fmt::format("{}/players/{}", SERVER_URL, accountID);
+
+    HMACAuth::clearSessionToken();
+
+    auto req = web::WebRequest();
+    HMACAuth::signGetRequest(req, accountID);
+
+    s_refreshListener.spawn(
+        req.get(url),
+        [callback, accountID](web::WebResponse res) {
+            if (res.ok() && res.json().isOk()) {
+                auto data = res.json().unwrap();
+
+                if (data.contains("session_token")) {
+                    std::string token = data["session_token"].as<std::string>().unwrapOr(std::string(""));
+                    if (!token.empty()) HMACAuth::setSessionToken(token);
+                }
+
+                g_streakData.parseServerResponse(data);
+                std::string gdpsKey = fmt::format("is_gdps_player_{}", accountID);
+                geode::Mod::get()->setSavedValue<bool>(gdpsKey, g_streakData.isGDPS);
+                g_streakData.isDataLoaded = true;
+                g_streakData.m_initialized = true;
+                g_streakData.loadedAccountID = accountID;
+                if (callback) callback(true);
+            }
+            else {
+                log::warn("refreshPlayerDataFromServer failed (Code: {})", res.code());
+                if (callback) callback(false);
             }
         }
     );

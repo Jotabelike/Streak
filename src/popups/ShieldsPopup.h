@@ -102,7 +102,7 @@ protected:
         matjson::Value payload = matjson::Value::object();
         payload.set("enabled", desired);
 
-        claimOnServer("/shields/toggle", payload, [this, desired](bool ok) {
+        claimOnServer("/shields/toggle", payload, [this, desired, keepAlive = Ref<CCNode>(this)](bool ok) {
             m_busy = false;
             if (m_toggle) m_toggle->setEnabled(true);
 

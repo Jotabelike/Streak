@@ -47,9 +47,14 @@ protected:
 
         std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}/claim-level-reward", accountID);
 
+        // Retain the button: the request resolves on the main thread later, and if the
+        // popup is closed in the meantime its children are cleaned up. A raw pointer would
+        // dangle and crash; the Ref keeps it alive (orphaned, guarded by the parent check).
+        Ref<CCMenuItemSpriteExtra> btnRef = btn;
         m_claimListener.spawn(
             req.bodyJSON(payload).post(url),
-            [this, btn, level, startGems, startStars, startTickets, startShields](web::WebResponse res) {
+            [this, btnRef, level, startGems, startStars, startTickets, startShields](web::WebResponse res) {
+                CCMenuItemSpriteExtra* btn = btnRef;
                 int httpCode = res.code();
                 if (!res.ok() || !res.json().isOk()) {
                     btn->setEnabled(true);
@@ -214,7 +219,7 @@ protected:
             m_spinner->setLoading("Loading rewards...");
         }
 
-        refreshPendingLevelRewardsFromServer([this](bool ok) {
+        refreshPendingLevelRewardsFromServer([this, keepAlive = Ref<CCNode>(this)](bool ok) {
             if (m_spinner) m_spinner->hide();
             if (m_listContainer) m_listContainer->setVisible(true);
             if (!ok) {

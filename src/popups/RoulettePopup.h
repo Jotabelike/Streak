@@ -849,7 +849,7 @@ protected:
         toggleUI(false);
  
         if (m_currentMode == RouletteMode::Standard) {
-            spinStandardRouletteOnServer(1, [this](bool ok, matjson::Value data) {
+            spinStandardRouletteOnServer(1, [this, keepAlive = Ref<CCNode>(this)](bool ok, matjson::Value data) {
                 if (!ok) {
                     m_isSpinning = false;
                     toggleUI(true);
@@ -880,7 +880,7 @@ protected:
         }
         else {
             auto capturedAvailable = logicalAvailableIndices;
-            spinGemRouletteOnServer([this, capturedAvailable](bool ok, matjson::Value data) {
+            spinGemRouletteOnServer([this, capturedAvailable, keepAlive = Ref<CCNode>(this)](bool ok, matjson::Value data) {
                 if (!ok) {
                     m_isSpinning = false;
                     toggleUI(true);
@@ -913,7 +913,7 @@ protected:
         m_isSpinning = true;
         toggleUI(false);
  
-        spinStandardRouletteOnServer(10, [this](bool ok, matjson::Value data) {
+        spinStandardRouletteOnServer(10, [this, keepAlive = Ref<CCNode>(this)](bool ok, matjson::Value data) {
             if (!ok) {
                 m_isSpinning = false;
                 toggleUI(true);

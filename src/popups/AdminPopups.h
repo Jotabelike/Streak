@@ -852,16 +852,65 @@ protected:
             g_streakData.save();
 
            
-            auto winSize = CCDirector::sharedDirector()->getWinSize();
-            CCPoint spawnPos = winSize / 2;
+            // Refresh the opener and close THIS popup BEFORE presenting the chest.
+            if (m_onSuccessCallback) {
+                m_onSuccessCallback();
+            }
+            FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
+            this->onClose(nullptr);
 
-            auto showSideNotifications = [=]() {
-                if (chestRarity > 0) {
-                    if (auto chestPopup = StreakChestPopup::createOpen(
-                        chestStars, chestTickets, chestGems, chestXP, chestRarity, nullptr
-                    )) {
-                        chestPopup->show();
+            // Present the rewards on the next frame, once this popup has been removed.
+            // Opening the chest in the same frame we close this popup left the chest's
+            // collect button unable to receive touches (the closing popup still held
+            // touch priority), so users couldn't press Claim. Deferring fixes it.
+            Loader::get()->queueInMainThread([=]() {
+                auto winSize = CCDirector::sharedDirector()->getWinSize();
+                CCPoint spawnPos = winSize / 2;
+
+                auto showSideNotifications = [=]() {
+                    if (chestRarity > 0) {
+                        if (auto chestPopup = StreakChestPopup::createOpen(
+                            chestStars, chestTickets, chestGems, chestXP, chestRarity, nullptr
+                        )) {
+                            chestPopup->show();
+                        }
+                        if (isNewBanner && !bannerID.empty()) {
+                            auto info = g_streakData.getBannerInfo(bannerID);
+                            if (info) {
+                                BannerNotification::show(
+                                    bannerID,
+                                    info->spriteName,
+                                    info->displayName,
+                                    g_streakData.getCategoryName(info->rarity),
+                                    g_streakData.getCategoryColor(info->rarity)
+                                );
+                            }
+                        }
+                        return;
                     }
+
+                    if (codeXP > 0) {
+                        RewardNotification::show("xp.png"_spr, xpStart, codeXP, spawnPos);
+                    }
+
+                    // Only animate rewards from the code itself; level-up rewards now go
+                    // to the pending queue and are claimed from the XP popup.
+                    if (codeStars > 0) {
+                        RewardNotification::show("super_star.png"_spr, starsStart, codeStars, spawnPos);
+                    }
+
+                    if (codeTickets > 0) {
+                        RewardNotification::show("star_tiket.png"_spr, ticketsStart, codeTickets, spawnPos);
+                    }
+
+                    if (codeGems > 0) {
+                        RewardNotification::show("gem.png"_spr, gemsStart, codeGems, spawnPos);
+                    }
+
+                    if (codeShields > 0) {
+                        RewardNotification::show("heart.png"_spr, shieldsStart, codeShields, spawnPos);
+                    }
+
                     if (isNewBanner && !bannerID.empty()) {
                         auto info = g_streakData.getBannerInfo(bannerID);
                         if (info) {
@@ -874,72 +923,29 @@ protected:
                             );
                         }
                     }
-                    return;
-                }
+                    };
 
-                if (codeXP > 0) {
-                    RewardNotification::show("xp.png"_spr, xpStart, codeXP, spawnPos);
-                }
+                // Level-up notification is handled inside handleServerLevelUp.
 
-                // Only animate rewards from the code itself; level-up rewards now go
-                // to the pending queue and are claimed from the XP popup.
-                if (codeStars > 0) {
-                    RewardNotification::show("super_star.png"_spr, starsStart, codeStars, spawnPos);
-                }
+                if (isNewBadge && !badgeID.empty()) {
+                    auto* badgeInfo = g_streakData.getBadgeInfo(badgeID);
 
-                if (codeTickets > 0) {
-                    RewardNotification::show("star_tiket.png"_spr, ticketsStart, codeTickets, spawnPos);
-                }
-
-                if (codeGems > 0) {
-                    RewardNotification::show("gem.png"_spr, gemsStart, codeGems, spawnPos);
-                }
-
-                if (codeShields > 0) {
-                    RewardNotification::show("heart.png"_spr, shieldsStart, codeShields, spawnPos);
-                }
-
-                if (isNewBanner && !bannerID.empty()) {
-                    auto info = g_streakData.getBannerInfo(bannerID);
-                    if (info) {
-                        BannerNotification::show(
-                            bannerID,
-                            info->spriteName,
-                            info->displayName,
-                            g_streakData.getCategoryName(info->rarity),
-                            g_streakData.getCategoryColor(info->rarity)
-                        );
+                    if (badgeInfo && badgeInfo->category == StreakData::BadgeCategory::MYTHIC) {
+                        auto animLayer = MythicAnimationLayer::create(*badgeInfo, [badgeID, showSideNotifications]() {
+                            BadgeNotification::show(badgeID);
+                            showSideNotifications();
+                            });
+                        CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 99999);
                     }
-                }
-                };
-
-            // Level-up notification is handled inside handleServerLevelUp.
-
-            if (isNewBadge && !badgeID.empty()) {
-                auto* badgeInfo = g_streakData.getBadgeInfo(badgeID);
-
-                if (badgeInfo && badgeInfo->category == StreakData::BadgeCategory::MYTHIC) {
-                    auto animLayer = MythicAnimationLayer::create(*badgeInfo, [badgeID, showSideNotifications]() {
+                    else {
                         BadgeNotification::show(badgeID);
                         showSideNotifications();
-                        });
-                    CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 99999);
+                    }
                 }
                 else {
-                    BadgeNotification::show(badgeID);
                     showSideNotifications();
                 }
-            }
-            else {
-                showSideNotifications();
-            }
-
-            if (m_onSuccessCallback) {
-                m_onSuccessCallback();
-            }
-
-            FMODAudioEngine::sharedEngine()->playEffect("buyItem01.ogg");
-            this->onClose(nullptr);
+            });
         }
         else {
             m_redeemBtn->setEnabled(true);

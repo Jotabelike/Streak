@@ -389,7 +389,7 @@ protected:
         payload.set("price", item.price);
         payload.set("isBadge", item.isBadge);
 
-        claimOnServer("/daily-shop/purchase", payload, [this, item](bool ok) {
+        claimOnServer("/daily-shop/purchase", payload, [this, item, keepAlive = Ref<CCNode>(this)](bool ok) {
             if (!ok) {
                 FLAlertLayer::create("Error", "Purchase failed. Try again.", "OK")->show();
                 return;
@@ -447,7 +447,7 @@ protected:
         payload.set("amount", item.amount);
         payload.set("isTickets", item.isTickets);
 
-        claimOnServer("/daily-shop/purchase-consumable", payload, [this, item, startAmount](bool ok) {
+        claimOnServer("/daily-shop/purchase-consumable", payload, [this, item, startAmount, keepAlive = Ref<CCNode>(this)](bool ok) {
             if (!ok) {
                 FLAlertLayer::create("Error", "Purchase failed. Try again.", "OK")->show();
                 return;

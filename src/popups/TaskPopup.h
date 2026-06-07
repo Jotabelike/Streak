@@ -473,8 +473,12 @@ protected:
             auto cell = TaskCell::create(
                 task,
                 300.0f,
-                [this]() {
-                    this->refreshList();
+                // WeakRef, not a raw `this`: this reload callback is copied into async
+                // claim callbacks that may resolve after the popup is closed. A raw
+                // pointer would dangle; a Ref here would form a retain cycle
+                // (popup -> cell -> reloadFunc -> popup). WeakRef breaks both.
+                [weakSelf = WeakRef<TaskPopup>(this)]() {
+                    if (auto self = weakSelf.lock()) self->refreshList();
                 }
             );
             cell->setPosition({ 0, currentY });

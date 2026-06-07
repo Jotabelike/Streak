@@ -7,6 +7,7 @@
 #include "../BadgeNotification.h"
 #include "../RewardNotification.h"
 #include "../FirebaseManager.h"
+#include "../StatusSpinner.h"
 #include "../utils/RoundedProgressBar.h"
 #include "StreakChestPopup.h"
 #include "PremiumUnlockAnim.h"
@@ -47,12 +48,13 @@ protected:
     CCLabelBMFont* m_goldLabel = nullptr;
     RoundedProgressBar* m_progressBar = nullptr;
     CCNode* m_premiumStatusNode = nullptr;
-    CCMenuItemSpriteExtra* m_claimAllBtn = nullptr;
     std::vector<AnimatedGradient> m_animatedGradients;
     CCLayerGradient* m_bgGradient = nullptr;
     float m_bgHue = 0.f;
     bool m_passEnded = false;
     bool m_initialScrollDone = false;
+    StatusSpinner* m_spinner = nullptr;
+    bool m_serverLoaded = false;
 
     static PassRewardType typeFromString(const std::string& s) {
         if (s == "tickets")   return PassRewardType::Tickets;
@@ -355,7 +357,7 @@ protected:
         payload.set("tier", tier);
 
         claimOnServer("/streak-pass/tier/claim", payload,
-            [this, isFree, tier, reward, spawnPos](bool ok) {
+            [this, isFree, tier, reward, spawnPos, keepAlive = Ref<CCNode>(this)](bool ok) {
                 if (!ok) {
                     FLAlertLayer::create("Pass",
                         "Could not claim the reward. Check your connection and try again.", "OK")->show();
@@ -379,43 +381,6 @@ protected:
                 FMODAudioEngine::sharedEngine()->playEffect("dummyDestroy.ogg");
                 refreshTrack();
             });
-    }
-
-    void onClaimAll(CCObject*) {
-        if (m_passEnded) return;
-
-        matjson::Value payload = matjson::Value::object();
-        claimOnServer("/streak-pass/claim-all", payload, [this](bool ok) {
-            if (!ok) {
-                FLAlertLayer::create("Pass",
-                    "Could not claim the rewards. Check your connection and try again.", "OK")->show();
-                return;
-            }
-            // The server grants and persists every eligible currency tier; mirror the
-            // same selection locally so the UI marks them claimed. Chest/banner/name
-            // tiers are skipped and stay claimable individually.
-            auto isCurrency = [](PassRewardType t) {
-                return t == PassRewardType::Tickets || t == PassRewardType::Stars
-                    || t == PassRewardType::Gems || t == PassRewardType::Shields;
-            };
-            int sp = g_streakData.goldTickets;
-            for (int t = 1; t <= TOTAL_PAID_TIERS / 2; ++t) {
-                if (sp < t * FREE_TIER_STEP) break;
-                if (g_streakData.isFreePassTierClaimed(t)) continue;
-                if (!isCurrency(getFreeReward(t).type)) continue;
-                g_streakData.setFreePassTierClaimed(t);
-            }
-            if (g_streakData.isPremiumPassActive()) {
-                for (int t = 1; t <= TOTAL_PAID_TIERS; ++t) {
-                    if (sp < t * PAID_TIER_STEP) break;
-                    if (g_streakData.isPaidPassTierClaimed(t)) continue;
-                    if (!isCurrency(getPaidReward(t).type)) continue;
-                    g_streakData.setPaidPassTierClaimed(t);
-                }
-            }
-            FMODAudioEngine::sharedEngine()->playEffect("dummyDestroy.ogg");
-            refreshTrack();
-        });
     }
 
     void onMissions(CCObject*) {
@@ -444,7 +409,7 @@ protected:
                 return;
             }
             matjson::Value payload = matjson::Value::object();
-            claimOnServer("/streak-pass/buy-premium", payload, [this](bool ok) {
+            claimOnServer("/streak-pass/buy-premium", payload, [this, keepAlive = Ref<CCNode>(this)](bool ok) {
                 if (!ok) {
                     FLAlertLayer::create("Error", "Purchase failed. Try again.", "OK")->show();
                     return;
@@ -473,19 +438,6 @@ protected:
         if (!g_streakData.isPremiumPassActive()) return TierState::Locked;
         if (g_streakData.goldTickets >= reqSP) return TierState::Claimable;
         return TierState::Locked;
-    }
-
-    bool hasAnyClaimable() {
-        int sp = g_streakData.goldTickets;
-        for (int t = 1; t <= TOTAL_PAID_TIERS / 2; ++t) {
-            if (!g_streakData.isFreePassTierClaimed(t) && sp >= t * FREE_TIER_STEP) return true;
-        }
-        if (g_streakData.isPremiumPassActive()) {
-            for (int t = 1; t <= TOTAL_PAID_TIERS; ++t) {
-                if (!g_streakData.isPaidPassTierClaimed(t) && sp >= t * PAID_TIER_STEP) return true;
-            }
-        }
-        return false;
     }
 
     void attachClaimAnimation(CCNode* cell, CCNode* icon, int tier, float rowY, float bgW, float bgH, SEL_MenuHandler handler) {
@@ -708,17 +660,9 @@ protected:
     }
 
     void refreshHeader() {
-        refreshClaimAll();
         if (m_goldLabel) {
             m_goldLabel->setString(fmt::format("x{}", g_streakData.goldTickets).c_str());
         }
-    }
-
-    void refreshClaimAll() {
-        if (!m_claimAllBtn) return;
-        bool active = !m_passEnded && hasAnyClaimable();
-        m_claimAllBtn->setEnabled(active);
-        m_claimAllBtn->setVisible(active);
     }
 
     std::string formatCountdown(long long secondsLeft) {
@@ -764,6 +708,7 @@ protected:
     }
 
     void refreshTrack() {
+        if (!m_serverLoaded) return;
         refreshHeader();
         if (!m_scrollLayer) return;
 
@@ -921,15 +866,6 @@ protected:
             m_mainLayer->addChild(m_goldLabel, 2);
         }
 
-        auto claimAllSpr = ButtonSprite::create("Claim All", 0, 0, "bigFont.fnt", "GJ_button_01.png", 0, 0.6f);
-        claimAllSpr->setScale(0.5f);
-        m_claimAllBtn = CCMenuItemSpriteExtra::create(
-            claimAllSpr, this, menu_selector(StProgressPopup::onClaimAll)
-        );
-        auto claimMenu = CCMenu::createWithItem(m_claimAllBtn);
-        claimMenu->setPosition({ 60.f, winSize.height - 30.f });
-        m_mainLayer->addChild(claimMenu, 2);
-
         auto missionsSpr = CCSprite::create("gold_ticket_btn.png"_spr);
         if (!missionsSpr) missionsSpr = CCSprite::createWithSpriteFrameName("GJ_button_01.png");
         if (missionsSpr) {
@@ -955,12 +891,37 @@ protected:
         m_scrollLayer->setPosition({ (winSize.width - listSize.width) / 2.f, 12.f });
         m_mainLayer->addChild(m_scrollLayer, 2);
 
-        updateCountdown(0);
-        refreshTrack();
+        m_spinner = StatusSpinner::create();
+        m_spinner->setPosition({ winSize.width / 2.f, listSize.height / 2.f + 12.f });
+        m_mainLayer->addChild(m_spinner, 30);
+
         this->scheduleUpdate();
         this->schedule(schedule_selector(StProgressPopup::updateCountdown), 1.0f);
 
+        loadFromServer();
+
         return true;
+    }
+
+    // The pass is server-authoritative: never trust the local cache. Every time the
+    // popup opens we re-fetch the player's pass data (gold tickets, claimed tiers,
+    // premium status, reward config) and only build the track once it arrives.
+    void loadFromServer() {
+        if (m_spinner) m_spinner->setLoading("Loading pass...");
+        if (m_goldLabel) m_goldLabel->setString("x...");
+
+        Ref<StProgressPopup> self = this;
+        refreshPlayerDataFromServer([self](bool ok) {
+            if (!self->isRunning()) return;
+            if (!ok) {
+                if (self->m_spinner) self->m_spinner->setError("Couldn't load the pass.\nCheck your connection.");
+                return;
+            }
+            self->m_serverLoaded = true;
+            if (self->m_spinner) self->m_spinner->hide();
+            self->updateCountdown(0);
+            self->refreshTrack();
+        });
     }
 
     void update(float dt) override {

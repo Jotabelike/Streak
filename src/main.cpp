@@ -116,20 +116,35 @@ class $modify(MyMenuLayer, MenuLayer) {
     }
 
     void loadPlayerData() {
-        if (g_streakData.isDataLoaded && g_streakData.m_initialized && !HMACAuth::getSessionToken().empty()) {
+        auto accountManager = GJAccountManager::sharedState();
+        int currentAccountID = (accountManager ? accountManager->m_accountID : 0);
+
+        // If the logged-in account changed since the last load (account switch
+        // without restarting GD), drop the stale cache so we never show or save
+        // another account's data.
+        if (g_streakData.loadedAccountID != currentAccountID) {
+            g_streakData.resetToDefault();
+            HMACAuth::clearSessionToken();
+        }
+
+        // Cache is valid only when it belongs to the current account.
+        if (g_streakData.isDataLoaded && g_streakData.m_initialized
+            && !HMACAuth::getSessionToken().empty()
+            && g_streakData.loadedAccountID == currentAccountID) {
             this->createStreakButton(ButtonState::Active);
             return;
         }
-        auto accountManager = GJAccountManager::sharedState();
-        if (!accountManager || accountManager->m_accountID == 0) {
+
+        if (currentAccountID == 0) {
             g_streakData.m_initialized = true;
             g_streakData.isDataLoaded = true;
+            g_streakData.loadedAccountID = 0;
             g_streakData.dailyUpdate();
             this->createStreakButton(ButtonState::Active);
             return;
         }
 
-        int accountID = accountManager->m_accountID;
+        int accountID = currentAccountID;
         std::string url = fmt::format("https://streak-servidor.onrender.com/players/{}", accountID);
  
         HMACAuth::clearSessionToken();
@@ -158,10 +173,12 @@ class $modify(MyMenuLayer, MenuLayer) {
                     this->createStreakButton(ButtonState::Error);
                     return;
                 }
+                g_streakData.loadedAccountID = accountID;
                 this->onLoadSuccess();
             }
             else if (res.code() == 404) {
                 g_streakData.needsRegistration = true;
+                g_streakData.loadedAccountID = accountID;
                 this->onLoadSuccess();
             }
             else {

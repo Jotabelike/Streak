@@ -448,7 +448,7 @@ protected:
         int tag = m_selectedLockedTag;
         auto btn = m_selectedLockedBtn;
 
-        claimOnServer("/name-item/purchase", payload, [this, itemID, tag, btn](bool ok) {
+        claimOnServer("/name-item/purchase", payload, [this, itemID, tag, btn, keepAlive = Ref<CCNode>(this)](bool ok) {
             if (m_buyNameBtn) m_buyNameBtn->setEnabled(true);
             if (!ok) {
                 FLAlertLayer::create("Error", "Could not complete purchase.", "OK")->show();

@@ -344,7 +344,7 @@ protected:
 
             g_streakData.completedLevelMissions.insert(levelID);
 
-            claimOnServer("/level-mission/claim", payload, [this, rewardBadgeID, secondaryType, secondaryQty, spawnPos](bool ok) {
+            claimOnServer("/level-mission/claim", payload, [this, rewardBadgeID, secondaryType, secondaryQty, spawnPos, keepAlive = Ref<CCNode>(this)](bool ok) {
                 if (!rewardBadgeID.empty()) {
                     bool alreadyHadBadge = g_streakData.isBadgeUnlocked(rewardBadgeID);
                     g_streakData.unlockBadge(rewardBadgeID);

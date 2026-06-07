@@ -238,7 +238,7 @@ protected:
             payload.set("gems", gems);
             payload.set("isChest", isChest);
 
-            claimOnServer("/discord-milestone/claim", payload, [this, isChest, tickets, stars, gems](bool ok) {
+            claimOnServer("/discord-milestone/claim", payload, [this, isChest, tickets, stars, gems, keepAlive = Ref<CCNode>(this)](bool ok) {
                 updatePlayerDataInFirebase();
                 if (isChest) {
                     ChestRewardHelper::openRandomChest([this]() { this->refreshUI(); });

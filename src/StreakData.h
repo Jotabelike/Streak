@@ -232,6 +232,7 @@ struct StreakData {
 
     bool isDataLoaded;
     bool m_initialized = false;
+    int loadedAccountID = 0;
     int userRole = 0;
     int dailyMsgCount = 0;
     int globalRank = 0;
