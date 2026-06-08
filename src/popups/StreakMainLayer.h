@@ -108,17 +108,18 @@ protected:
 
     bool hasClaimablePassTiers() {
         if (!g_streakData.isPassActive()) return false;
-        int sp = g_streakData.streakPointsThisMonth;
+        int gold = g_streakData.goldTickets;
         int freeMax = (int)g_streakData.freePassRewards.size();
         int paidMax = (int)g_streakData.paidPassRewards.size();
         for (int t = 1; t <= freeMax; ++t) {
-            if (!g_streakData.isFreePassTierClaimed(t) && sp >= t * 100) return true;
+            if (!g_streakData.isFreePassTierClaimed(t) && gold >= t * 100) return true;
         }
         if (g_streakData.isPremiumPassActive()) {
             for (int t = 1; t <= paidMax; ++t) {
-                if (!g_streakData.isPaidPassTierClaimed(t) && sp >= t * 50) return true;
+                if (!g_streakData.isPaidPassTierClaimed(t) && gold >= t * 50) return true;
             }
         }
+        if (!g_streakData.passCompleteRewardClaimed && gold >= 2000) return true;
         return false;
     }
 

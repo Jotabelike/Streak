@@ -12,6 +12,7 @@
 using namespace geode::prelude;
 
 inline constexpr int STREAK_MENU_MUSIC_CHANNEL = 7777;
+inline constexpr int STREAK_SONG_PREVIEW_CHANNEL = 7778;
 inline constexpr const char* STREAK_MENU_MUSIC_VOLUME_KEY = "streak_menu_music_volume";
 
 struct DiscordMilestone {
@@ -79,6 +80,15 @@ struct StreakData {
         bool excludeFromShop = false;
     };
 
+    struct SongInfo {
+        std::string songID;
+        std::string fileName;
+        std::string iconName;
+        std::string displayName;
+        std::string description;
+        std::string creator;
+    };
+
     struct ConsumableItem {
         bool isTickets;
         int amount;
@@ -110,6 +120,7 @@ struct StreakData {
     std::string lastDay;
     std::string equippedBadge;
     std::string equippedBanner;
+    std::string equippedSong;
     int superStars;
     int lastRouletteIndex;
     int totalSpins;
@@ -186,6 +197,8 @@ struct StreakData {
     std::string premiumPassMonth = "";
     std::set<int> claimedFreePassTiers;
     std::set<int> claimedPaidPassTiers;
+    bool passCompleteRewardClaimed = false;
+    std::string pendingPassGiftFrom = "";
 
     std::string activePassID = "";
     bool passEnabled = true;
@@ -503,8 +516,13 @@ struct StreakData {
         };
 
 
+    std::vector<SongInfo> songs = {
+        {"song_1", "s1.mp3"_spr, "s1.png"_spr, "Streak Theme", "The original Streak! menu theme.", "Suno AI"}
+    };
+
     std::vector<bool> unlockedBadges;
     std::vector<bool> unlockedBanners;
+    std::vector<bool> unlockedSongs;
 
 
     bool isInitialized() const {
@@ -563,6 +581,13 @@ struct StreakData {
     void equipBanner(const std::string& bannerID);
     void unequipBanner();
     BannerInfo* getEquippedBanner();
+    void unlockSong(const std::string& songID);
+    bool isSongUnlocked(const std::string& songID);
+    SongInfo* getSongInfo(const std::string& songID);
+    void equipSong(const std::string& songID);
+    void unequipSong();
+    SongInfo* getEquippedSong();
+    std::string getEquippedSongFile();
     int getXPForCurrentStreak();
     int getXPRequiredForNextLevel();
     float getXPPercentage();

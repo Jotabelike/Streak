@@ -84,6 +84,8 @@ void StreakData::resetToDefault() {
     premiumPassMonth = "";
     claimedFreePassTiers.clear();
     claimedPaidPassTiers.clear();
+    passCompleteRewardClaimed = false;
+    pendingPassGiftFrom = "";
 
     goldTickets = 0;
     passDailyLevels = 0;
@@ -124,6 +126,14 @@ void StreakData::resetToDefault() {
         std::fill(unlockedBanners.begin(), unlockedBanners.end(), false);
     }
 
+    equippedSong = "";
+    if (unlockedSongs.size() != songs.size()) {
+        unlockedSongs.assign(songs.size(), false);
+    }
+    else {
+        std::fill(unlockedSongs.begin(), unlockedSongs.end(), false);
+    }
+
     completedLevelMissions.clear();
     userRole = 0;
     dailyMsgCount = 0;
@@ -156,6 +166,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     totalStreakPoints = safeInt(data, "total_streak_points", 0);
     equippedBadge = data["equipped_badge_id"].as<std::string>().unwrapOr(std::string(""));
     equippedBanner = data["equipped_banner_id"].as<std::string>().unwrapOr(std::string(""));
+    equippedSong = data["equipped_song_id"].as<std::string>().unwrapOr(std::string(""));
     superStars = safeInt(data, "super_stars", 0);
     starTickets = safeInt(data, "star_tickets", 0);
     lastRouletteIndex = safeInt(data, "last_roulette_index", 0);
@@ -234,6 +245,14 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
             for (const auto& [k, _] : v.as<std::map<std::string, matjson::Value>>().unwrap()) {
                 try { claimedPaidPassTiers.insert(std::stoi(k)); } catch (...) {}
             }
+        }
+    }
+    passCompleteRewardClaimed = data["pass_complete_reward_claimed"].as<bool>().unwrapOr(false);
+    pendingPassGiftFrom = "";
+    if (data.contains("pending_pass_gift")) {
+        auto gift = data["pending_pass_gift"];
+        if (gift.isObject()) {
+            pendingPassGiftFrom = gift["from"].as<std::string>().unwrapOr(std::string("A player"));
         }
     }
     goldTickets = safeInt(data, "gold_tickets", 0);
@@ -418,6 +437,22 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
         if (bannersResult.isOk()) {
             for (const auto& banner_id_json : bannersResult.unwrap()) {
                 unlockBanner(banner_id_json.as<std::string>().unwrapOr(std::string("")));
+            }
+        }
+    }
+
+    if (unlockedSongs.size() != songs.size()) {
+        unlockedSongs.assign(songs.size(), false);
+    }
+    else {
+        std::fill(unlockedSongs.begin(), unlockedSongs.end(), false);
+    }
+
+    if (data.contains("unlocked_songs")) {
+        auto songsResult = data["unlocked_songs"].as<std::vector<matjson::Value>>();
+        if (songsResult.isOk()) {
+            for (const auto& song_id_json : songsResult.unwrap()) {
+                unlockSong(song_id_json.as<std::string>().unwrapOr(std::string("")));
             }
         }
     }
@@ -1055,6 +1090,61 @@ void StreakData::unequipBanner() {
 
 StreakData::BannerInfo* StreakData::getEquippedBanner() {
     return getBannerInfo(equippedBanner);
+}
+
+void StreakData::unlockSong(const std::string& songID) {
+    if (songID.empty()) return;
+    if (unlockedSongs.size() != songs.size()) unlockedSongs.assign(songs.size(), false);
+    for (size_t i = 0; i < songs.size(); ++i) {
+        if (i < unlockedSongs.size() && songs[i].songID == songID) {
+            unlockedSongs[i] = true;
+            return;
+        }
+    }
+}
+
+bool StreakData::isSongUnlocked(const std::string& songID) {
+    if (songID.empty()) return false;
+    if (unlockedSongs.size() != songs.size()) return false;
+    for (size_t i = 0; i < songs.size(); ++i) {
+        if (i < unlockedSongs.size() && songs[i].songID == songID) return unlockedSongs[i];
+    }
+    return false;
+}
+
+StreakData::SongInfo* StreakData::getSongInfo(const std::string& songID) {
+    if (songID.empty()) return nullptr;
+    for (auto& song : songs) {
+        if (song.songID == songID) return &song;
+    }
+    return nullptr;
+}
+
+void StreakData::equipSong(const std::string& songID) {
+    if (songID.empty()) return;
+    if (isSongUnlocked(songID)) {
+        if (equippedSong != songID) {
+            equippedSong = songID;
+            save();
+        }
+    }
+}
+
+void StreakData::unequipSong() {
+    if (!equippedSong.empty()) {
+        equippedSong = "";
+        save();
+    }
+}
+
+StreakData::SongInfo* StreakData::getEquippedSong() {
+    return getSongInfo(equippedSong);
+}
+
+std::string StreakData::getEquippedSongFile() {
+    auto info = getSongInfo(equippedSong);
+    if (info && isSongUnlocked(equippedSong)) return info->fileName;
+    return std::string("s1.mp3"_spr);
 }
 
 bool StreakData::isStreakGoalClaimed(int index) const {

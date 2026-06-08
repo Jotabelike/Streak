@@ -13,6 +13,8 @@
 #include "PremiumUnlockAnim.h"
 #include "GoldTicketMissionsPopup.h"
 #include "PassPurchasePopup.h"
+#include "BuyGoldTicketsPopup.h"
+#include "GiftPassPopup.h"
 #include "../NameModifiers.h"
 
 using namespace geode::prelude;
@@ -55,6 +57,14 @@ protected:
     bool m_initialScrollDone = false;
     StatusSpinner* m_spinner = nullptr;
     bool m_serverLoaded = false;
+
+    CCMenuItemSpriteExtra* m_completeRewardBtn = nullptr;
+    CCSprite* m_completeRewardCheck = nullptr;
+    CCLabelBMFont* m_themeLabel = nullptr;
+    static constexpr const char* COMPLETE_REWARD_SONG = "song_1";
+
+    RoundedProgressBar* m_goldBuyBar = nullptr;
+    CCLabelBMFont* m_goldBuyGoalLabel = nullptr;
 
     static PassRewardType typeFromString(const std::string& s) {
         if (s == "tickets")   return PassRewardType::Tickets;
@@ -392,6 +402,199 @@ protected:
         }
     }
 
+    void buildCompleteReward(CCSize winSize) {
+        float xIcon = winSize.width - 36.f;
+        float yBand = winSize.height - 70.f;
+
+        CCSprite* songIcon = nullptr;
+        if (auto info = g_streakData.getSongInfo(COMPLETE_REWARD_SONG)) {
+            songIcon = CCSprite::create(info->iconName.c_str());
+        }
+        if (!songIcon) songIcon = CCSprite::createWithSpriteFrameName("GJ_musicJob_001.png");
+        if (songIcon) {
+            float target = 38.f;
+            songIcon->setScale(target / std::max(songIcon->getContentSize().width, songIcon->getContentSize().height));
+        }
+        m_completeRewardBtn = CCMenuItemSpriteExtra::create(
+            songIcon, this, menu_selector(StProgressPopup::onClaimCompleteReward));
+        m_completeRewardBtn->setPosition({ xIcon, yBand });
+
+        float panelW = 96.f, panelH = 18.f;
+        CCPoint panelCenter = { xIcon - 20.f - panelW / 2.f, yBand };
+
+        auto infoSpr = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
+        infoSpr->setScale(0.45f);
+        auto infoBtn = CCMenuItemSpriteExtra::create(
+            infoSpr, this, menu_selector(StProgressPopup::onCompleteRewardInfo));
+        infoBtn->setPosition({ panelCenter.x - panelW / 2.f - 12.f, yBand });
+
+        auto menu = CCMenu::create();
+        menu->addChild(m_completeRewardBtn);
+        menu->addChild(infoBtn);
+        menu->setPosition({ 0, 0 });
+        m_mainLayer->addChild(menu, 6);
+
+        m_completeRewardCheck = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
+        if (m_completeRewardCheck) {
+            m_completeRewardCheck->setScale(0.55f);
+            m_completeRewardCheck->setPosition({ xIcon + 12.f, yBand - 12.f });
+            m_mainLayer->addChild(m_completeRewardCheck, 7);
+        }
+
+        auto panelBg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
+        panelBg->setContentSize({ panelW, panelH });
+        panelBg->setColor({ 0, 0, 0 });
+        panelBg->setOpacity(140);
+        panelBg->setPosition(panelCenter);
+        m_mainLayer->addChild(panelBg, 5);
+
+        auto stencil = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
+        stencil->setContentSize({ panelW, panelH });
+        stencil->setPosition(panelCenter);
+        auto clipper = CCClippingNode::create(stencil);
+        clipper->setAlphaThreshold(0.05f);
+        clipper->setPosition({ 0, 0 });
+        m_mainLayer->addChild(clipper, 6);
+
+        std::string themeName = "Streak Theme";
+        if (auto info = g_streakData.getSongInfo(COMPLETE_REWARD_SONG)) themeName = info->displayName;
+        m_themeLabel = CCLabelBMFont::create(themeName.c_str(), "bigFont.fnt");
+        m_themeLabel->setScale(0.4f);
+        m_themeLabel->setAnchorPoint({ 0.f, 0.5f });
+        clipper->addChild(m_themeLabel);
+        NameModifiers::applyColor(m_themeLabel, "Rainbow Wave");
+
+        float labelW = m_themeLabel->getContentSize().width * m_themeLabel->getScale();
+        float startX = panelCenter.x - panelW / 2.f - labelW;
+        float endX = panelCenter.x + panelW / 2.f;
+        float travel = endX - startX;
+        m_themeLabel->setPosition({ startX, panelCenter.y });
+        float dur = std::max(2.f, travel / 28.f);
+        m_themeLabel->runAction(CCRepeatForever::create(CCSequence::create(
+            CCMoveBy::create(dur, { travel, 0.f }),
+            CCMoveBy::create(0.f, { -travel, 0.f }),
+            nullptr
+        )));
+
+        auto upgradeSpr = CCSprite::create("upgrade_btn.png"_spr);
+        if (!upgradeSpr) upgradeSpr = ButtonSprite::create("+");
+        {
+            float maxH = 30.f;
+            upgradeSpr->setScale(maxH / std::max(upgradeSpr->getContentSize().height, 1.f));
+        }
+        auto upgradeBtn = CCMenuItemSpriteExtra::create(
+            upgradeSpr, this, menu_selector(StProgressPopup::onUpgrade));
+        upgradeBtn->setPosition({ 40.f, yBand });
+        auto upgradeMenu = CCMenu::createWithItem(upgradeBtn);
+        upgradeMenu->setPosition({ 0, 0 });
+        m_mainLayer->addChild(upgradeMenu, 6);
+
+        m_goldBuyBar = RoundedProgressBar::create(80.f, 10.f);
+        m_goldBuyBar->setPosition({ 110.f, yBand - 3.f });
+        m_goldBuyBar->setGradientColors({ 250, 225, 60 }, { 255, 165, 0 });
+        m_mainLayer->addChild(m_goldBuyBar, 6);
+
+        m_goldBuyGoalLabel = CCLabelBMFont::create("", "bigFont.fnt");
+        m_goldBuyGoalLabel->setScale(0.3f);
+        m_goldBuyGoalLabel->setPosition({ 110.f, yBand + 9.f });
+        m_mainLayer->addChild(m_goldBuyGoalLabel, 6);
+
+        refreshGoldBuyBar();
+        refreshCompleteReward();
+    }
+
+    void refreshGoldBuyBar() {
+        int g = g_streakData.goldTickets;
+        int goal = std::min(MONTHLY_GOAL_SP, ((g / FREE_TIER_STEP) + 1) * FREE_TIER_STEP);
+        int segStart = std::max(0, goal - FREE_TIER_STEP);
+        if (g >= MONTHLY_GOAL_SP) { goal = MONTHLY_GOAL_SP; segStart = MONTHLY_GOAL_SP - FREE_TIER_STEP; }
+
+        if (m_goldBuyBar) {
+            float denom = (float)std::max(1, goal - segStart);
+            m_goldBuyBar->setProgress((g >= MONTHLY_GOAL_SP) ? 1.f : (float)(g - segStart) / denom);
+        }
+        if (m_goldBuyGoalLabel) {
+            m_goldBuyGoalLabel->setString(
+                (g >= MONTHLY_GOAL_SP) ? "MAX" : fmt::format("Next: {}", goal).c_str());
+        }
+    }
+
+    void onUpgrade(CCObject*) {
+        if (m_passEnded) {
+            FLAlertLayer::create("Pass", "This pass has ended.", "OK")->show();
+            return;
+        }
+        auto popup = BuyGoldTicketsPopup::create();
+        popup->onPurchased = [this]() {
+            this->refreshHeader();
+            this->refreshTrack();
+        };
+        popup->show();
+    }
+
+    void onGiftPass(CCObject*) {
+        auto popup = GiftPassPopup::create();
+        popup->onGifted = [this]() {
+            this->refreshHeader();
+        };
+        popup->show();
+    }
+
+    void refreshCompleteReward() {
+        if (!m_completeRewardBtn) return;
+        bool claimed = g_streakData.passCompleteRewardClaimed;
+        bool complete = g_streakData.goldTickets >= MONTHLY_GOAL_SP;
+
+        if (auto icon = static_cast<CCSprite*>(m_completeRewardBtn->getNormalImage())) {
+            if (claimed) icon->setColor({ 150, 150, 150 });
+            else if (complete) icon->setColor({ 255, 255, 255 });
+            else icon->setColor({ 110, 110, 110 });
+        }
+        if (m_completeRewardCheck) m_completeRewardCheck->setVisible(claimed);
+        m_completeRewardBtn->setEnabled(complete && !claimed);
+    }
+
+    void onCompleteRewardInfo(CCObject*) {
+        FLAlertLayer::create(
+            "Pass Completion Reward",
+            "Reach the pass goal on either the <cg>Free</c> or <cy>VIP</c> track to unlock the <cl>Streak Theme</c> song.\n"
+            "It's a bonus, separate from the regular tier rewards.",
+            "OK"
+        )->show();
+    }
+
+    void onClaimCompleteReward(CCObject*) {
+        if (m_passEnded) {
+            FLAlertLayer::create("Pass", "This pass has ended.", "OK")->show();
+            return;
+        }
+        if (g_streakData.passCompleteRewardClaimed) return;
+        if (g_streakData.goldTickets < MONTHLY_GOAL_SP) {
+            FLAlertLayer::create("Pass Reward", "Complete the pass to unlock this song.", "OK")->show();
+            return;
+        }
+        if (m_completeRewardBtn) m_completeRewardBtn->setEnabled(false);
+
+        matjson::Value payload = matjson::Value::object();
+        claimOnServer("/streak-pass/complete-reward/claim", payload,
+            [this, keepAlive = Ref<CCNode>(this)](bool ok) {
+                if (!ok) {
+                    FLAlertLayer::create("Pass", "Could not claim the reward. Try again.", "OK")->show();
+                    refreshCompleteReward();
+                    return;
+                }
+                g_streakData.passCompleteRewardClaimed = true;
+                g_streakData.unlockSong(COMPLETE_REWARD_SONG);
+
+                if (auto info = g_streakData.getSongInfo(COMPLETE_REWARD_SONG)) {
+                    BannerNotification::show(
+                        COMPLETE_REWARD_SONG, info->iconName, info->displayName,
+                        "MUSIC", { 255, 200, 80 }, "SONG UNLOCKED!");
+                }
+                refreshCompleteReward();
+            });
+    }
+
     void onBuyPremium(CCObject*) {
         if (m_passEnded) return;
         if (g_streakData.isPremiumPassActive()) return;
@@ -663,6 +866,8 @@ protected:
         if (m_goldLabel) {
             m_goldLabel->setString(fmt::format("x{}", g_streakData.goldTickets).c_str());
         }
+        refreshCompleteReward();
+        refreshGoldBuyBar();
     }
 
     std::string formatCountdown(long long secondsLeft) {
@@ -698,12 +903,12 @@ protected:
 
     float passProgressPct() const {
         float g = (float)std::clamp(g_streakData.goldTickets, 0, MONTHLY_GOAL_SP);
-        float goal = (float)MONTHLY_GOAL_SP;
         float step = (float)PAID_TIER_STEP;
-        float halfCol = 0.5f / (float)TOTAL_PAID_TIERS;
-        float pct = (g <= step)
-            ? (g / step) * halfCol
-            : (g / goal) - halfCol;
+        float denom = (float)TOTAL_PAID_TIERS - 0.5f;
+        float t = g / step;
+        float pct = (t <= 1.f)
+            ? t * (0.5f / denom)
+            : (t - 0.5f) / denom;
         return std::clamp(pct, 0.f, 1.f);
     }
 
@@ -730,8 +935,9 @@ protected:
         float barHeight = 14.f;
         float barY = cellHeight / 2.f;
         bool premiumOn = g_streakData.isPremiumPassActive();
-        m_progressBar = RoundedProgressBar::create(tiersWidth, barHeight);
-        m_progressBar->setPosition({ 6.f + introWidth + tiersWidth / 2.f, barY });
+        float barWidth = tiersWidth - colWidth / 2.f;
+        m_progressBar = RoundedProgressBar::create(barWidth, barHeight);
+        m_progressBar->setPosition({ 6.f + introWidth + barWidth / 2.f, barY });
         if (premiumOn) {
             m_progressBar->setRainbowMode(true);
         } else {
@@ -878,6 +1084,20 @@ protected:
         auto missionsMenu = CCMenu::createWithItem(missionsBtn);
         missionsMenu->setPosition({ winSize.width - 36.f, winSize.height - 30.f });
         m_mainLayer->addChild(missionsMenu, 2);
+
+        auto giftSpr = CCSprite::create("gif_pass_btn.png"_spr);
+        if (!giftSpr) giftSpr = ButtonSprite::create("Gift");
+        if (giftSpr) {
+            float maxH = 34.f;
+            giftSpr->setScale(maxH / std::max(giftSpr->getContentSize().height, 1.f));
+        }
+        auto giftBtn = CCMenuItemSpriteExtra::create(
+            giftSpr, this, menu_selector(StProgressPopup::onGiftPass));
+        auto giftMenu = CCMenu::createWithItem(giftBtn);
+        giftMenu->setPosition({ winSize.width - 80.f, winSize.height - 30.f });
+        m_mainLayer->addChild(giftMenu, 2);
+
+        buildCompleteReward(winSize);
 
         auto listSize = CCSize{ 420.f, 200.f };
         auto bg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");

@@ -24,6 +24,7 @@
 #include "WelcomeNotification.h"
 #include "RewardNotification.h"
 #include "HMACAuth.h"
+#include "popups/PremiumUnlockAnim.h"
 
 class $modify(StreakAppDelegate, AppDelegate) {
     void applicationWillEnterForeground() {
@@ -132,6 +133,7 @@ class $modify(MyMenuLayer, MenuLayer) {
             && !HMACAuth::getSessionToken().empty()
             && g_streakData.loadedAccountID == currentAccountID) {
             this->createStreakButton(ButtonState::Active);
+            this->tryShowPassGift();
             return;
         }
 
@@ -197,6 +199,24 @@ class $modify(MyMenuLayer, MenuLayer) {
         g_streakData.m_initialized = true;
         g_streakData.dailyUpdate();
         this->createStreakButton(ButtonState::Active);
+        this->tryShowPassGift();
+    }
+
+    void tryShowPassGift() {
+        static bool s_shown = false;
+        if (s_shown) return;
+        if (g_streakData.pendingPassGiftFrom.empty()) return;
+        s_shown = true;
+
+        std::string from = g_streakData.pendingPassGiftFrom;
+        g_streakData.pendingPassGiftFrom.clear();
+
+        matjson::Value payload = matjson::Value::object();
+        claimOnServer("/streak-pass/gift/ack", payload, [](bool) {});
+
+        queueInMainThread([from]() {
+            PremiumUnlockAnim::show(from);
+        });
     }
 
     void onLoadFailed() {

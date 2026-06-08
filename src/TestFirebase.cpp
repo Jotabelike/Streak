@@ -161,6 +161,7 @@ void updatePlayerDataInFirebase() {
     playerData.set("isGDPS", g_streakData.isGDPS);
     playerData.set("equipped_badge_id", g_streakData.equippedBadge);
     playerData.set("equipped_banner_id", g_streakData.equippedBanner);
+    playerData.set("equipped_song_id", g_streakData.equippedSong);
     playerData.set("equipped_name_color", g_streakData.equippedNameColor);
     playerData.set("equipped_name_font", g_streakData.equippedNameFont);
     playerData.set("equipped_name_effect", g_streakData.equippedNameEffect);
@@ -200,6 +201,16 @@ void updatePlayerDataInFirebase() {
         }
     }
     playerData.set("unlocked_banners", unlocked_banners_vec);
+
+    std::vector<std::string> unlocked_songs_vec;
+    if (g_streakData.unlockedSongs.size() == g_streakData.songs.size()) {
+        for (size_t i = 0; i < g_streakData.songs.size(); ++i) {
+            if (i < g_streakData.unlockedSongs.size() && g_streakData.unlockedSongs[i]) {
+                unlocked_songs_vec.push_back(g_streakData.songs[i].songID);
+            }
+        }
+    }
+    playerData.set("unlocked_songs", unlocked_songs_vec);
 
     matjson::Value pinnedObj = matjson::Value::object();
     for (auto const& [key, val] : g_streakData.pinnedLevels) {

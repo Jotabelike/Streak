@@ -8,7 +8,7 @@
 	},
 	"id": "jotabelike.gd_racha",
 	"name": "Streak!",
-	"version": "v1.10.54",
+	"version": "v1.10.55",
 	"developer": "XJotabelikeX",
 	"description": "Personal Streak! Prove you're the best and start a streak!",
 	"links": {
@@ -29,6 +29,7 @@
 	"resources": {
 		"files": [
 			"resources/audio/*.mp3",
+			"resources/songs/*.mp3",
 			"resources/extra/loading.gif",
 			"resources/*.md"
 		],
@@ -38,6 +39,7 @@
 			"resources/buttons/*.png",
 			"resources/extra/*.png",
 			"resources/banners/*.png",
+			"resources/menu songs icons/*.png",
 			"resources/chest/*.png",
 			"previews/*.png"
 		]

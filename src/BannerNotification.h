@@ -21,13 +21,14 @@ protected:
 
 public:
     static void show(const std::string& bannerID,
-        const std::string& spriteName, const std::string& bannerName, 
+        const std::string& spriteName, const std::string& bannerName,
         const std::string& rarityText,
-        ccColor3B rarityColor) {
+        ccColor3B rarityColor,
+        const std::string& titleText = "BANNER UNLOCKED!") {
         auto scene = CCDirector::sharedDirector()->getRunningScene();
         if (!scene) return;
 
-        auto node = BannerNotification::create(bannerID, spriteName, bannerName, rarityText, rarityColor);
+        auto node = BannerNotification::create(bannerID, spriteName, bannerName, rarityText, rarityColor, titleText);
 
         s_activeBanners.insert(s_activeBanners.begin(), node);
 
@@ -71,9 +72,10 @@ protected:
         const std::string& spriteName,
         const std::string& bannerName,
         const std::string& rarityText,
-        ccColor3B rarityColor) {
+        ccColor3B rarityColor,
+        const std::string& titleText) {
         auto ret = new BannerNotification();
-        if (ret && ret->init(bannerID, spriteName, bannerName, rarityText, rarityColor)) {
+        if (ret && ret->init(bannerID, spriteName, bannerName, rarityText, rarityColor, titleText)) {
             ret->autorelease();
             return ret;
         }
@@ -81,11 +83,12 @@ protected:
         return nullptr;
     }
 
-    bool init(const std::string& bannerID, 
-        const std::string& spriteName, 
+    bool init(const std::string& bannerID,
+        const std::string& spriteName,
         const std::string& bannerName,
         std::string rarityText,
-        ccColor3B rarityColor) {
+        ccColor3B rarityColor,
+        std::string titleText) {
         if (!CCNode::init()) return false;
 
         auto winSize = CCDirector::sharedDirector()->getWinSize();
@@ -106,7 +109,7 @@ protected:
         float centerX = size.width / 2;
 
        
-        auto titleLabel = CCLabelBMFont::create("BANNER UNLOCKED!", "goldFont.fnt");
+        auto titleLabel = CCLabelBMFont::create(titleText.c_str(), "goldFont.fnt");
         titleLabel->setScale(0.4f);
         titleLabel->setPosition({ centerX, size.height - 10.f }); 
         m_bg->addChild(titleLabel, 10);

@@ -26,7 +26,7 @@ namespace StreakMusic {
         float volF = getVolume();
         eng->stopChannel(STREAK_MENU_MUSIC_CHANNEL, AudioTargetType::SFXChannel, false, 0.f);
         eng->playEffectAdvanced(
-            std::string("streak_meu_loop.mp3"_spr),
+            g_streakData.getEquippedSongFile(),
             1.0f, 1.0f, volF, 1.0f,
             false, false,
             0, 0, 0, 0,
@@ -65,6 +65,11 @@ namespace StreakMusic {
     inline void onMenuExit() {
         s_inStreakMenu = false;
         stop();
+    }
+
+    inline void restartIfActive() {
+        if (getMode() == Off) return;
+        if (s_inStreakMenu) start();
     }
 
     inline void applyModeChange() {

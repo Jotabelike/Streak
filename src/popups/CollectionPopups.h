@@ -2,7 +2,8 @@
 #include "StreakCommon.h"
 #include "../StreakData.h"
 #include "../FirebaseManager.h"
-#include "../NameModifiers.h"  
+#include "../NameModifiers.h"
+#include "../StreakMusic.h"
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
 #include "QualityNode.h"
@@ -320,13 +321,180 @@ public:
 };
 
 
+class EquipSongPopup : public Popup {
+public:
+    std::function<void()> onStateChanged = nullptr;
+
+protected:
+    std::string m_songID;
+    bool m_isCurrentlyEquipped = false;
+    bool m_isUnlocked = false;
+    bool m_needsMusicRestore = false;
+
+    void stopPreview() {
+        auto eng = FMODAudioEngine::sharedEngine();
+        if (eng) eng->stopChannel(STREAK_SONG_PREVIEW_CHANNEL, AudioTargetType::SFXChannel, false, 0.f);
+    }
+
+    void onPlay(CCObject*) {
+        auto songInfo = g_streakData.getSongInfo(m_songID);
+        if (!songInfo) return;
+        auto eng = FMODAudioEngine::sharedEngine();
+        if (!eng) return;
+
+        eng->stopChannel(STREAK_SONG_PREVIEW_CHANNEL, AudioTargetType::SFXChannel, false, 0.f);
+        eng->stopChannel(STREAK_MENU_MUSIC_CHANNEL, AudioTargetType::SFXChannel, false, 0.f);
+        m_needsMusicRestore = true;
+
+        float vol = StreakMusic::getVolume();
+        eng->playEffectAdvanced(
+            songInfo->fileName,
+            1.0f, 1.0f, vol, 1.0f,
+            false, false,
+            0, 0, 0, 0,
+            true,
+            0, true, false,
+            STREAK_SONG_PREVIEW_CHANNEL,
+            0, 0.0f, 0
+        );
+        eng->setChannelVolume(STREAK_SONG_PREVIEW_CHANNEL, AudioTargetType::SFXChannel, vol);
+    }
+
+    void onStop(CCObject*) {
+        stopPreview();
+    }
+
+    bool init(std::string songID) {
+        if (!Popup::init(300.f, 250.f, "geode.loader/GE_square03.png")) return false;
+
+        m_songID = songID;
+        auto winSize = m_mainLayer->getContentSize();
+        auto songInfo = g_streakData.getSongInfo(songID);
+        if (!songInfo) return false;
+
+        m_isUnlocked = g_streakData.isSongUnlocked(songID);
+        m_isCurrentlyEquipped = (g_streakData.equippedSong == songID);
+
+        this->setTitle(
+            m_isCurrentlyEquipped ? "Song Equipped" : (m_isUnlocked ? "Equip Song" : "Locked Song")
+        );
+
+        auto icon = CCSprite::create(songInfo->iconName.c_str());
+        if (!icon) icon = CCSprite::create("GJ_button_01.png");
+        if (icon) {
+            float maxSize = 80.f;
+            float scale = maxSize / std::max(icon->getContentSize().width, icon->getContentSize().height);
+            if (scale > 1.5f) scale = 1.5f;
+            icon->setScale(scale);
+            icon->setPosition({ winSize.width / 2, winSize.height - 60.f });
+            if (!m_isUnlocked) icon->setColor({ 100, 100, 100 });
+            m_mainLayer->addChild(icon);
+        }
+
+        auto nameLabel = CCLabelBMFont::create(songInfo->displayName.c_str(), "goldFont.fnt");
+        nameLabel->setScale(0.65f);
+        nameLabel->setPosition({ winSize.width / 2, winSize.height - 110.f });
+        m_mainLayer->addChild(nameLabel);
+
+        if (!songInfo->creator.empty()) {
+            auto creatorLabel = CCLabelBMFont::create(
+                fmt::format("by {}", songInfo->creator).c_str(), "chatFont.fnt");
+            creatorLabel->setScale(0.4f);
+            creatorLabel->setColor({ 180, 180, 180 });
+            creatorLabel->setPosition({ winSize.width / 2, winSize.height - 128.f });
+            m_mainLayer->addChild(creatorLabel);
+        }
+
+        auto descLabel = CCLabelBMFont::create(songInfo->description.c_str(), "chatFont.fnt");
+        descLabel->setScale(0.5f);
+        float maxDescWidth = winSize.width - 50.f;
+        if (descLabel->getContentSize().width * descLabel->getScale() > maxDescWidth) {
+            descLabel->setScale(maxDescWidth / descLabel->getContentSize().width);
+        }
+        descLabel->setPosition({ winSize.width / 2, winSize.height - 152.f });
+        m_mainLayer->addChild(descLabel);
+
+        auto playSpr = ButtonSprite::create("Play", "bigFont.fnt", "GJ_button_01.png", 0.8f);
+        playSpr->setScale(0.7f);
+        auto playBtn = CCMenuItemSpriteExtra::create(playSpr, this, menu_selector(EquipSongPopup::onPlay));
+        playBtn->setPosition({ winSize.width / 2 - 55.f, 60.f });
+
+        auto stopSpr = ButtonSprite::create("Stop", "bigFont.fnt", "GJ_button_06.png", 0.8f);
+        stopSpr->setScale(0.7f);
+        auto stopBtn = CCMenuItemSpriteExtra::create(stopSpr, this, menu_selector(EquipSongPopup::onStop));
+        stopBtn->setPosition({ winSize.width / 2 + 55.f, 60.f });
+
+        auto previewMenu = CCMenu::create();
+        previewMenu->addChild(playBtn);
+        previewMenu->addChild(stopBtn);
+        previewMenu->setPosition({ 0, 0 });
+        m_mainLayer->addChild(previewMenu);
+
+        if (m_isUnlocked) {
+            auto equipSpr = ButtonSprite::create(m_isCurrentlyEquipped ? "Unequip" : "Equip");
+            auto equipBtn = CCMenuItemSpriteExtra::create(equipSpr, this, menu_selector(EquipSongPopup::onToggleEquip));
+            auto equipMenu = CCMenu::createWithItem(equipBtn);
+            equipMenu->setPosition({ winSize.width / 2, 25.f });
+            m_mainLayer->addChild(equipMenu);
+        }
+        else {
+            auto lockedLabel = CCLabelBMFont::create("Locked", "goldFont.fnt");
+            lockedLabel->setScale(0.5f);
+            lockedLabel->setColor({ 150, 150, 150 });
+            lockedLabel->setPosition({ winSize.width / 2, 25.f });
+            m_mainLayer->addChild(lockedLabel);
+        }
+
+        return true;
+    }
+
+    void onToggleEquip(CCObject*) {
+        if (m_isCurrentlyEquipped) {
+            g_streakData.unequipSong();
+            FLAlertLayer::create("Success", "Song unequipped!", "OK")->show();
+        }
+        else {
+            g_streakData.equipSong(m_songID);
+            FLAlertLayer::create("Success", "Song equipped!", "OK")->show();
+        }
+        g_streakData.save();
+        updatePlayerDataInFirebase();
+
+        stopPreview();
+        m_needsMusicRestore = false;
+        StreakMusic::restartIfActive();
+
+        if (onStateChanged) onStateChanged();
+        this->onClose(nullptr);
+    }
+
+    void onClose(CCObject* sender) override {
+        stopPreview();
+        if (m_needsMusicRestore) {
+            StreakMusic::restartIfActive();
+            m_needsMusicRestore = false;
+        }
+        Popup::onClose(sender);
+    }
+
+public:
+    static EquipSongPopup* create(std::string songID) {
+        auto ret = new EquipSongPopup();
+        if (ret && ret->init(songID)) {
+            ret->autorelease();
+            return ret;
+        }
+        CC_SAFE_DELETE(ret);
+        return nullptr;
+    }
+};
+
+
 class RewardsPopup : public Popup {
 protected:
-    enum DisplayMode { MODE_BADGES, MODE_BANNERS, MODE_NAMES };
+    enum DisplayMode { MODE_BADGES, MODE_BANNERS, MODE_NAMES, MODE_SONGS };
     DisplayMode m_currentMode = MODE_BADGES;
     int m_currentCategory = 0;
-    int m_currentPage = 0;
-    int m_totalPages = 0;
     QualityNode* m_qualityNode = nullptr;
     CCLabelBMFont* m_categoryLabel = nullptr;  
     CCMenu* m_badgeMenu = nullptr;
@@ -334,10 +502,10 @@ protected:
     CCNode* m_namesContainer = nullptr;
     CCLabelBMFont* m_namePreviewLabel = nullptr;
     CCMenu* m_catArrowMenu = nullptr;
-    CCMenu* m_pageArrowMenu = nullptr;
+    geode::ScrollLayer* m_gridScroll = nullptr;
+    CCNode* m_gridScrollbar = nullptr;
+    CCNode* m_cellNode = nullptr;
     cocos2d::extension::CCScale9Sprite* m_background = nullptr;
-    CCMenuItemSpriteExtra* m_pageLeftArrow = nullptr;
-    CCMenuItemSpriteExtra* m_pageRightArrow = nullptr;
     CCLabelBMFont* m_counterText = nullptr;
     CCLabelBMFont* m_totalStatsLabel = nullptr;
     const float POPUP_WIDTH = 410.f;  
@@ -528,10 +696,18 @@ protected:
             this,
             menu_selector(RewardsPopup::onSwitchToNames));
 
+        auto songBtnSpr = CCSprite::create("song_btn.png"_spr);
+        if (!songBtnSpr) songBtnSpr = ButtonSprite::create("Songs");
+        songBtnSpr->setScale(0.25f);
+        auto songBtn = CCMenuItemSpriteExtra::create(songBtnSpr,
+            this,
+            menu_selector(RewardsPopup::onSwitchToSongs));
+
         auto leftMenu = CCMenu::create();
         leftMenu->addChild(badgeBtn);
         leftMenu->addChild(bannerBtn);
         leftMenu->addChild(nameBtn);
+        leftMenu->addChild(songBtn);
         leftMenu->alignItemsVerticallyWithPadding(6.f);
         leftMenu->setPosition({ -20.f, CENTER_Y + 50.f });
         m_mainLayer->addChild(leftMenu);
@@ -571,32 +747,29 @@ protected:
         m_categoryLabel->setVisible(false);
         m_mainLayer->addChild(m_categoryLabel, 10);
 
-        auto pageLeftArrowSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
-        m_pageLeftArrow = CCMenuItemSpriteExtra::create(pageLeftArrowSprite,
-            this,
-            menu_selector(RewardsPopup::onPreviousBadgePage));
-        m_pageLeftArrow->setPosition(-m_background->getContentSize().width / 2 - 15.f, 0);
+        float gridW = m_background->getContentSize().width;
+        float gridH = m_background->getContentSize().height;
+        m_gridScroll = geode::ScrollLayer::create({ gridW, gridH });
+        m_gridScroll->setPosition({
+            m_background->getPositionX() - gridW / 2.f,
+            m_background->getPositionY() - gridH / 2.f
+            });
+        m_mainLayer->addChild(m_gridScroll, 14);
 
-        auto pageRightArrowSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
-        pageRightArrowSprite->setFlipX(true);
-        m_pageRightArrow = CCMenuItemSpriteExtra::create(pageRightArrowSprite,
-            this,
-            menu_selector(RewardsPopup::onNextBadgePage));
-        m_pageRightArrow->setPosition(m_background->getContentSize().width / 2 + 15.f, 0);
-
-        m_pageArrowMenu = CCMenu::create();
-        m_pageArrowMenu->addChild(m_pageLeftArrow);
-        m_pageArrowMenu->addChild(m_pageRightArrow);
-        m_pageArrowMenu->setPosition(m_background->getPosition());
-        m_mainLayer->addChild(m_pageArrowMenu);
+        m_cellNode = CCNode::create();
+        m_cellNode->setPosition({ 0, 0 });
+        m_gridScroll->m_contentLayer->addChild(m_cellNode, 1);
 
         m_badgeMenu = CCMenu::create();
         m_badgeMenu->setPosition({ 0, 0 });
-        m_mainLayer->addChild(m_badgeMenu);
+        m_gridScroll->m_contentLayer->addChild(m_badgeMenu, 2);
 
         m_decorationNode = CCNode::create();
         m_decorationNode->setPosition({ 0, 0 });
-        m_mainLayer->addChild(m_decorationNode, 5);
+        m_gridScroll->m_contentLayer->addChild(m_decorationNode, 3);
+
+        addScrollbar(m_gridScroll, 6.f, m_mainLayer);
+        m_gridScrollbar = static_cast<CCNode*>(m_gridScroll->getUserObject("scrollbar"_spr));
 
         m_counterText = CCLabelBMFont::create("", "bigFont.fnt");
         m_counterText->setScale(0.4f);
@@ -622,9 +795,8 @@ protected:
         m_namesContainer->setPosition({ -9999.f, -9999.f });
         m_namesContainer->setVisible(false);
         m_mainLayer->addChild(m_namesContainer, 5);
-        m_badgeMenu->setZOrder(15);
-        m_decorationNode->setZOrder(16);  
-        m_pageArrowMenu->setZOrder(15);
+        m_badgeMenu->setZOrder(2);
+        m_decorationNode->setZOrder(3);
         m_catArrowMenu->setZOrder(15);
 
         m_previewEffect = g_streakData.equippedNameEffect;
@@ -832,11 +1004,13 @@ protected:
         m_badgeMenu->setVisible(!isNames);
         m_decorationNode->setVisible(!isNames);
         m_catArrowMenu->setVisible(!isNames);
-        m_pageArrowMenu->setVisible(!isNames);
+        if (m_gridScroll) m_gridScroll->setVisible(!isNames);
+        if (m_gridScrollbar) m_gridScrollbar->setVisible(!isNames);
         m_counterText->setVisible(!isNames);
         m_totalStatsLabel->setVisible(!isNames);
 
         if (m_qualityNode) {
+            m_qualityNode->setVisible(true);
             m_qualityNode->setCategory(m_currentCategory, isNames);
         }
 
@@ -848,7 +1022,6 @@ protected:
     void onSwitchToBadges(CCObject*) {
         if (m_currentMode == MODE_BADGES) return;
         m_currentMode = MODE_BADGES;
-        m_currentPage = 0;
         toggleUIVisibility(false);
         updateCategoryDisplay();
     }
@@ -856,7 +1029,6 @@ protected:
     void onSwitchToBanners(CCObject*) {
         if (m_currentMode == MODE_BANNERS) return;
         m_currentMode = MODE_BANNERS;
-        m_currentPage = 0;
         toggleUIVisibility(false);
         updateCategoryDisplay();
     }
@@ -867,14 +1039,26 @@ protected:
         toggleUIVisibility(true);
     }
 
+    void onSwitchToSongs(CCObject*) {
+        if (m_currentMode == MODE_SONGS) return;
+        m_currentMode = MODE_SONGS;
+        toggleUIVisibility(false);
+        updateCategoryDisplay();
+    }
+
     void updateCategoryDisplay() {
         if (m_currentMode == MODE_NAMES) return;
 
+        bool isSongs = (m_currentMode == MODE_SONGS);
+        if (m_catArrowMenu) m_catArrowMenu->setVisible(!isSongs);
+        if (m_qualityNode) m_qualityNode->setVisible(!isSongs);
+
         m_badgeMenu->removeAllChildren();
         m_decorationNode->removeAllChildren();
+        if (m_cellNode) m_cellNode->removeAllChildren();
 
-        
-        if (m_qualityNode) {
+
+        if (m_qualityNode && !isSongs) {
             m_qualityNode->setCategory(m_currentCategory, false);
         }
 
@@ -885,9 +1069,12 @@ protected:
             auto eq = g_streakData.getEquippedBadge();
             if (eq) equippedID = eq->badgeID;
         }
-        else {
+        else if (m_currentMode == MODE_BANNERS) {
             auto eq = g_streakData.getEquippedBanner();
             if (eq) equippedID = eq->bannerID;
+        }
+        else {
+            equippedID = g_streakData.equippedSong;
         }
 
         struct DisplayItem {
@@ -922,7 +1109,7 @@ protected:
                 m_totalStatsLabel->setString(fmt::format("Badges: {}/{}", globalUnlocked, globalTotal).c_str());
             }
         }
-        else {
+        else if (m_currentMode == MODE_BANNERS) {
             for (auto& banner : g_streakData.banners) {
                 if (banner.rarity == currentCat) {
                     itemsToShow.push_back({
@@ -942,41 +1129,63 @@ protected:
                 m_totalStatsLabel->setString(fmt::format("Banners: {}/{}", globalUnlocked, globalTotal).c_str());
             }
         }
-
-        int itemsPerPage = 6;
-        int itemsPerRow = 3;
-
-        if (m_currentMode == MODE_BANNERS) {
-            itemsPerRow = 2;
-            itemsPerPage = 4;
+        else {
+            for (auto& song : g_streakData.songs) {
+                itemsToShow.push_back({
+                    song.songID,
+                    song.iconName,
+                    g_streakData.isSongUnlocked(song.songID),
+                    true,
+                    0
+                    });
+            }
+            globalTotal = g_streakData.songs.size();
+            for (auto& s : g_streakData.songs) {
+                if (g_streakData.isSongUnlocked(s.songID)) globalUnlocked++;
+            }
+            if (m_totalStatsLabel) {
+                m_totalStatsLabel->setString(fmt::format("Songs: {}/{}", globalUnlocked, globalTotal).c_str());
+            }
         }
 
-        m_totalPages = static_cast<int>(ceil(static_cast<float>(itemsToShow.size()) / itemsPerPage));
-        if (m_totalPages == 0) {
-            m_currentPage = 0;
-        }
-        else if (m_currentPage >= m_totalPages) {
-            m_currentPage = m_totalPages - 1;
-        }
+        float gridW = m_background->getContentSize().width;
+        float gridH = m_background->getContentSize().height;
 
-        int startIndex = m_currentPage * itemsPerPage;
-        int endIndex = std::min(static_cast<int>(itemsToShow.size()), startIndex + itemsPerPage);
+        int itemsPerRow = (m_currentMode == MODE_BANNERS) ? 2 : 3;
+        float colSpacing = (m_currentMode == MODE_BANNERS) ? 150.f : 65.f;
+        float rowSpacing = (m_currentMode == MODE_BANNERS) ? 64.f : 55.f;
+        if (isSongs) { itemsPerRow = 3; colSpacing = 110.f; rowSpacing = 80.f; }
 
-        float horizontalSpacing = (m_currentMode == MODE_BANNERS) ? 130.f : 65.f;
-        float verticalSpacing = 55.f;
+        int itemCount = static_cast<int>(itemsToShow.size());
+        int numRows = (itemCount + itemsPerRow - 1) / itemsPerRow;
+        if (numRows < 1) numRows = 1;
 
-        float totalGridWidth = (itemsPerRow - 1) * horizontalSpacing;
+        float topPad = isSongs ? 12.f : 8.f;
+        float contentHeight = std::max(gridH, numRows * rowSpacing + topPad * 2.f);
 
-        CCPoint startPosition = {
-            CENTER_X - (totalGridWidth / 2),
-            CENTER_Y + 5.f
-        };
+        m_gridScroll->m_contentLayer->setContentSize({ gridW, contentHeight });
+        if (m_cellNode) m_cellNode->setContentSize({ gridW, contentHeight });
+        m_badgeMenu->setContentSize({ gridW, contentHeight });
+        m_decorationNode->setContentSize({ gridW, contentHeight });
 
-        for (int i = startIndex; i < endIndex; ++i) {
-            int indexOnPage = i - startIndex;
-            int row = indexOnPage / itemsPerRow;
-            int col = indexOnPage % itemsPerRow;
+        float startX = gridW / 2.f - ((itemsPerRow - 1) * colSpacing) / 2.f;
+        float topY = contentHeight - topPad - rowSpacing / 2.f;
+
+        for (int i = 0; i < itemCount; ++i) {
+            int row = i / itemsPerRow;
+            int col = i % itemsPerRow;
             auto& item = itemsToShow[i];
+
+            CCPoint position = { startX + col * colSpacing, topY - row * rowSpacing };
+
+            if (isSongs) {
+                auto cell = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
+                cell->setContentSize({ colSpacing - 14.f, rowSpacing - 12.f });
+                cell->setColor({ 0, 0, 0 });
+                cell->setOpacity(item.unlocked ? 110 : 70);
+                cell->setPosition(position);
+                m_cellNode->addChild(cell);
+            }
 
             auto sprite = CCSprite::create(item.spriteName.c_str());
             if (!sprite) {
@@ -985,8 +1194,12 @@ protected:
 
             float scale = 0.3f;
             if (m_currentMode == MODE_BANNERS) {
-                float targetWidth = 110.f;
+                float targetWidth = 120.f;
                 scale = targetWidth / sprite->getContentSize().width;
+            }
+            else if (isSongs) {
+                float targetSize = 46.f;
+                scale = targetSize / std::max(sprite->getContentSize().width, sprite->getContentSize().height);
             }
             sprite->setScale(scale);
 
@@ -1001,31 +1214,41 @@ protected:
             );
             btn->setUserObject("item_id"_spr, CCString::create(item.id));
 
-            CCPoint position = {
-                startPosition.x + col * horizontalSpacing,
-                startPosition.y - row * verticalSpacing
-            };
-
-            btn->setPosition(position);
+            CCPoint iconPos = isSongs ? CCPoint{ position.x, position.y + 12.f } : position;
+            btn->setPosition(iconPos);
             m_badgeMenu->addChild(btn);
+
+            if (isSongs) {
+                auto info = g_streakData.getSongInfo(item.id);
+                if (info) {
+                    auto nameLbl = CCLabelBMFont::create(info->displayName.c_str(), "bigFont.fnt");
+                    nameLbl->setScale(0.32f);
+                    float maxW = colSpacing - 18.f;
+                    if (nameLbl->getContentSize().width * nameLbl->getScale() > maxW) {
+                        nameLbl->setScale(maxW / nameLbl->getContentSize().width);
+                    }
+                    if (!item.unlocked) nameLbl->setColor({ 150, 150, 150 });
+                    nameLbl->setPosition({ position.x, position.y - 22.f });
+                    m_cellNode->addChild(nameLbl);
+                }
+            }
 
             if (item.id == equippedID) {
                 auto check = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
-                check->setPosition(position + CCPoint{ 15.f, -15.f });
+                check->setPosition(iconPos + (isSongs ? CCPoint{ 20.f, 12.f } : CCPoint{ 15.f, -15.f }));
                 check->setScale(0.6f);
                 m_decorationNode->addChild(check);
             }
 
             if (!item.unlocked) {
                 auto lockIcon = CCSprite::createWithSpriteFrameName("GJ_lock_001.png");
-                lockIcon->setPosition(position);
+                lockIcon->setPosition(iconPos);
                 lockIcon->setScale(0.7f);
                 m_decorationNode->addChild(lockIcon);
             }
         }
 
-        if (m_pageLeftArrow) m_pageLeftArrow->setVisible(m_currentPage > 0);
-        if (m_pageRightArrow) m_pageRightArrow->setVisible(m_currentPage < m_totalPages - 1);
+        m_gridScroll->scrollToTop();
 
         int categoryUnlockedCount = 0;
         for (auto& it : itemsToShow) {
@@ -1051,31 +1274,20 @@ protected:
             popup->onStateChanged = [this]() { this->updateCategoryDisplay(); };
             popup->show();
         }
-    }
-
-    void onNextBadgePage(CCObject*) {
-        if (m_currentPage < m_totalPages - 1) {
-            m_currentPage++;
-            updateCategoryDisplay();
-        }
-    }
-
-    void onPreviousBadgePage(CCObject*) {
-        if (m_currentPage > 0) {
-            m_currentPage--;
-            updateCategoryDisplay();
+        else if (m_currentMode == MODE_SONGS) {
+            auto popup = EquipSongPopup::create(id);
+            popup->onStateChanged = [this]() { this->updateCategoryDisplay(); };
+            popup->show();
         }
     }
 
     void onNextCategory(CCObject*) {
         m_currentCategory = (m_currentCategory + 1) % 5;
-        m_currentPage = 0;
         updateCategoryDisplay();
     }
 
     void onPreviousCategory(CCObject*) {
         m_currentCategory = (m_currentCategory - 1 + 5) % 5;
-        m_currentPage = 0;
         updateCategoryDisplay();
     }
 

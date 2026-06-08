@@ -5,6 +5,13 @@ using namespace geode::prelude;
 
 class PremiumUnlockAnim : public CCLayer {
 protected:
+    std::string m_gifterName;
+
+    bool initWithGifter(const std::string& gifterName) {
+        m_gifterName = gifterName;
+        return init();
+    }
+
     bool init() override {
         if (!CCLayer::init()) return false;
 
@@ -95,15 +102,24 @@ protected:
             nullptr
         ));
 
-        auto subtitle = CCLabelBMFont::create("Enjoy the VIP track and premium rewards!", "bigFont.fnt");
+        std::string subText = m_gifterName.empty()
+            ? "Enjoy the VIP track and premium rewards!"
+            : (m_gifterName + " gifted you a pass! Congratulations!");
+        auto subtitle = CCLabelBMFont::create(subText.c_str(), "bigFont.fnt");
         subtitle->setScale(0.0f);
         subtitle->setPosition({ 0.f, -100.f });
         subtitle->setColor({ 255, 230, 180 });
         center->addChild(subtitle, 3);
 
+        float subScale = 0.42f;
+        float maxSubWidth = winSize.width - 60.f;
+        if (subtitle->getContentSize().width * subScale > maxSubWidth) {
+            subScale = maxSubWidth / subtitle->getContentSize().width;
+        }
+
         subtitle->runAction(CCSequence::create(
             CCDelayTime::create(0.7f),
-            CCEaseBackOut::create(CCScaleTo::create(0.5f, 0.42f)),
+            CCEaseBackOut::create(CCScaleTo::create(0.5f, subScale)),
             CCDelayTime::create(0.9f),
             CCSpawn::create(
                 CCScaleTo::create(0.4f, 0.0f),
@@ -129,11 +145,11 @@ protected:
     }
 
 public:
-    static void show() {
+    static void show(const std::string& gifterName = "") {
         auto scene = CCDirector::sharedDirector()->getRunningScene();
         if (!scene) return;
         auto anim = new PremiumUnlockAnim();
-        if (anim && anim->init()) {
+        if (anim && anim->initWithGifter(gifterName)) {
             anim->autorelease();
             scene->addChild(anim, 99999);
         } else {
