@@ -200,11 +200,16 @@ struct StreakData {
     bool passCompleteRewardClaimed = false;
     std::string pendingPassGiftFrom = "";
 
+    bool pendingRankAnim = false;
+    int pendingRankAnimOld = 0;
+    int pendingRankAnimNew = 0;
+
     std::string activePassID = "";
     bool passEnabled = true;
     int passPrice = 1999;
 
     int goldTickets = 0;
+    int streakTokens = 0;
 
     struct PassRewardDef {
         std::string type;
@@ -568,6 +573,22 @@ struct StreakData {
     bool shouldShowAnimation();
     std::string getRachaSprite();
     std::string getRachaSprite(int streak);
+
+    // Rank system (streak tokens). Mirror of server.js RANK_THRESHOLDS / getRankIndexForTokens.
+    static constexpr int RANK_COUNT = 12;
+    static int getRankIndexForTokens(int tokens);
+    static int getRankThreshold(int rankIndex);   // cumulative tokens needed for rankIndex (0..11)
+    static std::string getRankSprite(int tokens);
+    static std::string getRankSpriteForIndex(int rankIndex);
+    static std::string getRankName(int tokens);
+    static std::string getRankNameForIndex(int rankIndex);
+    // Animated name-color style for the rank tier (see NameModifiers::applyColor).
+    static std::string getRankColorStyle(int tokens);
+    static std::string getRankColorStyleForIndex(int rankIndex);
+    // Streak tokens granted when reaching a given streak day (mirror of server).
+    static int getStreakTokensForDay(int day);
+    // Next rank threshold above the player's current rank, or -1 if already max rank.
+    static int getNextRankThreshold(int tokens);
     std::string getCategoryName(BadgeCategory category);
     ccColor3B getCategoryColor(BadgeCategory category);
     BadgeInfo* getBadgeInfo(const std::string& badgeID);

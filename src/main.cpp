@@ -153,6 +153,7 @@ class $modify(MyMenuLayer, MenuLayer) {
 
         auto req = web::WebRequest();
         HMACAuth::signGetRequest(req, accountID);
+        req.header("X-Rank-Anim", "1");
 
         m_fields->m_playerDataListener.spawn(req.get(url), [this, accountID](web::WebResponse res) {
             if (res.ok() && res.json().isOk()) {

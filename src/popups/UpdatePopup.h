@@ -32,6 +32,7 @@ protected:
     std::string m_latestVerStr;
     std::string m_downloadUrl;
     std::string m_changelog;
+    int m_downloads = 0;
 
     RoundedProgressBar* m_progressBar = nullptr;
     CCLabelBMFont*      m_progressLabel = nullptr;
@@ -63,6 +64,40 @@ protected:
 
     CCSize contentSize() const {
         return m_mainLayer->getContentSize();
+    }
+
+    std::string formatWithCommas(int n) {
+        std::string s = std::to_string(n);
+        int pos = (int)s.length() - 3;
+        while (pos > 0) { s.insert(pos, ","); pos -= 3; }
+        return s;
+    }
+
+    void addDownloadsLabel(float cx, float y) {
+        if (m_downloads <= 0) return;
+        auto icon = CCSprite::createWithSpriteFrameName("GJ_downloadsIcon_001.png");
+        auto lbl = CCLabelBMFont::create(
+            fmt::format("{} downloads", formatWithCommas(m_downloads)).c_str(),
+            "chatFont.fnt"
+        );
+        lbl->setScale(0.55f);
+        lbl->setColor({ 180, 220, 255 });
+        lbl->setAnchorPoint({ 0.f, 0.5f });
+
+        float iconW = 0.f;
+        if (icon) {
+            icon->setScale(0.6f);
+            iconW = icon->getContentSize().width * 0.6f + 4.f;
+        }
+        float totalW = iconW + lbl->getScaledContentSize().width;
+        float startX = cx - totalW / 2.f;
+        if (icon) {
+            icon->setAnchorPoint({ 0.f, 0.5f });
+            icon->setPosition({ startX, y });
+            m_content->addChild(icon);
+        }
+        lbl->setPosition({ startX + iconW, y });
+        m_content->addChild(lbl);
     }
 
     StatusSpinner* addStatusSpinner(float cx, float cy) {
@@ -123,6 +158,8 @@ protected:
         verLabel->setPosition({ cx, cy - 40.f });
         m_content->addChild(verLabel);
 
+        addDownloadsLabel(cx, cy - 62.f);
+
         auto closeSpr = ButtonSprite::create("Close", "goldFont.fnt", "GJ_button_04.png", 0.7f);
         auto closeBtn = CCMenuItemSpriteExtra::create(closeSpr, this, menu_selector(UpdatePopup::onCloseClicked));
         auto menu = CCMenu::createWithItem(closeBtn);
@@ -147,8 +184,10 @@ protected:
             "goldFont.fnt"
         );
         verLabel->setScale(0.5f);
-        verLabel->setPosition({ cx, sz.height - 60.f });
+        verLabel->setPosition({ cx, sz.height - 58.f });
         m_content->addChild(verLabel);
+
+        addDownloadsLabel(cx, sz.height - 78.f);
 
         float boxW = sz.width - 40.f;
         float boxH = 95.f;
@@ -302,6 +341,7 @@ protected:
         m_latestVerStr = verStr;
         m_downloadUrl = url;
         m_changelog = changelog;
+        m_downloads = data["downloads"].as<int>().unwrapOr(0);
 
         if (m_latestVer > m_currentVer) {
             std::string pending = Mod::get()->getSavedValue<std::string>(PENDING_UPDATE_KEY, "");

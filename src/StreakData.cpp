@@ -86,8 +86,12 @@ void StreakData::resetToDefault() {
     claimedPaidPassTiers.clear();
     passCompleteRewardClaimed = false;
     pendingPassGiftFrom = "";
+    pendingRankAnim = false;
+    pendingRankAnimOld = 0;
+    pendingRankAnimNew = 0;
 
     goldTickets = 0;
+    streakTokens = 0;
     passDailyLevels = 0;
     passWeeklyLevels = 0;
     passSeasonLevels = 0;
@@ -255,7 +259,20 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
             pendingPassGiftFrom = gift["from"].as<std::string>().unwrapOr(std::string("A player"));
         }
     }
+
+    pendingRankAnim = false;
+    pendingRankAnimOld = 0;
+    pendingRankAnimNew = 0;
+    if (data.contains("pending_rank_anim")) {
+        auto anim = data["pending_rank_anim"];
+        if (anim.isObject()) {
+            pendingRankAnim = true;
+            pendingRankAnimOld = anim["old"].as<int>().unwrapOr(0);
+            pendingRankAnimNew = anim["new"].as<int>().unwrapOr(0);
+        }
+    }
     goldTickets = safeInt(data, "gold_tickets", 0);
+    streakTokens = safeInt(data, "streak_tokens", 0);
     passDailyLevels = safeInt(data, "pass_daily_levels", 0);
     passWeeklyLevels = safeInt(data, "pass_weekly_levels", 0);
     passSeasonLevels = safeInt(data, "pass_season_levels", 0);
@@ -973,6 +990,96 @@ std::string StreakData::getRachaSprite(int streak) {
 
 std::string StreakData::getRachaSprite() {
     return getRachaSprite(this->currentStreak);
+}
+
+// Cumulative streak-token thresholds for each of the 12 sub-ranks.
+// MUST stay in sync with RANK_THRESHOLDS in server.js.
+static const int s_rankThresholds[StreakData::RANK_COUNT] = {
+    0,     // Bronze I
+    400,   // Bronze II
+    900,   // Bronze III
+    1600,  // Platinum I
+    2500,  // Platinum II
+    3600,  // Platinum III
+    5000,  // Gold I
+    6800,  // Gold II
+    9000,  // Gold III
+    12000, // Diamond I
+    16000, // Diamond II
+    21000  // Diamond III
+};
+
+static const char* s_rankSprites[StreakData::RANK_COUNT] = {
+    "bronze.png", "bronze2.png", "bronze3.png",
+    "platinum.png", "platinum2.png", "platinum3.png",
+    "gold.png", "gold2.png", "gold3.png",
+    "diamond.png", "diamond2.png", "diamond3.png"
+};
+
+static const char* s_rankNames[StreakData::RANK_COUNT] = {
+    "Bronze I", "Bronze II", "Bronze III",
+    "Platinum I", "Platinum II", "Platinum III",
+    "Gold I", "Gold II", "Gold III",
+    "Diamond I", "Diamond II", "Diamond III"
+};
+
+int StreakData::getRankIndexForTokens(int tokens) {
+    int idx = 0;
+    for (int i = 0; i < RANK_COUNT; ++i) {
+        if (tokens >= s_rankThresholds[i]) idx = i;
+        else break;
+    }
+    return idx;
+}
+
+int StreakData::getRankThreshold(int rankIndex) {
+    if (rankIndex < 0) rankIndex = 0;
+    if (rankIndex >= RANK_COUNT) rankIndex = RANK_COUNT - 1;
+    return s_rankThresholds[rankIndex];
+}
+
+std::string StreakData::getRankSpriteForIndex(int rankIndex) {
+    if (rankIndex < 0) rankIndex = 0;
+    if (rankIndex >= RANK_COUNT) rankIndex = RANK_COUNT - 1;
+    return fmt::format("{}/{}", Mod::get()->getID(), s_rankSprites[rankIndex]);
+}
+
+std::string StreakData::getRankSprite(int tokens) {
+    return getRankSpriteForIndex(getRankIndexForTokens(tokens));
+}
+
+std::string StreakData::getRankNameForIndex(int rankIndex) {
+    if (rankIndex < 0) rankIndex = 0;
+    if (rankIndex >= RANK_COUNT) rankIndex = RANK_COUNT - 1;
+    return s_rankNames[rankIndex];
+}
+
+std::string StreakData::getRankName(int tokens) {
+    return getRankNameForIndex(getRankIndexForTokens(tokens));
+}
+
+int StreakData::getNextRankThreshold(int tokens) {
+    int idx = getRankIndexForTokens(tokens);
+    if (idx >= RANK_COUNT - 1) return -1; // already max rank
+    return s_rankThresholds[idx + 1];
+}
+
+std::string StreakData::getRankColorStyleForIndex(int rankIndex) {
+    if (rankIndex <= 2) return "Bronze Wave";   // Bronze
+    if (rankIndex <= 5) return "Platinum Wave"; // Platinum
+    if (rankIndex <= 8) return "Gold Wave";     // Gold
+    return "Diamond Wave";                      // Diamond
+}
+
+std::string StreakData::getRankColorStyle(int tokens) {
+    return getRankColorStyleForIndex(getRankIndexForTokens(tokens));
+}
+
+int StreakData::getStreakTokensForDay(int day) {
+    if (day < 0) day = 0;
+    int tier = day / 10;
+    if (tier > 10) tier = 10; // cap at day 100 -> 550 tokens
+    return 50 * (tier + 1);
 }
 
 std::string StreakData::getCategoryName(BadgeCategory category) {

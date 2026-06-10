@@ -16,6 +16,7 @@
 #include "../HMACAuth.h"
 
 using namespace geode::prelude;
+
 class LeaderboardCell : public CCLayer {
 protected:
     matjson::Value m_playerData;
@@ -174,6 +175,31 @@ protected:
         levelLabel->setAnchorPoint({ 0.f, 0.5f });
         levelLabel->setPosition({ cursorX, 0.f });
         levelNode->addChild(levelLabel);
+        cursorX += levelLabel->getContentSize().width * levelLabel->getScale() + 6.f;
+
+        // Rank sprite + name next to the XP label, from the player's streak tokens.
+        // The sprite matches the XP icon size (+5%); the name uses an animated,
+        // tier-themed color.
+        int rankTokens = playerData["streak_tokens"].as<int>().unwrapOr(0);
+        if (isLocalPlayer) rankTokens = g_streakData.streakTokens;
+
+        if (auto rankSpr = CCSprite::create(StreakData::getRankSprite(rankTokens).c_str())) {
+            float targetH = xpIcon ? xpIcon->getContentSize().height * xpIcon->getScaleY() : 12.f;
+            float rh = rankSpr->getContentSize().height;
+            rankSpr->setScale((rh > 0 ? targetH / rh : 0.03f) * 1.10f);
+            rankSpr->setAnchorPoint({ 0.f, 0.5f });
+            rankSpr->setPosition({ cursorX, -1.f });
+            levelNode->addChild(rankSpr);
+            cursorX += rankSpr->getContentSize().width * rankSpr->getScaleX() + 3.f;
+        }
+
+        auto rankNameLabel = CCLabelBMFont::create(
+            StreakData::getRankName(rankTokens).c_str(), "bigFont.fnt");
+        rankNameLabel->setScale(0.3f);
+        rankNameLabel->setAnchorPoint({ 0.f, 0.5f });
+        rankNameLabel->setPosition({ cursorX, 0.f });
+        levelNode->addChild(rankNameLabel);
+        NameModifiers::applyColor(rankNameLabel, StreakData::getRankColorStyle(rankTokens));
 
         int streakDays = playerData["current_streak_days"].as<int>().unwrapOr(0);
         auto streakIcon = CCSprite::create(g_streakData.getRachaSprite(streakDays).c_str());

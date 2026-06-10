@@ -132,6 +132,39 @@ namespace NameModifiers {
                     g = (GLubyte)std::min(255.f, fg);
                     b = (GLubyte)std::min(255.f, fb);
                 }
+                else if (m_style == "Bronze Wave") {
+                    // brown <-> white shimmer
+                    r = (GLubyte)(150.f + wave * 105.f);
+                    g = (GLubyte)(90.f + wave * 165.f);
+                    b = (GLubyte)(45.f + wave * 210.f);
+                }
+                else if (m_style == "Platinum Wave") {
+                    // gray <-> white
+                    GLubyte v = (GLubyte)(165.f + wave * 90.f);
+                    r = v; g = v; b = v;
+                }
+                else if (m_style == "Gold Wave") {
+                    // yellow / orange / white
+                    r = 255;
+                    g = (GLubyte)(150.f + wave * 105.f);   // orange .. yellow
+                    b = (GLubyte)(wave * wave * 255.f);    // white flashes
+                }
+                else if (m_style == "Diamond Wave") {
+                    // purple / blue / white blend
+                    float w1 = sinf(phase) * 0.5f + 0.5f;
+                    float w2 = sinf(phase + 2.094f) * 0.5f + 0.5f;
+                    float w3 = sinf(phase + 4.188f) * 0.5f + 0.5f;
+                    float blueW = w1, purpleW = w2, whiteW = w3;
+                    float total = blueW + purpleW + whiteW;
+                    if (total < 0.0001f) total = 1.f;
+                    blueW /= total; purpleW /= total; whiteW /= total;
+                    float fr = blueW * 50.f + purpleW * 150.f + whiteW * 255.f;
+                    float fg = blueW * 100.f + purpleW * 50.f + whiteW * 255.f;
+                    float fb = blueW * 255.f + purpleW * 255.f + whiteW * 255.f;
+                    r = (GLubyte)std::min(255.f, fr);
+                    g = (GLubyte)std::min(255.f, fg);
+                    b = (GLubyte)std::min(255.f, fb);
+                }
 
                 letter->setColor({ r, g, b });
             }
@@ -159,7 +192,9 @@ namespace NameModifiers {
             colorID == "Cyberpunk Wave" || colorID == "Sunset Wave" || colorID == "Toxic Wave" ||
             colorID == "Ice Wave" || colorID == "Royal Wave" || colorID == "Golden Wave" ||
             colorID == "Abyss Wave" || colorID == "Synthwave" || colorID == "Pastel Wave" ||
-            colorID == "Aurora Wave" || colorID == "Galaxy Wave" || colorID == "Crazy Wave") {
+            colorID == "Aurora Wave" || colorID == "Galaxy Wave" || colorID == "Crazy Wave" ||
+            colorID == "Bronze Wave" || colorID == "Platinum Wave" ||
+            colorID == "Gold Wave" || colorID == "Diamond Wave") {
             label->setCascadeColorEnabled(false);
             auto updater = GradientUpdater::create(label, colorID);
             updater->setTag(8888);

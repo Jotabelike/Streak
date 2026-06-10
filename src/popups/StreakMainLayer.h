@@ -12,6 +12,7 @@
 #include "MissionsPopup.h"
 #include "AdminPopups.h"
 #include "LeaderboardPopup.h"
+#include "RankPopup.h"
 #include "MailPopups.h"
 #include "EventPopup.h"
 #include "LevelProgressPopup.h"
@@ -29,6 +30,7 @@
 #include "TrendLevelsPopup.h"
 #include "AchievementsPopup.h"
 #include "StreakAnimations.h"
+#include "RankDemotionAnimation.h"
 #include "../utils/RoundedProgressBar.h"
 #include "DiscordGoalPopup.h"
 #include "RegisterPopup.h"
@@ -667,6 +669,16 @@ protected:
         cornerMenu->addChild(xpBtn);
         m_xpBtnRef = xpBtn;
 
+        // Streak rank button (left column, below xp)
+        auto rankIcon = CCSprite::create("rank_btn.png"_spr);
+        if (!rankIcon) rankIcon = CCSprite::createWithSpriteFrameName("GJ_starsIcon_001.png");
+        rankIcon->setScale(0.9f); // 160px source -> ~51px, matches the side column
+        auto rankBtn = CCMenuItemSpriteExtra::create(
+            rankIcon, this, menu_selector(StreakMainLayer::onOpenRank)
+        );
+        rankBtn->setPosition({ leftX, sideY - sideSpacing * 3 });
+        cornerMenu->addChild(rankBtn);
+
         // bottom paginated menu
         std::vector<CCMenuItemSpriteExtra*> allBottomBtns;
 
@@ -797,7 +809,9 @@ protected:
         m_leftArrowBtn = CCMenuItemSpriteExtra::create(
             leftSpr, this, menu_selector(StreakMainLayer::onPrevPage)
         );
-        m_leftArrowBtn->setPosition({ 25.f, 40.f });
+        // Tucked in close to the central button row (instead of the screen edges)
+        // so they don't overlap the side column buttons.
+        m_leftArrowBtn->setPosition({ m_size.width / 2 - 168.f, 40.f });
         arrowMenu->addChild(m_leftArrowBtn);
 
         auto rightSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
@@ -806,13 +820,27 @@ protected:
         m_rightArrowBtn = CCMenuItemSpriteExtra::create(
             rightSpr, this, menu_selector(StreakMainLayer::onNextPage)
         );
-        m_rightArrowBtn->setPosition({ m_size.width - 25.f, 40.f });
+        m_rightArrowBtn->setPosition({ m_size.width / 2 + 168.f, 40.f });
         arrowMenu->addChild(m_rightArrowBtn);
 
         updateArrowVisibility();
         this->updateDisplay();
 
-        if (g_streakData.shouldShowAnimation()) {
+        if (g_streakData.pendingRankAnim) {
+            int oldIdx = g_streakData.pendingRankAnimOld;
+            int newIdx = StreakData::getRankIndexForTokens(g_streakData.streakTokens);
+            g_streakData.pendingRankAnim = false;
+
+            matjson::Value payload = matjson::Value::object();
+            claimOnServer("/rank/anim/ack", payload, [](bool) {});
+
+            Loader::get()->queueInMainThread([this, oldIdx, newIdx] {
+                if (auto anim = RankDemotionAnimation::create(oldIdx, newIdx)) {
+                    this->addChild(anim, 2000);
+                }
+            });
+        }
+        else if (g_streakData.shouldShowAnimation()) {
             bool showAnim = Mod::get()->getSavedValue<bool>("enable_streak_anim", true);
             if (showAnim) this->showStreakAnimation(g_streakData.currentStreak);
             g_streakData.lastStreakAnimated = g_streakData.currentStreak;
@@ -973,6 +1001,10 @@ protected:
             return;
         }
         LeaderboardPopup::create()->show();
+    }
+
+    void onOpenRank(CCObject*) {
+        RankPopup::create()->show();
     }
 
     void onOpenMessages(CCObject*)   { SendMessagePopup::create()->show(); }

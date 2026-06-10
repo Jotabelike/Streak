@@ -58,9 +58,9 @@ class $modify(ProCurrencyRewardLayer, CurrencyRewardLayer) {
             int startAmount = StreakDataBridge::currentTotal - StreakDataBridge::pointsGained;
             if (startAmount < 0) startAmount = 0;
 
- 
+
             this->addObjects(typeID,
-                StreakDataBridge::pointsGained, 
+                StreakDataBridge::pointsGained,
                 startAmount,
                 StreakDataBridge::spawnPos, "streak_point.png"_spr);
         }

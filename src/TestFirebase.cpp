@@ -389,6 +389,8 @@ void completeLevelInFirebase(int stars) {
                     g_streakData.streakShields = data["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields);
                 if (data.contains("total_streak_points"))
                     g_streakData.totalStreakPoints = data["total_streak_points"].as<int>().unwrapOr(g_streakData.totalStreakPoints);
+                if (data.contains("streak_tokens"))
+                    g_streakData.streakTokens = data["streak_tokens"].as<int>().unwrapOr(g_streakData.streakTokens);
                 if (data.contains("lastDay"))
                     g_streakData.lastDay = data["lastDay"].as<std::string>().unwrapOr(std::string(""));
                 if (data.contains("pass_daily_levels"))

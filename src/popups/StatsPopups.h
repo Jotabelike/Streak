@@ -515,7 +515,7 @@ protected:
             cell->addChild(label);
 
             auto pointsNode = CCNode::create();
-            pointsNode->setContentSize({ 130.f, 40.f });
+            pointsNode->setContentSize({ 190.f, 40.f });
             pointsNode->setAnchorPoint({ 1.f, 0.5f });
             pointsNode->setPosition({ scrollSize.width - 10.f, 20.f });
 
@@ -544,6 +544,17 @@ protected:
             auto pointsLabel = CCLabelBMFont::create(std::to_string(firePoints).c_str(), "bigFont.fnt");
             pointsLabel->setScale(0.35f);
             pointsNode->addChild(pointsLabel);
+
+            auto tokenIcon = CCSprite::create("streak_token.png"_spr);
+            if (tokenIcon) {
+                limitNodeSize(tokenIcon, 18.0f);
+                pointsNode->addChild(tokenIcon);
+            }
+
+            auto tokenLabel = CCLabelBMFont::create(
+                std::to_string(StreakData::getStreakTokensForDay(day)).c_str(), "bigFont.fnt");
+            tokenLabel->setScale(0.35f);
+            pointsNode->addChild(tokenLabel);
 
             pointsNode->updateLayout();
             cell->addChild(pointsNode);
