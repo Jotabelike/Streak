@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Remove-Item *)",
+      "Bash(update)",
+      "Bash(status)",
+      "Bash(spin\" ; ls \"C:\\\\Users\\\\josue\\\\My GD Mods\\\\Streak!\\\\resources\\\\extra\\\\\")",
+      "Bash(iconv -f utf-16 -t utf-8)",
+      "Bash(find . -name \"*.geode\")",
+      "Bash(find . -name \"jotabelike.gd_racha.dll\")",
+      "Read(//c/Users/josue/OneDrive/Escritorio/streak-servidor/**)",
+      "Bash(node --check server.js)",
+      "Bash(find . -iname \"pass_img*\" -not -path \"*/build/*\")",
+      "Bash(sed -n '29,50p' mod.json)",
+      "Bash(grep \"//\")",
+      "Read(//c/geode-sdk/**)",
+      "Bash(cd C:\\\\Users\\\\josue\\\\My GD Mods\\\\Streak!\\\\resources *)",
+      "Bash(xargs cat)",
+      "Bash(find build/_deps -name \"ScrollLayer.hpp\" -path \"*ui*\")",
+      "Bash(find build/_deps -name \"ScrollLayer.hpp\")",
+      "Bash(node -c server.js)",
+      "Bash(cmake --build build --config RelWithDebInfo --target jotabelike.gd_racha)",
+      "Bash(node -c seed-random-tokens.js)",
+      "Bash(python -c \"import json; json.load\\(open\\('mod.json'\\)\\); print\\('MOD_JSON_VALID'\\)\")",
+      "Bash(node seed-random-tokens.js 0)",
+      "Bash(grep -iE \": error|fatal error|\\\\.dll$|error C[0-9]|Configuring incomplete\")",
+      "PowerShell(Write-Output \"ENV GEODE_BINDINGS_REPO_PATH = [$env:GEODE_BINDINGS_REPO_PATH]\"; Get-ChildItem Env: | Where-Object { $_.Name -match 'BINDING|GEODE' } | ForEach-Object { \"$\\($_.Name\\) = $\\($_.Value\\)\" }; Write-Output \"---CACHE---\"; Select-String -Path \"build\\\\CMakeCache.txt\" -Pattern \"BINDINGS_REPO|mod proyect|InventoryMod\" | Select-Object -First 5 | ForEach-Object { $_.Line })",
+      "Bash(sed -i '1164,1443d' src/popups/StreakMainLayer.h)",
+      "Bash(sed -n '1160,1175p' src/popups/StreakMainLayer.h)",
+      "Bash(curl -s -o /dev/null -w \"rank/anim/ack -> HTTP %{http_code}\\\\n\" -X POST https://streak-servidor.onrender.com/rank/anim/ack)",
+      "Bash(curl -s -o /dev/null -w \"ruta inexistente -> HTTP %{http_code}\\\\n\" -X POST https://streak-servidor.onrender.com/ruta-que-no-existe-xyz)",
+      "Bash(curl -s \"https://api.geode-sdk.org/v1/mods/jotabelike.gd_racha\")",
+      "Bash(curl -s -H \"User-Agent: test\" \"https://api.github.com/repos/Jotabelike/Streak/releases\")",
+      "Bash(curl -s -H \"User-Agent: test\" \"https://api.github.com/repos/Jotabelike/Streak/releases?per_page=100\")",
+      "Bash(bc)",
+      "Bash(curl *)",
+      "Bash(node -e ' *)"
+    ]
+  }
+}

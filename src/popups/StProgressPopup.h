@@ -61,7 +61,7 @@ protected:
     CCMenuItemSpriteExtra* m_completeRewardBtn = nullptr;
     CCSprite* m_completeRewardCheck = nullptr;
     CCLabelBMFont* m_themeLabel = nullptr;
-    static constexpr const char* COMPLETE_REWARD_SONG = "song_1";
+    static constexpr const char* COMPLETE_REWARD_SONG = "song_2";
 
     RoundedProgressBar* m_goldBuyBar = nullptr;
     CCLabelBMFont* m_goldBuyGoalLabel = nullptr;

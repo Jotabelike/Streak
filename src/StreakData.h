@@ -442,10 +442,10 @@ struct StreakData {
        { 0, "eng.png"_spr, "England", BadgeCategory::COMMON, "eng_badge", true, "XJotaBeLikeX" },
        { 0, "per.png"_spr, "Peru", BadgeCategory::COMMON, "peru_badge", true, "XJotaBeLikeX" },
        { 0, "fra.png"_spr, "Francia", BadgeCategory::COMMON, "fra_badge", true, "XJotaBeLikeX" },
-       { 0, "rus.png"_spr, "Russia", BadgeCategory::COMMON, "rus_badge", true, "XJotaBeLikeX" }
+       { 0, "rus.png"_spr, "Russia", BadgeCategory::COMMON, "rus_badge", true, "XJotaBeLikeX" },
 
-       
-
+       //pass
+       { 0, "wc_badge.png"_spr, "World Cup 2026", BadgeCategory::MYTHIC, "wc_badge", true, "XJotaBeLikeX" }
 
     };
 
@@ -517,12 +517,20 @@ struct StreakData {
             {"banner_64", "banner64.png"_spr, "ok fine", BadgeCategory::MYTHIC, ""},
             {"banner_65", "banner65.png"_spr, "Mc v....idk", BadgeCategory::COMMON, ""},
             {"banner_66", "banner66.png"_spr, "Dungeons", BadgeCategory::EPIC, ""},
-            {"banner_67", "banner67.png"_spr, "Pass", BadgeCategory::MYTHIC, "XJotaBeLikeX"}
+            {"banner_67", "banner67.png"_spr, "Pass", BadgeCategory::MYTHIC, "XJotaBeLikeX"},
+
+
+            {"banner_68", "banner68.png"_spr, "Canada Wc", BadgeCategory::LEGENDARY, "XJotaBeLikeX"},
+            {"banner_69", "banner69.png"_spr, "USA Wc", BadgeCategory::LEGENDARY, "XJotaBeLikeX"},
+            {"banner_70", "banner70.png"_spr, "Mexico Wc", BadgeCategory::LEGENDARY, "XJotaBeLikeX"},
+            {"banner_71", "banner71.png"_spr, "We are 2026", BadgeCategory::MYTHIC, "XJotaBeLikeX"}
+           
         };
 
 
     std::vector<SongInfo> songs = {
-        {"song_1", "s1.mp3"_spr, "s1.png"_spr, "Streak Theme", "The original Streak! menu theme.", "Suno AI"}
+        {"song_1", "s1.mp3"_spr, "s1.png"_spr, "Streak Theme", "The original Streak! menu theme.", "Suno AI"},
+        {"song_2", "s2.mp3"_spr, "s2.png"_spr, "DNA (FIFA World Cup 2026)", "WC 2026 theme.", "FIFA"}
     };
 
     std::vector<bool> unlockedBadges;
