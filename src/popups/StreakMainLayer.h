@@ -33,6 +33,7 @@
 #include "RankDemotionAnimation.h"
 #include "../utils/RoundedProgressBar.h"
 #include "DiscordGoalPopup.h"
+#include "WcEventPopup.h"
 #include "RegisterPopup.h"
 #include "ShieldsPopup.h"
 #include "UpdatePopup.h"
@@ -322,6 +323,10 @@ protected:
             }
         }
 
+        if (!bg) {
+            bg = CCSprite::create("bg_default.png"_spr);
+            if (bg) tintBg = false;
+        }
         if (!bg) {
             bg = CCSprite::create("game_bg_01_001.png");
             tintBg = true;
@@ -641,6 +646,20 @@ protected:
             );
             dcBtn->setPosition({ rightX, sideY - sideSpacing * 2 });
             cornerMenu->addChild(dcBtn);
+        }
+
+        // Evento Mundial 2026 (prediccion de partidos). Ocupa el hueco del
+        // boton de tareas/discord si esta libre; si no, la fila de abajo.
+        if (g_streakData.wcEvent.active) {
+            auto wcIcon = CCSprite::create("wc_btn.png"_spr);
+            if (!wcIcon) wcIcon = CCSprite::createWithSpriteFrameName("GJ_top100Btn_001.png");
+            wcIcon->setScale(0.9f);
+            auto wcBtn = CCMenuItemSpriteExtra::create(
+                wcIcon, this, menu_selector(StreakMainLayer::onOpenWcEvent)
+            );
+            bool slotTaken = g_streakData.isTaskEnabled || g_streakData.isDiscordGoalEnabled;
+            wcBtn->setPosition({ rightX, sideY - sideSpacing * (slotTaken ? 3 : 2) });
+            cornerMenu->addChild(wcBtn);
         }
 
         auto missionsIcon = CCSprite::create("super_star_btn.png"_spr);
@@ -984,6 +1003,7 @@ protected:
     void onOpenRewards(CCObject*)    { RewardsPopup::create()->show(); }
     void onOpenTasks(CCObject*)      { TaskPopup::create()->show(); }
     void onOpenDiscordGoal(CCObject*){ DiscordGoalPopup::create()->show(); }
+    void onOpenWcEvent(CCObject*)    { WcEventPopup::create()->show(); }
     void onOpenSettings(CCObject*)   { SettingsPopup::create()->show(); }
     void onRachaClick(CCObject*)     { AllRachasPopup::create()->show(); }
 

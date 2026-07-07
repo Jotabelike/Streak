@@ -198,6 +198,12 @@ protected:
         if (m_currentMode == RouletteMode::Gem) {
             m_roulettePrizes = GemRouletteConfig::getPrizes();
         }
+        else if (!g_streakData.serverStandardRoulette.empty()
+                 && g_streakData.serverStandardRoulette.size() <= 12) {
+            // Config del servidor (settings/roulette_config). Max 12: el anillo
+            // de la UI tiene 12 casillas fijas.
+            m_roulettePrizes = GemRouletteConfig::fromServerDefs(g_streakData.serverStandardRoulette);
+        }
         else {
             m_roulettePrizes = {
                 { RewardType::Badge, "super_star_badge", 1, "", "Super Star", 1, StreakData::BadgeCategory::MYTHIC },

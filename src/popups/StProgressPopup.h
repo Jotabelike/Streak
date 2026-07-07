@@ -27,7 +27,7 @@ protected:
     static constexpr int TOTAL_PAID_TIERS = MONTHLY_GOAL_SP / PAID_TIER_STEP;
     static constexpr int MILESTONE_SP = 200;
 
-    enum class PassRewardType { None, Tickets, Stars, Gems, Shields, Chest, Banner, NameItem };
+    enum class PassRewardType { None, Tickets, Stars, Gems, Shields, Chest, Badge, Banner, NameItem };
 
     struct PassReward {
         PassRewardType type = PassRewardType::None;
@@ -72,6 +72,7 @@ protected:
         if (s == "gems")      return PassRewardType::Gems;
         if (s == "shields")   return PassRewardType::Shields;
         if (s == "chest")     return PassRewardType::Chest;
+        if (s == "badge")     return PassRewardType::Badge;
         if (s == "banner")    return PassRewardType::Banner;
         if (s == "name_item") return PassRewardType::NameItem;
         return PassRewardType::None;
@@ -118,6 +119,12 @@ protected:
     }
 
     void grantReward(const PassReward& reward, CCPoint spawnPos) {
+        if (reward.type == PassRewardType::Badge) {
+            if (reward.itemID.empty()) return;
+            g_streakData.unlockBadge(reward.itemID);
+            BadgeNotification::show(reward.itemID);
+            return;
+        }
         if (reward.type == PassRewardType::Banner) {
             if (reward.itemID.empty()) return;
             g_streakData.unlockBanner(reward.itemID);
@@ -187,6 +194,27 @@ protected:
         auto node = CCNode::create();
         node->setContentSize({ 44.f, 44.f });
         node->setAnchorPoint({ 0.5f, 0.5f });
+
+        if (reward.type == PassRewardType::Badge) {
+            auto info = g_streakData.getBadgeInfo(reward.itemID);
+            std::string spriteName = info ? info->spriteName : std::string("");
+            CCSprite* spr = nullptr;
+            if (!spriteName.empty()) spr = CCSprite::create(spriteName.c_str());
+            if (!spr) spr = CCSprite::createWithSpriteFrameName("GJ_unknownBtn_001.png");
+            if (spr) {
+                float maxSize = 34.f;
+                float scale = maxSize / std::max({ spr->getContentSize().width, spr->getContentSize().height, 1.f });
+                spr->setScale(scale);
+                spr->setPosition({ 22.f, 28.f });
+                node->addChild(spr);
+            }
+            auto lbl = CCLabelBMFont::create("Badge", "bigFont.fnt");
+            lbl->setScale(0.28f);
+            lbl->setAnchorPoint({ 0.5f, 1.0f });
+            lbl->setPosition({ 22.f, 9.f });
+            node->addChild(lbl);
+            return node;
+        }
 
         if (reward.type == PassRewardType::Banner) {
             auto info = g_streakData.getBannerInfo(reward.itemID);

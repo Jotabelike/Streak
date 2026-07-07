@@ -152,6 +152,33 @@ void StreakData::save() {
     updatePlayerDataInFirebase();
 }
 
+void StreakData::parseWcEvent(const matjson::Value& wc, WcEventState& out) {
+    out.active = wc["active"].as<bool>().unwrapOr(false);
+    out.correctPredictions = wc["correct_predictions"].as<int>().unwrapOr(0);
+    out.matches.clear();
+    auto arr = wc["matches"].as<std::vector<matjson::Value>>();
+    if (arr.isOk()) {
+        for (auto& m : arr.unwrap()) {
+            WcMatch match;
+            match.matchId = m["match_id"].as<std::string>().unwrapOr("");
+            if (match.matchId.empty()) continue;
+            match.teamA = m["team_a"].as<std::string>().unwrapOr("");
+            match.teamB = m["team_b"].as<std::string>().unwrapOr("");
+            match.spriteA = m["sprite_a"].as<std::string>().unwrapOr("");
+            match.spriteB = m["sprite_b"].as<std::string>().unwrapOr("");
+            match.score = m["score"].as<std::string>().unwrapOr("-");
+            match.status = m["status"].as<std::string>().unwrapOr("open");
+            match.winner = m["winner"].as<std::string>().unwrapOr("");
+            match.chestRarity = m["chest_rarity"].as<int>().unwrapOr(3);
+            match.votesA = m["votes_a"].as<int>().unwrapOr(0);
+            match.votesB = m["votes_b"].as<int>().unwrapOr(0);
+            match.myVote = m["my_vote"].as<std::string>().unwrapOr("");
+            match.claimed = m["claimed"].as<bool>().unwrapOr(false);
+            out.matches.push_back(match);
+        }
+    }
+}
+
 void StreakData::parseServerResponse(const matjson::Value& data) {
     auto safeInt = [](const matjson::Value& json, const std::string& key, int defaultVal = 0) -> int {
         if (!json.contains(key)) return defaultVal;
@@ -394,6 +421,45 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
                     });
             }
         }
+    }
+
+    if (data.contains("roulette_config")) {
+        auto parsePrizeList = [](const matjson::Value& listVal, std::vector<RoulettePrizeDef>& out) {
+            out.clear();
+            auto list = listVal.as<std::vector<matjson::Value>>();
+            if (!list.isOk()) return;
+            for (auto& item : list.unwrap()) {
+                RoulettePrizeDef def;
+                std::string type = item["type"].as<std::string>().unwrapOr("");
+                if (type == "badge") def.type = 0;
+                else if (type == "super_star") def.type = 1;
+                else if (type == "star_ticket") def.type = 2;
+                else if (type == "banner") def.type = 3;
+                else continue;
+                def.id = item["id"].as<std::string>().unwrapOr("");
+                if (def.id.empty()) continue;
+                def.quantity = item["quantity"].as<int>().unwrapOr(1);
+                def.sprite = item["sprite"].as<std::string>().unwrapOr("");
+                def.name = item["name"].as<std::string>().unwrapOr("");
+                def.weight = item["weight"].as<int>().unwrapOr(1);
+                std::string cat = item["category"].as<std::string>().unwrapOr("common");
+                if (cat == "special") def.category = 1;
+                else if (cat == "epic") def.category = 2;
+                else if (cat == "legendary") def.category = 3;
+                else if (cat == "mythic") def.category = 4;
+                else def.category = 0;
+                out.push_back(def);
+            }
+        };
+        auto cfg = data["roulette_config"];
+        parsePrizeList(cfg["standard"], serverStandardRoulette);
+        parsePrizeList(cfg["gem"], serverGemRoulette);
+        serverGemSpinCosts = cfg["gem_costs"].as<std::vector<int>>().unwrapOr(std::vector<int>{});
+    }
+
+    wcEvent = WcEventState{};
+    if (data.contains("wc_event")) {
+        parseWcEvent(data["wc_event"], wcEvent);
     }
 
     taskStatuses.clear();
@@ -1251,7 +1317,8 @@ StreakData::SongInfo* StreakData::getEquippedSong() {
 std::string StreakData::getEquippedSongFile() {
     auto info = getSongInfo(equippedSong);
     if (info && isSongUnlocked(equippedSong)) return info->fileName;
-    return std::string("s1.mp3"_spr);
+    // Default menu theme when no song is equipped: song_2 (DNA - WC 2026).
+    return std::string("s2.mp3"_spr);
 }
 
 bool StreakData::isStreakGoalClaimed(int index) const {

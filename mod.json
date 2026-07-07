@@ -42,6 +42,7 @@
 			"resources/banners/*.png",
 			"resources/menu songs icons/*.png",
 			"resources/chest/*.png",
+			"resources/wc_event/*.png",
 			"previews/*.png"
 		]
 	}

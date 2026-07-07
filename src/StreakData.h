@@ -103,6 +103,50 @@ struct StreakData {
         std::string animation = "None";
     };
 
+    // Definicion cruda de un premio de ruleta recibida del servidor
+    // (settings/roulette_config). `type` sigue el orden de RewardType
+    // (Badge=0, SuperStar=1, StarTicket=2, Banner=3) y `category` el de
+    // BadgeCategory. `sprite` viene sin expandir ("_spr" se aplica al usarlo).
+    struct RoulettePrizeDef {
+        int type = 0;
+        std::string id;
+        int quantity = 1;
+        std::string sprite;
+        std::string name;
+        int weight = 1;
+        int category = 0;
+    };
+    std::vector<RoulettePrizeDef> serverStandardRoulette;
+    std::vector<RoulettePrizeDef> serverGemRoulette;
+    std::vector<int> serverGemSpinCosts;
+
+    // Evento Mundial 2026 (prediccion de partidos). Estado recibido del
+    // servidor en GET /players; los sprites vienen sin expandir (son archivos
+    // de resources/wc_event, "_spr" se aplica al usarlos).
+    struct WcMatch {
+        std::string matchId;
+        std::string teamA;
+        std::string teamB;
+        std::string spriteA;
+        std::string spriteB;
+        std::string score;    // "-" mientras se juega; luego el resultado real
+        std::string status;   // "open" | "closed" | "finished"
+        std::string winner;   // "a" | "b" | "draw" (solo con status finished)
+        int chestRarity = 3;
+        int votesA = 0;
+        int votesB = 0;
+        std::string myVote;   // "a" | "b" | "" si no ha votado
+        bool claimed = false;
+    };
+    struct WcEventState {
+        bool active = false;
+        std::vector<WcMatch> matches;
+        int correctPredictions = 0; // claims acumulados; con 4 se gana wc_2026
+    };
+    WcEventState wcEvent;
+    // Parsea { active, matches: [...] } (de GET /players o /wc-event/state).
+    static void parseWcEvent(const matjson::Value& wc, WcEventState& out);
+
     std::vector<ConsumableItem> getDailyConsumableSelection();
     std::vector<DiscordMilestone> m_discordMilestones;
     std::vector<bool> gemRouletteState;
@@ -401,6 +445,16 @@ struct StreakData {
         {0, "mc_badge_1.png"_spr, "PVP Master", BadgeCategory::LEGENDARY, "mc_badge_1", true, "XJotaBeLikeX"},
         {0, "mc_badge_2.png"_spr, "full farming", BadgeCategory::EPIC, "mc_badge_2", true, "XJotaBeLikeX"},
         {0, "mc_badge_3.png"_spr, "break shields", BadgeCategory::COMMON, "mc_badge_3", true, "XJotaBeLikeX"},
+        {0, "Allay_Egg.png"_spr, "Allay Egg", BadgeCategory::MYTHIC, "allay_egg", true, "Minecraft"},
+        {0, "Bat_Egg.png"_spr, "Bat Egg", BadgeCategory::SPECIAL, "bat_egg", true, "Minecraft"},
+        {0, "Bee_Egg.png"_spr, "Bee Egg", BadgeCategory::EPIC, "bee_egg", true, "Minecraft"},
+        {0, "Iron_Golem_Egg.png"_spr, "Iron Golem Egg", BadgeCategory::COMMON, "iron_golem_egg", true, "Minecraft"},
+        {0, "Panda_Egg.png"_spr, "Panda Egg", BadgeCategory::LEGENDARY, "panda_egg", true, "Minecraft"},
+        {0, "Sniffer_Egg.png"_spr, "Sniffer Egg", BadgeCategory::SPECIAL, "sniffer_egg", true, "Minecraft"},
+        {0, "Snow_Golem_Egg.png"_spr, "Snow Golem Egg", BadgeCategory::LEGENDARY, "snow_golem_egg", true, "Minecraft"},
+        {0, "The_Warden_Egg.png"_spr, "The Warden Egg", BadgeCategory::MYTHIC, "the_warden_egg", true, "Minecraft"},
+        {0, "Witch_Egg.png"_spr, "Witch Egg", BadgeCategory::COMMON, "witch_egg", true, "Minecraft"},
+
 
         //events
         {0, "event_badge1.png"_spr, "Event", BadgeCategory::MYTHIC, "winter_badge", true, "XJotaBeLikeX"},
@@ -445,7 +499,10 @@ struct StreakData {
        { 0, "rus.png"_spr, "Russia", BadgeCategory::COMMON, "rus_badge", true, "XJotaBeLikeX" },
 
        //pass
-       { 0, "wc_badge.png"_spr, "World Cup 2026", BadgeCategory::MYTHIC, "wc_badge", true, "XJotaBeLikeX" }
+       { 0, "wc_badge.png"_spr, "World Cup 2026", BadgeCategory::MYTHIC, "wc_badge", true, "XJotaBeLikeX" },
+
+       //evento WC 2026: 4 predicciones acertadas (sprite temporal, reemplazar luego)
+       { 0, "wc_badge.png"_spr, "Perfect Predictor", BadgeCategory::LEGENDARY, "wc_2026", true, "XJotaBeLikeX", true }
 
     };
 

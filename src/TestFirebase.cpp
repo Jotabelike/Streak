@@ -22,6 +22,8 @@ static async::TaskHolder<web::WebResponse> s_completeLevelListener;
 static async::TaskHolder<web::WebResponse> s_rouletteSpinListener;
 static async::TaskHolder<web::WebResponse> s_gemRouletteSpinListener;
 static async::TaskHolder<web::WebResponse> s_claimListener;
+static async::TaskHolder<web::WebResponse> s_wcEventListener;
+static async::TaskHolder<web::WebResponse> s_wcStateListener;
 static async::TaskHolder<web::WebResponse> s_pendingRewardsListener;
 
 static const std::string SERVER_URL = "https://streak-servidor.onrender.com";
@@ -574,6 +576,138 @@ void refreshPendingLevelRewardsFromServer(std::function<void(bool)> callback) {
             }
             log::info("pending-level-rewards refreshed: {} entries", (int)g_streakData.pendingLevelRewards.size());
             if (callback) callback(true);
+        }
+    );
+}
+
+// =====================
+// EVENTO MUNDIAL 2026
+// =====================
+static StreakData::WcMatch* findWcMatch(const std::string& matchId) {
+    for (auto& m : g_streakData.wcEvent.matches) {
+        if (m.matchId == matchId) return &m;
+    }
+    return nullptr;
+}
+
+// Refresco en vivo del estado del evento (conteos/status/score/winner) sin
+// tocar my_vote/claimed, que solo cambian por acciones del propio jugador.
+void wcEventFetchStateOnServer(std::function<void(bool)> callback) {
+    auto am = GJAccountManager::sharedState();
+    if (!am || am->m_accountID == 0) { if (callback) callback(false); return; }
+    if (HMACAuth::getSessionToken().empty()) { if (callback) callback(false); return; }
+
+    int accountID = am->m_accountID;
+    std::string url = fmt::format("{}/wc-event/state/{}", SERVER_URL, accountID);
+
+    auto req = web::WebRequest();
+    HMACAuth::signGetRequest(req, accountID);
+
+    s_wcStateListener.spawn(
+        req.get(url),
+        [callback](web::WebResponse res) {
+            if (!res.ok() || !res.json().isOk()) {
+                if (callback) callback(false);
+                return;
+            }
+            auto data = res.json().unwrap();
+
+            auto& wc = g_streakData.wcEvent;
+            std::map<std::string, std::pair<std::string, bool>> mine;
+            for (const auto& m : wc.matches) mine[m.matchId] = { m.myVote, m.claimed };
+
+            StreakData::WcEventState fresh;
+            StreakData::parseWcEvent(data, fresh);
+            fresh.correctPredictions = wc.correctPredictions; // el state no lo trae
+            for (auto& m : fresh.matches) {
+                auto it = mine.find(m.matchId);
+                if (it != mine.end()) {
+                    m.myVote = it->second.first;
+                    m.claimed = it->second.second;
+                }
+            }
+            g_streakData.wcEvent = fresh;
+            if (callback) callback(true);
+        }
+    );
+}
+
+void wcEventVoteOnServer(const std::string& matchId, const std::string& team,
+                         std::function<void(bool, matjson::Value)> callback) {
+    auto am = GJAccountManager::sharedState();
+    if (!am || am->m_accountID == 0) { callback(false, matjson::Value()); return; }
+    if (HMACAuth::getSessionToken().empty()) { callback(false, matjson::Value()); return; }
+
+    int accountID = am->m_accountID;
+    std::string url = fmt::format("{}/wc-event/vote", SERVER_URL);
+
+    matjson::Value payload = matjson::Value::object();
+    payload.set("match_id", matchId);
+    payload.set("team", team);
+
+    auto req = web::WebRequest();
+    HMACAuth::signRequest(req, accountID, payload);
+
+    log::info("Sending WC event vote ({} -> {}) to server...", matchId, team);
+
+    s_wcEventListener.spawn(
+        req.bodyJSON(payload).post(url),
+        [callback, matchId](web::WebResponse res) {
+            if (res.ok() && res.json().isOk()) {
+                auto data = res.json().unwrap();
+                if (auto* m = findWcMatch(matchId)) {
+                    m->myVote = data["my_vote"].as<std::string>().unwrapOr(m->myVote);
+                    m->votesA = data["votes_a"].as<int>().unwrapOr(m->votesA);
+                    m->votesB = data["votes_b"].as<int>().unwrapOr(m->votesB);
+                }
+                callback(true, data);
+            }
+            else {
+                log::error("WC event vote failed: {}", res.code());
+                if (res.code() == 401) {
+                    HMACAuth::clearSessionToken();
+                    loadPlayerDataFromServer();
+                }
+                callback(false, matjson::Value());
+            }
+        }
+    );
+}
+
+void wcEventClaimOnServer(const std::string& matchId, std::function<void(bool, matjson::Value)> callback) {
+    auto am = GJAccountManager::sharedState();
+    if (!am || am->m_accountID == 0) { callback(false, matjson::Value()); return; }
+    if (HMACAuth::getSessionToken().empty()) { callback(false, matjson::Value()); return; }
+
+    int accountID = am->m_accountID;
+    std::string url = fmt::format("{}/wc-event/claim", SERVER_URL);
+
+    matjson::Value payload = matjson::Value::object();
+    payload.set("match_id", matchId);
+
+    auto req = web::WebRequest();
+    HMACAuth::signRequest(req, accountID, payload);
+
+    log::info("Claiming WC event reward on server ({})...", matchId);
+
+    s_wcEventListener.spawn(
+        req.bodyJSON(payload).post(url),
+        [callback, matchId](web::WebResponse res) {
+            if (res.ok() && res.json().isOk()) {
+                auto data = res.json().unwrap();
+                if (auto* m = findWcMatch(matchId)) m->claimed = true;
+                g_streakData.wcEvent.correctPredictions =
+                    data["correct_predictions"].as<int>().unwrapOr(g_streakData.wcEvent.correctPredictions);
+                callback(true, data);
+            }
+            else {
+                log::error("WC event claim failed: {}", res.code());
+                if (res.code() == 401) {
+                    HMACAuth::clearSessionToken();
+                    loadPlayerDataFromServer();
+                }
+                callback(false, matjson::Value());
+            }
         }
     );
 }
