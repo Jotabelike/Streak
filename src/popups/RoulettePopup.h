@@ -21,6 +21,10 @@ enum class RouletteMode {
     Gem
 };
 
+// Precio de la ruleta estandar en super stars: 1 giro = 10, x10 = 100.
+// Debe coincidir con STANDARD_SPIN_COST del servidor, que es quien cobra.
+inline constexpr int STANDARD_SPIN_COST = 10;
+
 class RoulettePopup : public Popup {
 protected:
     CCNode* m_rouletteNode;
@@ -414,7 +418,9 @@ protected:
 
         if (m_currentMode == RouletteMode::Standard) {
             m_adsClipper->setVisible(true);
-            m_spinBtn = CCMenuItemSpriteExtra::create(ButtonSprite::create("Spin"), this, menu_selector(RoulettePopup::onSpin));
+            m_spinBtn = CCMenuItemSpriteExtra::create(
+                ButtonSprite::create(fmt::format("x{}", STANDARD_SPIN_COST).c_str()),
+                this, menu_selector(RoulettePopup::onSpin));
             m_spinMenu->addChild(m_spinBtn);
             m_spinMenu->addChild(m_spin10Btn);
             m_spin10Btn->release();
@@ -605,8 +611,12 @@ protected:
 
         this->setupAdsCarousel();
 
-        m_spinBtn = CCMenuItemSpriteExtra::create(ButtonSprite::create("Spin"), this, menu_selector(RoulettePopup::onSpin));
-        m_spin10Btn = CCMenuItemSpriteExtra::create(ButtonSprite::create("x10",
+        // Los botones muestran lo que cuesta cada tirada en super stars.
+        m_spinBtn = CCMenuItemSpriteExtra::create(
+            ButtonSprite::create(fmt::format("x{}", STANDARD_SPIN_COST).c_str()),
+            this, menu_selector(RoulettePopup::onSpin));
+        m_spin10Btn = CCMenuItemSpriteExtra::create(ButtonSprite::create(
+            fmt::format("x{}", STANDARD_SPIN_COST * 10).c_str(),
             0, 0, "goldFont.fnt", "GJ_button_03.png",
             0, 0.8f),
             this, menu_selector(RoulettePopup::onSpinMultiple));
@@ -827,8 +837,9 @@ protected:
          
         std::vector<int> logicalAvailableIndices;
         if (m_currentMode == RouletteMode::Standard) {
-            if (g_streakData.superStars < 1) {
-                FLAlertLayer::create("Not Enough Super Stars", "You need 1 Super Star.", "OK")->show();
+            if (g_streakData.superStars < STANDARD_SPIN_COST) {
+                FLAlertLayer::create("Not Enough Super Stars",
+                    fmt::format("You need {} Super Stars.", STANDARD_SPIN_COST).c_str(), "OK")->show();
                 return;
             }
         }
@@ -911,8 +922,9 @@ protected:
 
     void onSpinMultiple(CCObject*) {
         if (m_currentMode != RouletteMode::Standard) return;
-        if (g_streakData.superStars < 10) {
-            FLAlertLayer::create("Error", "Need 10 Super Stars.", "OK")->show();
+        if (g_streakData.superStars < STANDARD_SPIN_COST * 10) {
+            FLAlertLayer::create("Error",
+                fmt::format("Need {} Super Stars.", STANDARD_SPIN_COST * 10).c_str(), "OK")->show();
             return;
         }
         if (m_isSpinning) return;

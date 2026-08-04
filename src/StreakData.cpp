@@ -179,6 +179,45 @@ void StreakData::parseWcEvent(const matjson::Value& wc, WcEventState& out) {
     }
 }
 
+void StreakData::parseSeasonShop(const matjson::Value& shop, SeasonShopState& out) {
+    out.active = shop["active"].as<bool>().unwrapOr(false);
+    out.shopId = shop["shop_id"].as<std::string>().unwrapOr("");
+    out.title = shop["title"].as<std::string>().unwrapOr("Season Shop");
+    out.endsAt = shop.contains("ends_at") && shop["ends_at"].isNumber()
+        ? shop["ends_at"].as<long long>().unwrapOr(0LL) : 0LL;
+    out.items.clear();
+
+    // my_buys llega como { item_id: veces }.
+    std::map<std::string, int> buys;
+    if (shop.contains("my_buys")) {
+        auto obj = shop["my_buys"].as<std::map<std::string, matjson::Value>>();
+        if (obj.isOk()) {
+            for (const auto& [key, val] : obj.unwrap()) {
+                buys[key] = val.isNumber() ? val.as<int>().unwrapOr(0) : 0;
+            }
+        }
+    }
+
+    auto arr = shop["items"].as<std::vector<matjson::Value>>();
+    if (arr.isOk()) {
+        for (auto& it : arr.unwrap()) {
+            SeasonShopItem item;
+            item.itemId = it["item_id"].as<std::string>().unwrapOr("");
+            item.type = it["type"].as<std::string>().unwrapOr("");
+            if (item.itemId.empty() || item.type.empty()) continue;
+            item.rewardId = it["reward_id"].as<std::string>().unwrapOr("");
+            item.name = it["name"].as<std::string>().unwrapOr("");
+            item.amount = it["amount"].as<int>().unwrapOr(0);
+            item.price = it["price"].as<int>().unwrapOr(0);
+            item.currency = it["currency"].as<std::string>().unwrapOr("gems");
+            item.stock = it["stock"].as<int>().unwrapOr(0);
+            auto found = buys.find(item.itemId);
+            item.bought = (found != buys.end()) ? found->second : 0;
+            out.items.push_back(item);
+        }
+    }
+}
+
 void StreakData::parseServerResponse(const matjson::Value& data) {
     auto safeInt = [](const matjson::Value& json, const std::string& key, int defaultVal = 0) -> int {
         if (!json.contains(key)) return defaultVal;
@@ -231,6 +270,19 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
         auto v = data["season_end_time"];
         if (v.isNumber()) seasonEndTime = v.as<long long>().unwrapOr(seasonEndTime);
     }
+    // Desfase con el reloj del server. La cuenta atras del pase se mide con esto
+    // y no con la hora del dispositivo: un reloj adelantado daba el pase por
+    // terminado y bloqueaba las reclamaciones.
+    if (data.contains("server_time")) {
+        auto v = data["server_time"];
+        if (v.isNumber()) {
+            long long serverNow = v.as<long long>().unwrapOr(0LL);
+            if (serverNow > 0) {
+                serverTimeOffsetMs = serverNow - (static_cast<long long>(std::time(nullptr)) * 1000LL);
+            }
+        }
+    }
+    passCompleteGoal = safeInt(data, "pass_complete_goal", passCompleteGoal);
 
     freePassRewards.clear();
     paidPassRewards.clear();
@@ -460,6 +512,11 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     wcEvent = WcEventState{};
     if (data.contains("wc_event")) {
         parseWcEvent(data["wc_event"], wcEvent);
+    }
+
+    seasonShop = SeasonShopState{};
+    if (data.contains("season_shop")) {
+        parseSeasonShop(data["season_shop"], seasonShop);
     }
 
     taskStatuses.clear();
@@ -1317,8 +1374,9 @@ StreakData::SongInfo* StreakData::getEquippedSong() {
 std::string StreakData::getEquippedSongFile() {
     auto info = getSongInfo(equippedSong);
     if (info && isSongUnlocked(equippedSong)) return info->fileName;
-    // Default menu theme when no song is equipped: song_2 (DNA - WC 2026).
-    return std::string("s2.mp3"_spr);
+    // Default menu theme when no song is equipped: song_3 (otherside, tema de la temporada).
+    if (auto def = getSongInfo("song_3")) return def->fileName;
+    return std::string("s3.mp3"_spr);
 }
 
 bool StreakData::isStreakGoalClaimed(int index) const {

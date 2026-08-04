@@ -21,7 +21,7 @@ using namespace geode::prelude;
 
 class StProgressPopup : public Popup {
 protected:
-    static constexpr int MONTHLY_GOAL_SP = 2000;
+    static constexpr int MONTHLY_GOAL_SP = 2500;
     static constexpr int PAID_TIER_STEP = 50;
     static constexpr int FREE_TIER_STEP = 100;
     static constexpr int TOTAL_PAID_TIERS = MONTHLY_GOAL_SP / PAID_TIER_STEP;
@@ -61,7 +61,7 @@ protected:
     CCMenuItemSpriteExtra* m_completeRewardBtn = nullptr;
     CCSprite* m_completeRewardCheck = nullptr;
     CCLabelBMFont* m_themeLabel = nullptr;
-    static constexpr const char* COMPLETE_REWARD_SONG = "song_2";
+    static constexpr const char* COMPLETE_REWARD_SONG = "song_3";
 
     RoundedProgressBar* m_goldBuyBar = nullptr;
     CCLabelBMFont* m_goldBuyGoalLabel = nullptr;
@@ -571,7 +571,7 @@ protected:
     void refreshCompleteReward() {
         if (!m_completeRewardBtn) return;
         bool claimed = g_streakData.passCompleteRewardClaimed;
-        bool complete = g_streakData.goldTickets >= MONTHLY_GOAL_SP;
+        bool complete = g_streakData.goldTickets >= g_streakData.getPassCompleteGoal();
 
         if (auto icon = static_cast<CCSprite*>(m_completeRewardBtn->getNormalImage())) {
             if (claimed) icon->setColor({ 150, 150, 150 });
@@ -583,42 +583,67 @@ protected:
     }
 
     void onCompleteRewardInfo(CCObject*) {
+        std::string songName = "season";
+        if (auto info = g_streakData.getSongInfo(COMPLETE_REWARD_SONG)) songName = info->displayName;
         FLAlertLayer::create(
             "Pass Completion Reward",
-            "Reach the pass goal on either the <cg>Free</c> or <cy>VIP</c> track to unlock the <cl>Streak Theme</c> song.\n"
-            "It's a bonus, separate from the regular tier rewards.",
+            fmt::format(
+                "Reach the pass goal on either the <cg>Free</c> or <cy>VIP</c> track to unlock the <cl>{}</c> song.\n"
+                "It's a bonus, separate from the regular tier rewards.",
+                songName
+            ).c_str(),
             "OK"
         )->show();
     }
 
-    void onClaimCompleteReward(CCObject*) {
-        if (m_passEnded) {
-            FLAlertLayer::create("Pass", "This pass has ended.", "OK")->show();
-            return;
+    // Marca el premio como reclamado en local y desbloquea la cancion. Se usa
+    // tanto en el exito como al recibir un 409 (el server ya lo tenia dado).
+    void applyCompleteRewardUnlocked(bool announce) {
+        g_streakData.passCompleteRewardClaimed = true;
+        g_streakData.unlockSong(COMPLETE_REWARD_SONG);
+
+        if (announce) {
+            if (auto info = g_streakData.getSongInfo(COMPLETE_REWARD_SONG)) {
+                BannerNotification::show(
+                    COMPLETE_REWARD_SONG, info->iconName, info->displayName,
+                    "MUSIC", { 255, 200, 80 }, "SONG UNLOCKED!");
+            }
         }
+        refreshCompleteReward();
+    }
+
+    void onClaimCompleteReward(CCObject*) {
+        // Aqui no se corta por m_passEnded: quien completa el pase justo al
+        // final debe poder reclamar. Si la temporada acabo de verdad, el server
+        // ya habra reiniciado el progreso y respondera que no llega a la meta.
         if (g_streakData.passCompleteRewardClaimed) return;
-        if (g_streakData.goldTickets < MONTHLY_GOAL_SP) {
+        if (g_streakData.goldTickets < g_streakData.getPassCompleteGoal()) {
             FLAlertLayer::create("Pass Reward", "Complete the pass to unlock this song.", "OK")->show();
             return;
         }
         if (m_completeRewardBtn) m_completeRewardBtn->setEnabled(false);
 
         matjson::Value payload = matjson::Value::object();
-        claimOnServer("/streak-pass/complete-reward/claim", payload,
-            [this, keepAlive = Ref<CCNode>(this)](bool ok) {
-                if (!ok) {
-                    FLAlertLayer::create("Pass", "Could not claim the reward. Try again.", "OK")->show();
+        claimOnServerEx("/streak-pass/complete-reward/claim", payload,
+            [this, keepAlive = Ref<CCNode>(this)](bool ok, int code, const matjson::Value&) {
+                if (ok) {
+                    applyCompleteRewardUnlocked(true);
+                    return;
+                }
+                if (code == 409) {
+                    // El server ya lo tenia reclamado (por ejemplo, se perdio la
+                    // respuesta de un intento anterior). No es un error.
+                    applyCompleteRewardUnlocked(false);
+                    return;
+                }
+                if (code == 403) {
+                    FLAlertLayer::create("Pass Reward",
+                        "The pass isn't complete on the server yet.\n"
+                        "If you just finished it, reopen the pass and try again.", "OK")->show();
                     refreshCompleteReward();
                     return;
                 }
-                g_streakData.passCompleteRewardClaimed = true;
-                g_streakData.unlockSong(COMPLETE_REWARD_SONG);
-
-                if (auto info = g_streakData.getSongInfo(COMPLETE_REWARD_SONG)) {
-                    BannerNotification::show(
-                        COMPLETE_REWARD_SONG, info->iconName, info->displayName,
-                        "MUSIC", { 255, 200, 80 }, "SONG UNLOCKED!");
-                }
+                FLAlertLayer::create("Pass", "Could not claim the reward. Try again.", "OK")->show();
                 refreshCompleteReward();
             });
     }
@@ -911,7 +936,7 @@ protected:
     void updateCountdown(float) {
         if (!m_countdownLabel) return;
         long long endMs = g_streakData.getSeasonEndTime();
-        long long now = static_cast<long long>(std::time(nullptr)) * 1000LL;
+        long long now = g_streakData.getServerNowMs();
         long long remainingMs = endMs - now;
         long long remainingS = remainingMs / 1000;
         bool ended = (endMs > 0 && remainingS <= 0);

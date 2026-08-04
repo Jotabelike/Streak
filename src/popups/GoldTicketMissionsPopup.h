@@ -54,7 +54,7 @@ protected:
     static long long secondsUntilSeasonEnd() {
         long long endMs = g_streakData.getSeasonEndTime();
         if (endMs <= 0) return 0;
-        long long now = (long long)std::time(nullptr) * 1000LL;
+        long long now = g_streakData.getServerNowMs();
         long long remaining = (endMs - now) / 1000;
         return remaining < 0 ? 0 : remaining;
     }

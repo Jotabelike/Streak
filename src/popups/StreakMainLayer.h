@@ -34,6 +34,7 @@
 #include "../utils/RoundedProgressBar.h"
 #include "DiscordGoalPopup.h"
 #include "WcEventPopup.h"
+#include "SeasonShopPopup.h"
 #include "RegisterPopup.h"
 #include "ShieldsPopup.h"
 #include "UpdatePopup.h"
@@ -122,7 +123,7 @@ protected:
                 if (!g_streakData.isPaidPassTierClaimed(t) && gold >= t * 50) return true;
             }
         }
-        if (!g_streakData.passCompleteRewardClaimed && gold >= 2000) return true;
+        if (!g_streakData.passCompleteRewardClaimed && gold >= g_streakData.getPassCompleteGoal()) return true;
         return false;
     }
 
@@ -648,8 +649,10 @@ protected:
             cornerMenu->addChild(dcBtn);
         }
 
-        // Evento Mundial 2026 (prediccion de partidos). Ocupa el hueco del
-        // boton de tareas/discord si esta libre; si no, la fila de abajo.
+        // Eventos activables (Mundial y tienda de temporada). Van llenando los
+        // huecos libres de la columna derecha, empezando por el del boton de
+        // tareas/discord si ese no se uso.
+        int eventSlot = (g_streakData.isTaskEnabled || g_streakData.isDiscordGoalEnabled) ? 3 : 2;
         if (g_streakData.wcEvent.active) {
             auto wcIcon = CCSprite::create("wc_btn.png"_spr);
             if (!wcIcon) wcIcon = CCSprite::createWithSpriteFrameName("GJ_top100Btn_001.png");
@@ -657,9 +660,21 @@ protected:
             auto wcBtn = CCMenuItemSpriteExtra::create(
                 wcIcon, this, menu_selector(StreakMainLayer::onOpenWcEvent)
             );
-            bool slotTaken = g_streakData.isTaskEnabled || g_streakData.isDiscordGoalEnabled;
-            wcBtn->setPosition({ rightX, sideY - sideSpacing * (slotTaken ? 3 : 2) });
+            wcBtn->setPosition({ rightX, sideY - sideSpacing * eventSlot });
             cornerMenu->addChild(wcBtn);
+            eventSlot++;
+        }
+
+        if (g_streakData.seasonShop.active) {
+            auto shopIcon = CCSprite::create("shop_btn.png"_spr);
+            if (!shopIcon) shopIcon = CCSprite::createWithSpriteFrameName("GJ_shopBtn_001.png");
+            shopIcon->setScale(0.9f);
+            auto shopBtn = CCMenuItemSpriteExtra::create(
+                shopIcon, this, menu_selector(StreakMainLayer::onOpenSeasonShop)
+            );
+            shopBtn->setPosition({ rightX, sideY - sideSpacing * eventSlot });
+            cornerMenu->addChild(shopBtn);
+            eventSlot++;
         }
 
         auto missionsIcon = CCSprite::create("super_star_btn.png"_spr);
@@ -1004,6 +1019,13 @@ protected:
     void onOpenTasks(CCObject*)      { TaskPopup::create()->show(); }
     void onOpenDiscordGoal(CCObject*){ DiscordGoalPopup::create()->show(); }
     void onOpenWcEvent(CCObject*)    { WcEventPopup::create()->show(); }
+    void onOpenSeasonShop(CCObject*) {
+        if (!g_streakData.seasonShop.active) {
+            FLAlertLayer::create("Season Shop", "The shop is <cy>closed</c> right now.", "OK")->show();
+            return;
+        }
+        SeasonShopPopup::create()->show();
+    }
     void onOpenSettings(CCObject*)   { SettingsPopup::create()->show(); }
     void onRachaClick(CCObject*)     { AllRachasPopup::create()->show(); }
 

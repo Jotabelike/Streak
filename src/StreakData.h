@@ -147,6 +147,37 @@ struct StreakData {
     // Parsea { active, matches: [...] } (de GET /players o /wc-event/state).
     static void parseWcEvent(const matjson::Value& wc, WcEventState& out);
 
+    // Tienda de temporada (evento activable). El catalogo entero lo define el
+    // servidor en settings/season_shop; el cliente solo lo dibuja y manda el
+    // itemId al comprar.
+    struct SeasonShopItem {
+        std::string itemId;    // id de la entrada de tienda (lo que se compra)
+        std::string type;      // banner|badge|name_item|song|tickets|stars|gems|shields|chest
+        std::string rewardId;  // id del cosmetico (vacio en consumibles/cofres)
+        std::string name;      // etiqueta opcional
+        int amount = 0;        // cantidad del consumible / rareza del cofre
+        int price = 0;
+        std::string currency;  // gems | tickets | stars
+        int stock = 0;         // compras maximas por jugador (0 = ilimitado)
+        int bought = 0;        // veces que YA lo compro este jugador
+
+        bool isCosmetic() const {
+            return type == "banner" || type == "badge" || type == "name_item" || type == "song";
+        }
+        bool soldOut() const { return stock > 0 && bought >= stock; }
+    };
+    struct SeasonShopState {
+        bool active = false;
+        std::string shopId;
+        std::string title;
+        long long endsAt = 0;  // ms epoch; 0 = sin fecha de cierre
+        std::vector<SeasonShopItem> items;
+    };
+    SeasonShopState seasonShop;
+    // Parsea { active, items: [...], my_buys: {...} } (de GET /players o
+    // /season-shop/state).
+    static void parseSeasonShop(const matjson::Value& shop, SeasonShopState& out);
+
     std::vector<ConsumableItem> getDailyConsumableSelection();
     std::vector<DiscordMilestone> m_discordMilestones;
     std::vector<bool> gemRouletteState;
@@ -183,6 +214,11 @@ struct StreakData {
     std::set<int> claimedStreakGoals;
     int specialRank = 0;
     long long seasonEndTime = 0;
+    // serverNow - localNow, calculado al cargar los datos del jugador.
+    long long serverTimeOffsetMs = 0;
+    // Meta de gold tickets para el premio de completar el pase. La manda el
+    // server (pass_complete_goal); este valor solo es el respaldo si no viene.
+    int passCompleteGoal = 2500;
     int pendingSeasonRank = 0;
     int dailyShopSeed = 0;
 
@@ -446,9 +482,9 @@ struct StreakData {
         {0, "mc_badge_2.png"_spr, "full farming", BadgeCategory::EPIC, "mc_badge_2", true, "XJotaBeLikeX"},
         {0, "mc_badge_3.png"_spr, "break shields", BadgeCategory::COMMON, "mc_badge_3", true, "XJotaBeLikeX"},
         {0, "Allay_Egg.png"_spr, "Allay Egg", BadgeCategory::MYTHIC, "allay_egg", true, "Minecraft"},
-        {0, "Bat_Egg.png"_spr, "Bat Egg", BadgeCategory::SPECIAL, "bat_egg", true, "Minecraft"},
+        {0, "Bat_Egg.png"_spr, "Bat Egg", BadgeCategory::MYTHIC, "bat_egg", true, "Minecraft"},
         {0, "Bee_Egg.png"_spr, "Bee Egg", BadgeCategory::EPIC, "bee_egg", true, "Minecraft"},
-        {0, "Iron_Golem_Egg.png"_spr, "Iron Golem Egg", BadgeCategory::COMMON, "iron_golem_egg", true, "Minecraft"},
+        {0, "Iron_Golem_Egg.png"_spr, "Iron Golem Egg", BadgeCategory::MYTHIC, "iron_golem_egg", true, "Minecraft"},
         {0, "Panda_Egg.png"_spr, "Panda Egg", BadgeCategory::LEGENDARY, "panda_egg", true, "Minecraft"},
         {0, "Sniffer_Egg.png"_spr, "Sniffer Egg", BadgeCategory::SPECIAL, "sniffer_egg", true, "Minecraft"},
         {0, "Snow_Golem_Egg.png"_spr, "Snow Golem Egg", BadgeCategory::LEGENDARY, "snow_golem_egg", true, "Minecraft"},
@@ -499,10 +535,7 @@ struct StreakData {
        { 0, "rus.png"_spr, "Russia", BadgeCategory::COMMON, "rus_badge", true, "XJotaBeLikeX" },
 
        //pass
-       { 0, "wc_badge.png"_spr, "World Cup 2026", BadgeCategory::MYTHIC, "wc_badge", true, "XJotaBeLikeX" },
-
-       //evento WC 2026: 4 predicciones acertadas (sprite temporal, reemplazar luego)
-       { 0, "wc_badge.png"_spr, "Perfect Predictor", BadgeCategory::LEGENDARY, "wc_2026", true, "XJotaBeLikeX", true }
+       { 0, "wc_badge.png"_spr, "World Cup 2026", BadgeCategory::MYTHIC, "wc_badge", true, "XJotaBeLikeX" }
 
     };
 
@@ -587,7 +620,8 @@ struct StreakData {
 
     std::vector<SongInfo> songs = {
         {"song_1", "s1.mp3"_spr, "s1.png"_spr, "Streak Theme", "The original Streak! menu theme.", "Suno AI"},
-        {"song_2", "s2.mp3"_spr, "s2.png"_spr, "DNA (FIFA World Cup 2026)", "WC 2026 theme.", "FIFA"}
+        {"song_2", "s2.mp3"_spr, "s2.png"_spr, "DNA (FIFA World Cup 2026)", "WC 2026 theme.", "FIFA"},
+        {"song_3", "s3.mp3"_spr, "s3.png"_spr, "otherside", "minecraft Season", "Minecraft"}
     };
 
     std::vector<bool> unlockedBadges;
@@ -630,6 +664,11 @@ struct StreakData {
     bool isPassMissionClaimed(const std::string& scope, const std::string& id) const;
     void markPassMissionClaimed(const std::string& scope, const std::string& id);
     long long getSeasonEndTime() const { return seasonEndTime; }
+    // Hora actual corregida con el desfase del server (ms desde epoch).
+    long long getServerNowMs() const {
+        return static_cast<long long>(std::time(nullptr)) * 1000LL + serverTimeOffsetMs;
+    }
+    int getPassCompleteGoal() const { return passCompleteGoal > 0 ? passCompleteGoal : 2500; }
     void unequipBadge();
     bool isBadgeEquipped(const std::string& badgeID);
     void dailyUpdate();

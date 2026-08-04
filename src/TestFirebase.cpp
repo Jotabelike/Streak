@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <memory>
 #include <functional>
 #include <Geode/binding/GameManager.hpp>
 #include "RewardNotification.h"
@@ -21,7 +22,12 @@ static async::TaskHolder<web::WebResponse> s_refreshListener;
 static async::TaskHolder<web::WebResponse> s_completeLevelListener;
 static async::TaskHolder<web::WebResponse> s_rouletteSpinListener;
 static async::TaskHolder<web::WebResponse> s_gemRouletteSpinListener;
-static async::TaskHolder<web::WebResponse> s_claimListener;
+// Cada reclamacion necesita SU PROPIO holder: TaskHolder::spawn cancela la tarea
+// anterior del mismo holder y garantiza que su callback ya no se llame. Con un
+// unico holder compartido, reclamar dos cosas seguidas (un tier y la cancion, o
+// claim-all) mataba el callback de la primera y su boton se quedaba deshabilitado
+// para siempre. Se guardan aqui para mantenerlos vivos mientras corren.
+static std::vector<std::shared_ptr<async::TaskHolder<web::WebResponse>>> s_claimListeners;
 static async::TaskHolder<web::WebResponse> s_wcEventListener;
 static async::TaskHolder<web::WebResponse> s_wcStateListener;
 static async::TaskHolder<web::WebResponse> s_pendingRewardsListener;
@@ -497,10 +503,22 @@ static void applyServerUnlocks(const matjson::Value& data) {
     }
 }
 
-void claimOnServer(const std::string& endpoint, const matjson::Value& payload, std::function<void(bool)> callback) {
+// Devuelve un holder nuevo para esta peticion, soltando antes los que ya
+// terminaron. Solo se llama al lanzar una peticion (nunca desde un callback),
+// asi que ningun holder se destruye mientras su propio callback corre.
+static std::shared_ptr<async::TaskHolder<web::WebResponse>> acquireClaimHolder() {
+    std::erase_if(s_claimListeners, [](const auto& h) { return !h->isPending(); });
+    auto holder = std::make_shared<async::TaskHolder<web::WebResponse>>();
+    s_claimListeners.push_back(holder);
+    return holder;
+}
+
+void claimOnServerEx(const std::string& endpoint, const matjson::Value& payload,
+    std::function<void(bool, int, const matjson::Value&)> callback) {
+    static const matjson::Value kEmpty = matjson::Value::object();
     auto am = GJAccountManager::sharedState();
-    if (!am || am->m_accountID == 0) { callback(false); return; }
-    if (HMACAuth::getSessionToken().empty()) { callback(false); return; }
+    if (!am || am->m_accountID == 0) { callback(false, 0, kEmpty); return; }
+    if (HMACAuth::getSessionToken().empty()) { callback(false, 0, kEmpty); return; }
 
     int accountID = am->m_accountID;
     std::string url = fmt::format("{}{}", SERVER_URL, endpoint);
@@ -510,25 +528,33 @@ void claimOnServer(const std::string& endpoint, const matjson::Value& payload, s
 
     log::info("Claiming on server: {}", endpoint);
 
-    s_claimListener.spawn(
+    auto holder = acquireClaimHolder();
+    holder->spawn(
         req.bodyJSON(payload).post(url),
         [callback](web::WebResponse res) {
-            if (res.ok() && res.json().isOk()) {
-                auto data = res.json().unwrap();
+            auto json = res.json();
+            if (res.ok() && json.isOk()) {
+                auto data = json.unwrap();
                 applyServerBalances(data);
                 log::info("Claim OK. Stars: {}, Tickets: {}, Gems: {}",
                     g_streakData.superStars, g_streakData.starTickets, g_streakData.gems);
-                callback(true);
+                callback(true, res.code(), data);
             } else {
                 log::error("Claim failed: {}", res.code());
                 if (res.code() == 401) {
                     HMACAuth::clearSessionToken();
                     loadPlayerDataFromServer();
                 }
-                callback(false);
+                matjson::Value body = matjson::Value::object();
+                if (json.isOk()) body = json.unwrap();
+                callback(false, res.code(), body);
             }
         }
     );
+}
+
+void claimOnServer(const std::string& endpoint, const matjson::Value& payload, std::function<void(bool)> callback) {
+    claimOnServerEx(endpoint, payload, [callback](bool ok, int, const matjson::Value&) { callback(ok); });
 }
 
 void refreshPendingLevelRewardsFromServer(std::function<void(bool)> callback) {
