@@ -240,7 +240,7 @@ protected:
             shieldsMenu->addChild(shieldsBtn);
             m_mainLayer->addChild(shieldsMenu, 10);
 
-            m_shieldsLabel = CCLabelBMFont::create("0", "bigFont.fnt");
+            m_shieldsLabel = CCLabelBMFont::create("0/5", "bigFont.fnt");
             m_shieldsLabel->setScale(0.5f);
             m_shieldsLabel->setAnchorPoint({ 0.0f, 0.5f });
             m_shieldsLabel->setColor({ 255, 130, 130 });
@@ -673,7 +673,9 @@ protected:
         m_barText->setString(fmt::format("{}/{}", pointsToday, requiredPoints).c_str());
 
         if (m_shieldsLabel) {
-            m_shieldsLabel->setString(std::to_string(g_streakData.streakShields).c_str());
+            m_shieldsLabel->setString(
+                fmt::format("{}/{}", g_streakData.streakShields, STREAK_MAX_SHIELDS).c_str()
+            );
         }
 
         if (m_xpBar && m_xpLabel && m_xpProgressLabel) {

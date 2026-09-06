@@ -35,6 +35,8 @@
 #include "DiscordGoalPopup.h"
 #include "WcEventPopup.h"
 #include "SeasonShopPopup.h"
+#include "CommunityShopPopup.h"
+#include "InventoryPopup.h"
 #include "RegisterPopup.h"
 #include "ShieldsPopup.h"
 #include "UpdatePopup.h"
@@ -52,15 +54,21 @@ protected:
     CCLabelBMFont* m_xpProgressLabel = nullptr;
     CCLabelBMFont* m_gemsLabel = nullptr;
     CCLabelBMFont* m_shieldsLabel = nullptr;
+    CCLabelBMFont* m_rankCounterLabel = nullptr;
 
     cocos2d::extension::CCScale9Sprite* m_shieldsBg = nullptr;
     CCMenuItemSpriteExtra* m_shieldsBtn = nullptr;
     cocos2d::extension::CCScale9Sprite* m_gemsBg = nullptr;
     CCSprite* m_gemsIcon = nullptr;
+    cocos2d::extension::CCScale9Sprite* m_rankCounterBg = nullptr;
+    CCMenuItemSpriteExtra* m_rankCounterBtn = nullptr;
+    CCSprite* m_rankCounterIcon = nullptr;
     float m_countersStartX = 0.f;
     float m_countersY = 0.f;
     float m_shieldsIconW = 0.f;
     float m_gemsIconW = 0.f;
+    float m_rankCounterIconW = 0.f;
+    int m_rankCounterIndex = -1;
 
     CCMenuItemSpriteExtra* m_xpBtnRef = nullptr;
     CCMenuItemSpriteExtra* m_missionsBtnRef = nullptr;
@@ -146,6 +154,63 @@ protected:
         label->setScale(scale);
     }
 
+    void refreshRankCounter() {
+        if (!m_rankCounterBg || !m_rankCounterLabel) return;
+
+        int rankIndex = StreakData::getRankIndexForTokens(g_streakData.streakTokens);
+        if (rankIndex == m_rankCounterIndex && m_rankCounterIcon) return;
+
+        m_rankCounterLabel->setString(
+            StreakData::getRankNameForIndex(rankIndex).c_str()
+        );
+        NameModifiers::applyColor(
+            m_rankCounterLabel,
+            StreakData::getRankColorStyleForIndex(rankIndex)
+        );
+
+        if (m_rankCounterIcon) {
+            m_rankCounterIcon->removeFromParentAndCleanup(true);
+            m_rankCounterIcon = nullptr;
+        }
+
+        m_rankCounterIcon = CCSprite::create(
+            StreakData::getRankSpriteForIndex(rankIndex).c_str()
+        );
+        m_rankCounterIconW = 0.f;
+        if (m_rankCounterIcon) {
+            float maxSide = std::max(
+                m_rankCounterIcon->getContentSize().width,
+                m_rankCounterIcon->getContentSize().height
+            );
+            float scale = maxSide > 0.f ? 22.f / maxSide : 1.f;
+            m_rankCounterIcon->setScale(scale);
+            m_rankCounterIconW = m_rankCounterIcon->getContentSize().width * scale;
+            m_rankCounterBg->addChild(m_rankCounterIcon, 2);
+        }
+
+        constexpr float boxW = 82.f;
+        constexpr float boxH = 27.f;
+        constexpr float padL = 3.f;
+        constexpr float padR = 5.f;
+        constexpr float gap = 3.f;
+
+        float maxLabelW = boxW - padL - m_rankCounterIconW - gap - padR;
+        fitLabelToWidth(m_rankCounterLabel, maxLabelW, 0.36f);
+
+        if (m_rankCounterIcon) {
+            m_rankCounterIcon->setPosition({
+                padL + m_rankCounterIconW / 2.f,
+                boxH / 2.f
+            });
+        }
+        m_rankCounterLabel->setPosition({
+            padL + m_rankCounterIconW + gap,
+            boxH / 2.f
+        });
+
+        m_rankCounterIndex = rankIndex;
+    }
+
     void layoutCounters() {
         float boxH = 27.f;
         float padL = 2.f;   // icons 4 px to the left vs before (was 6)
@@ -184,6 +249,16 @@ protected:
             m_gemsBg->setPosition({ boxX, m_countersY });
             m_gemsIcon->setPosition({ x + padL + iconW / 2, m_countersY });
             m_gemsLabel->setPosition({ x + padL + iconW + gap, m_countersY });
+
+            x = boxX + boxW / 2 + between;
+        }
+
+        if (m_rankCounterBtn) {
+            constexpr float rankBoxW = 82.f;
+            m_rankCounterBtn->setPosition({
+                x + rankBoxW / 2.f,
+                m_countersY
+            });
         }
     }
 
@@ -371,7 +446,7 @@ protected:
             return true;
         }
 
-        // top-left row: badge | banner+name | hearts | gems
+        // top-left row: badge | banner+name | hearts | gems | current rank
         float rowY = m_size.height - 25.f;
         float cursorX = 55.f; // start right after the back button
 
@@ -421,11 +496,13 @@ protected:
         }
 
         // badge on top of the banner, inside the box (left side, +2 from edge after -5px shift)
+        float profileBadgeCenterX = 21.f;
         if (auto badgeInfo = g_streakData.getBadgeInfo(g_streakData.equippedBadge)) {
             auto badgeSpr = CCSprite::create(badgeInfo->spriteName.c_str());
             if (badgeSpr) {
                 badgeSpr->setScale(0.17f);
-                badgeSpr->setPosition({ 2.f + badgeSpr->getScaledContentSize().width / 2.f, profileBgH / 2.f });
+                profileBadgeCenterX = 2.f + badgeSpr->getScaledContentSize().width / 2.f;
+                badgeSpr->setPosition({ profileBadgeCenterX, profileBgH / 2.f });
                 clipNode->addChild(badgeSpr);
             }
         }
@@ -473,7 +550,7 @@ protected:
             }
         }
 
-        m_shieldsLabel = CCLabelBMFont::create("0", "bigFont.fnt");
+        m_shieldsLabel = CCLabelBMFont::create("0/5", "bigFont.fnt");
         m_shieldsLabel->setScale(0.5f);
         m_shieldsLabel->setAnchorPoint({ 0.0f, 0.5f });
         m_shieldsLabel->setColor({ 130, 200, 255 });
@@ -501,14 +578,31 @@ protected:
         m_gemsLabel->setColor({ 255, 220, 60 });
         this->addChild(m_gemsLabel, 10);
 
-        m_shieldsLabel->setString(std::to_string(g_streakData.streakShields).c_str());
+        // Current streak rank: compact counter beside gems and full clickable area.
+        m_rankCounterBg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
+        m_rankCounterBg->setContentSize({ 82.f, 27.f });
+        m_rankCounterBg->setOpacity(90);
+        m_rankCounterBg->setColor({ 0, 0, 0 });
+
+        m_rankCounterLabel = CCLabelBMFont::create("Bronze I", "bigFont.fnt");
+        m_rankCounterLabel->setAnchorPoint({ 0.f, 0.5f });
+        m_rankCounterBg->addChild(m_rankCounterLabel, 3);
+
+        m_rankCounterBtn = CCMenuItemSpriteExtra::create(
+            m_rankCounterBg, this, menu_selector(StreakMainLayer::onOpenRank)
+        );
+        m_rankCounterBtn->setID("rank-counter-button");
+        topMenu->addChild(m_rankCounterBtn);
+
+        refreshRankCounter();
+
+        m_shieldsLabel->setString(
+            fmt::format("{}/{}", g_streakData.streakShields, STREAK_MAX_SHIELDS).c_str()
+        );
         layoutCounters();
 
-        // top-right buttons (rank / account / settings)
-        auto cornerMenu = CCMenu::create();
-        cornerMenu->setPosition({ 0, 0 });
-        this->addChild(cornerMenu, 10);
-
+        // Special user role medal, centered below the profile/name card so it
+        // stays away from the top counters and right-side controls.
         if (g_streakData.specialRank > 0) {
             std::string badgeSpriteName = "";
             switch (g_streakData.specialRank) {
@@ -519,17 +613,31 @@ protected:
             default: badgeSpriteName = "reward5.png"_spr;       break;
             }
 
-            auto rankSprite = CCSprite::create(badgeSpriteName.c_str());
-            if (!rankSprite) rankSprite = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
-            rankSprite->setScale(0.28f);
+            auto roleSprite = CCSprite::create(badgeSpriteName.c_str());
+            if (!roleSprite) roleSprite = CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png");
 
-            auto rankBtn = CCMenuItemSpriteExtra::create(
-                rankSprite, this, menu_selector(StreakMainLayer::onRankClick)
+            float roleMaxSide = std::max(
+                roleSprite->getContentSize().width,
+                roleSprite->getContentSize().height
             );
-            rankBtn->setTag(g_streakData.specialRank);
-            rankBtn->setPosition({ m_size.width - 100.f, m_size.height - 22.f });
-            cornerMenu->addChild(rankBtn);
+            roleSprite->setScale(roleMaxSide > 0.f ? 42.f / roleMaxSide : 0.22f);
+
+            auto roleBtn = CCMenuItemSpriteExtra::create(
+                roleSprite, this, menu_selector(StreakMainLayer::onRankClick)
+            );
+            roleBtn->setID("special-role-button");
+            roleBtn->setTag(g_streakData.specialRank);
+            roleBtn->setPosition({
+                profileBgX - profileBgW / 2.f + profileBadgeCenterX,
+                rowY - profileBgH / 2.f - 24.f
+            });
+            topMenu->addChild(roleBtn);
         }
+
+        // top-right buttons (update / settings)
+        auto cornerMenu = CCMenu::create();
+        cornerMenu->setPosition({ 0, 0 });
+        this->addChild(cornerMenu, 10);
 
         auto downloadIcon = CCSprite::create("download_btn.png"_spr);
         if (!downloadIcon) downloadIcon = ButtonSprite::create("Update");
@@ -629,13 +737,22 @@ protected:
         rewardsBtn->setPosition({ rightX, sideY - sideSpacing });
         cornerMenu->addChild(rewardsBtn);
 
+        auto inventoryIcon = CCSprite::create("inventary_btn.png"_spr);
+        if (!inventoryIcon) inventoryIcon = ButtonSprite::create("Items");
+        else inventoryIcon->setScale(0.9f);
+        auto inventoryBtn = CCMenuItemSpriteExtra::create(
+            inventoryIcon, this, menu_selector(StreakMainLayer::onOpenInventory)
+        );
+        inventoryBtn->setPosition({ rightX, sideY - sideSpacing * 2 });
+        cornerMenu->addChild(inventoryBtn);
+
         if (g_streakData.isTaskEnabled) {
             auto taskIcon = CCSprite::create("task_btn.png"_spr);
             taskIcon->setScale(0.9f);
             auto taskBtn = CCMenuItemSpriteExtra::create(
                 taskIcon, this, menu_selector(StreakMainLayer::onOpenTasks)
             );
-            taskBtn->setPosition({ rightX, sideY - sideSpacing * 2 });
+            taskBtn->setPosition({ rightX, sideY - sideSpacing * 3 });
             cornerMenu->addChild(taskBtn);
         }
         else if (g_streakData.isDiscordGoalEnabled) {
@@ -645,14 +762,14 @@ protected:
             auto dcBtn = CCMenuItemSpriteExtra::create(
                 dcIcon, this, menu_selector(StreakMainLayer::onOpenDiscordGoal)
             );
-            dcBtn->setPosition({ rightX, sideY - sideSpacing * 2 });
+            dcBtn->setPosition({ rightX, sideY - sideSpacing * 3 });
             cornerMenu->addChild(dcBtn);
         }
 
         // Eventos activables (Mundial y tienda de temporada). Van llenando los
         // huecos libres de la columna derecha, empezando por el del boton de
         // tareas/discord si ese no se uso.
-        int eventSlot = (g_streakData.isTaskEnabled || g_streakData.isDiscordGoalEnabled) ? 3 : 2;
+        int eventSlot = (g_streakData.isTaskEnabled || g_streakData.isDiscordGoalEnabled) ? 4 : 3;
         if (g_streakData.wcEvent.active) {
             auto wcIcon = CCSprite::create("wc_btn.png"_spr);
             if (!wcIcon) wcIcon = CCSprite::createWithSpriteFrameName("GJ_top100Btn_001.png");
@@ -702,16 +819,6 @@ protected:
         xpBtn->setPosition({ leftX, sideY - sideSpacing * 2 });
         cornerMenu->addChild(xpBtn);
         m_xpBtnRef = xpBtn;
-
-        // Streak rank button (left column, below xp)
-        auto rankIcon = CCSprite::create("rank_btn.png"_spr);
-        if (!rankIcon) rankIcon = CCSprite::createWithSpriteFrameName("GJ_starsIcon_001.png");
-        rankIcon->setScale(0.9f); // 160px source -> ~51px, matches the side column
-        auto rankBtn = CCMenuItemSpriteExtra::create(
-            rankIcon, this, menu_selector(StreakMainLayer::onOpenRank)
-        );
-        rankBtn->setPosition({ leftX, sideY - sideSpacing * 3 });
-        cornerMenu->addChild(rankBtn);
 
         // bottom paginated menu
         std::vector<CCMenuItemSpriteExtra*> allBottomBtns;
@@ -790,6 +897,17 @@ protected:
         allBottomBtns.push_back(CCMenuItemSpriteExtra::create(
             shopIcon, this, menu_selector(StreakMainLayer::onOpenDailyShop)
         ));
+
+        // Temporarily hidden while the Community Shop is not in use.
+        constexpr bool communityShopButtonEnabled = false;
+        if (communityShopButtonEnabled) {
+            auto communityShopIcon = CCSprite::create("community_shop.png"_spr);
+            if (!communityShopIcon) communityShopIcon = ButtonSprite::create("Community");
+            else communityShopIcon->setScale(0.9f);
+            allBottomBtns.push_back(CCMenuItemSpriteExtra::create(
+                communityShopIcon, this, menu_selector(StreakMainLayer::onOpenCommunityShop)
+            ));
+        }
 
         auto kofiIcon = CCSprite::create("ko-fi_btn.png"_spr);
         if (!kofiIcon) kofiIcon = ButtonSprite::create("Donate");
@@ -941,13 +1059,16 @@ protected:
         m_barText->setString(fmt::format("{}/{}", pointsToday, requiredPoints).c_str());
 
         if (m_shieldsLabel) {
-            m_shieldsLabel->setString(std::to_string(g_streakData.streakShields).c_str());
+            m_shieldsLabel->setString(
+                fmt::format("{}/{}", g_streakData.streakShields, STREAK_MAX_SHIELDS).c_str()
+            );
         }
 
         if (m_gemsLabel) {
             m_gemsLabel->setString(std::to_string(g_streakData.gems).c_str());
         }
 
+        refreshRankCounter();
         layoutCounters();
 
         if (m_xpBar && m_xpLabel && m_xpProgressLabel) {
@@ -1016,6 +1137,7 @@ protected:
     }
     void onOpenStats(CCObject*)      { DayProgressPopup::create()->show(); }
     void onOpenRewards(CCObject*)    { RewardsPopup::create()->show(); }
+    void onOpenInventory(CCObject*)  { InventoryPopup::create()->show(); }
     void onOpenTasks(CCObject*)      { TaskPopup::create()->show(); }
     void onOpenDiscordGoal(CCObject*){ DiscordGoalPopup::create()->show(); }
     void onOpenWcEvent(CCObject*)    { WcEventPopup::create()->show(); }
@@ -1056,6 +1178,7 @@ protected:
     void onOpenLevelProgress(CCObject*) { LevelProgressPopup::create()->show(); }
     void onOpenXP(CCObject*)         { XPPopup::create()->show(); }
     void onOpenDailyShop(CCObject*)  { DailyShopPopup::create()->show(); }
+    void onOpenCommunityShop(CCObject*) { CommunityShopPopup::create()->show(); }
     void onOpenAchievements(CCObject*) { AchievementsPopup::create()->show(); }
     void onOpenTrending(CCObject*)   { TrendLevelsPopup::create()->show(); }
     void onOpenUpdate(CCObject*)     { UpdatePopup::create()->show(); }

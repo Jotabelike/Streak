@@ -12,6 +12,7 @@
 #include "SharedVisuals.h"
 #include "../BannerNotification.h"
 #include "../HMACAuth.h"
+#include "../FirebaseManager.h"
 #include "StreakChestPopup.h"
 
 using namespace geode::prelude;
@@ -823,9 +824,13 @@ protected:
                 g_streakData.starTickets = bal["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
                 g_streakData.gems = bal["gems"].as<int>().unwrapOr(g_streakData.gems);
                 if (bal.contains("streak_shields"))
-                    g_streakData.streakShields = bal["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields);
+                    g_streakData.streakShields = std::clamp(
+                        bal["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields),
+                        0, STREAK_MAX_SHIELDS
+                    );
                 appliedFromServer = true;
             }
+            showShieldConversionAlert(json);
             if (json.contains("current_xp"))
                 g_streakData.currentXP = json["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
             if (json.contains("current_level"))
@@ -835,9 +840,15 @@ protected:
                 g_streakData.superStars += (codeStars + levelStars);
                 g_streakData.starTickets += (codeTickets + levelTickets);
                 g_streakData.gems += (codeGems + levelGems);
-                g_streakData.streakShields += codeShields;
+                int shieldTotal = g_streakData.streakShields + codeShields;
+                int extraShields = std::max(0, shieldTotal - STREAK_MAX_SHIELDS);
+                g_streakData.streakShields = std::clamp(shieldTotal, 0, STREAK_MAX_SHIELDS);
+                g_streakData.gems += extraShields * STREAK_SHIELD_OVERFLOW_GEMS;
+                showShieldConversionAlert(extraShields, extraShields * STREAK_SHIELD_OVERFLOW_GEMS);
                 g_streakData.currentXP += codeXP;
             }
+
+            int awardedShields = std::max(0, g_streakData.streakShields - shieldsStart);
 
             // Pull level-up rewards out of the applied balances and queue them as pending.
             if (levelsGained > 0) {
@@ -907,8 +918,8 @@ protected:
                         RewardNotification::show("gem.png"_spr, gemsStart, codeGems, spawnPos);
                     }
 
-                    if (codeShields > 0) {
-                        RewardNotification::show("heart.png"_spr, shieldsStart, codeShields, spawnPos);
+                    if (awardedShields > 0) {
+                        RewardNotification::show("heart.png"_spr, shieldsStart, awardedShields, spawnPos);
                     }
 
                     if (isNewBanner && !bannerID.empty()) {

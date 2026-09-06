@@ -396,7 +396,13 @@ protected:
             if (item.type == "tickets") spr = "star_tiket.png"_spr;
             else if (item.type == "stars") spr = "super_star.png"_spr;
             else if (item.type == "shields") spr = "heart.png"_spr;
-            RewardNotification::show(spr, 0, item.amount);
+            int shownAmount = item.amount;
+            if (item.type == "shields" &&
+                data.contains("shield_conversion") && !data["shield_conversion"].isNull()) {
+                int converted = data["shield_conversion"]["converted_shields"].as<int>().unwrapOr(0);
+                shownAmount = std::max(0, item.amount - converted);
+            }
+            if (shownAmount > 0) RewardNotification::show(spr, 0, shownAmount);
         }
 
         FMODAudioEngine::sharedEngine()->playEffect("secretKey.wav");

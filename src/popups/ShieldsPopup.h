@@ -33,7 +33,7 @@ protected:
         }
 
         m_countLabel = CCLabelBMFont::create(
-            fmt::format("x{}", g_streakData.streakShields).c_str(),
+            fmt::format("{}/{}", g_streakData.streakShields, STREAK_MAX_SHIELDS).c_str(),
             "bigFont.fnt"
         );
         m_countLabel->setScale(0.55f);
@@ -123,6 +123,8 @@ protected:
             "Shields protect your streak when you miss days.\n\n"
             "If you lose <cr>N</c> days and have at least <cr>N</c> shields, "
             "they are consumed and your streak survives.\n\n"
+            "You can hold up to <cr>5</c> shields. Every extra shield is "
+            "automatically converted into <cg>50 gems</c>.\n\n"
             "If you don't have enough, your streak resets and no shield is used.";
         auto alert = FLAlertLayer::create(nullptr, "Streak Shields", body, "OK", nullptr, 360.f);
         if (alert) alert->show();

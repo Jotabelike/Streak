@@ -14,4 +14,7 @@ void claimOnServer(const std::string& endpoint, const matjson::Value& payload, s
 // siquiera llego a salir, y el JSON queda vacio si la respuesta no traia uno.
 void claimOnServerEx(const std::string& endpoint, const matjson::Value& payload,
     std::function<void(bool, int, const matjson::Value&)> callback);
+// Shows the server-authoritative shield overflow conversion, when present.
+void showShieldConversionAlert(const matjson::Value& data);
+void showShieldConversionAlert(int convertedShields, int gemsAwarded);
 void refreshPendingLevelRewardsFromServer(std::function<void(bool)> callback);

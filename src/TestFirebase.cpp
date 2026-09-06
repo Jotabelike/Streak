@@ -68,6 +68,7 @@ void loadPlayerDataFromServer() {
                 }
 
                 g_streakData.parseServerResponse(data);
+                showShieldConversionAlert(data);
                 std::string gdpsKey = fmt::format("is_gdps_player_{}", accountID);
                 geode::Mod::get()->setSavedValue<bool>(gdpsKey, g_streakData.isGDPS);
                 g_streakData.isDataLoaded = true;
@@ -131,6 +132,7 @@ void refreshPlayerDataFromServer(std::function<void(bool)> callback) {
                 }
 
                 g_streakData.parseServerResponse(data);
+                showShieldConversionAlert(data);
                 std::string gdpsKey = fmt::format("is_gdps_player_{}", accountID);
                 geode::Mod::get()->setSavedValue<bool>(gdpsKey, g_streakData.isGDPS);
                 g_streakData.isDataLoaded = true;
@@ -368,6 +370,7 @@ void completeLevelInFirebase(int stars) {
         [](web::WebResponse res) {
             if (res.ok() && res.json().isOk()) {
                 auto data = res.json().unwrap();
+                showShieldConversionAlert(data);
 
                 if (data.contains("current_xp"))
                     g_streakData.currentXP = data["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
@@ -394,7 +397,10 @@ void completeLevelInFirebase(int stars) {
                 if (data.contains("lastMonth"))
                     g_streakData.lastMonth = data["lastMonth"].as<std::string>().unwrapOr(g_streakData.lastMonth);
                 if (data.contains("streak_shields"))
-                    g_streakData.streakShields = data["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields);
+                    g_streakData.streakShields = std::clamp(
+                        data["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields),
+                        0, STREAK_MAX_SHIELDS
+                    );
                 if (data.contains("total_streak_points"))
                     g_streakData.totalStreakPoints = data["total_streak_points"].as<int>().unwrapOr(g_streakData.totalStreakPoints);
                 if (data.contains("streak_tokens"))
@@ -464,6 +470,31 @@ void completeLevelInFirebase(int stars) {
     );
 }
  
+void showShieldConversionAlert(int convertedShields, int gemsAwarded) {
+    if (convertedShields <= 0 || gemsAwarded <= 0) return;
+
+    std::string body = fmt::format(
+        "Maximum shields reached!\n\nYour <cr>{}</c> extra shield{} {} been "
+        "converted into <cg>{}</c> gems. Each extra shield is worth <cg>{}</c> gems.",
+        convertedShields,
+        convertedShields == 1 ? "" : "s",
+        convertedShields == 1 ? "has" : "have",
+        gemsAwarded,
+        STREAK_SHIELD_OVERFLOW_GEMS
+    );
+    FLAlertLayer::create("Maximum Shields Reached", body.c_str(), "OK")->show();
+}
+
+void showShieldConversionAlert(const matjson::Value& data) {
+    if (!data.contains("shield_conversion") || data["shield_conversion"].isNull()) return;
+
+    auto conversion = data["shield_conversion"];
+    showShieldConversionAlert(
+        conversion["converted_shields"].as<int>().unwrapOr(0),
+        conversion["gems_awarded"].as<int>().unwrapOr(0)
+    );
+}
+
 static void applyServerBalances(const matjson::Value& data) {
     int previousLevel = g_streakData.currentLevel;
 
@@ -472,7 +503,10 @@ static void applyServerBalances(const matjson::Value& data) {
         g_streakData.superStars = bal["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
         g_streakData.starTickets = bal["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
         g_streakData.gems = bal["gems"].as<int>().unwrapOr(g_streakData.gems);
-        g_streakData.streakShields = bal["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields);
+        g_streakData.streakShields = std::clamp(
+            bal["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields),
+            0, STREAK_MAX_SHIELDS
+        );
         g_streakData.fragments = bal["fragments"].as<int>().unwrapOr(g_streakData.fragments);
         g_streakData.currentXP = bal["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
         g_streakData.currentLevel = bal["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);
@@ -480,6 +514,17 @@ static void applyServerBalances(const matjson::Value& data) {
     }
     if (data.contains("totalSpins"))
         g_streakData.totalSpins = data["totalSpins"].as<int>().unwrapOr(g_streakData.totalSpins);
+
+    if (data.contains("discount_tickets")) {
+        auto tickets = data["discount_tickets"];
+        g_streakData.setDiscountTicketCount(10, tickets["10"].as<int>().unwrapOr(g_streakData.getDiscountTicketCount(10)));
+        g_streakData.setDiscountTicketCount(25, tickets["25"].as<int>().unwrapOr(g_streakData.getDiscountTicketCount(25)));
+        g_streakData.setDiscountTicketCount(50, tickets["50"].as<int>().unwrapOr(g_streakData.getDiscountTicketCount(50)));
+        g_streakData.setDiscountTicketCount(80, tickets["80"].as<int>().unwrapOr(g_streakData.getDiscountTicketCount(80)));
+        g_streakData.setDiscountTicketCount(99, tickets["99"].as<int>().unwrapOr(g_streakData.getDiscountTicketCount(99)));
+    }
+
+    showShieldConversionAlert(data);
 
     g_streakData.handleServerLevelUp(previousLevel, g_streakData.currentLevel);
 }
@@ -738,7 +783,7 @@ void wcEventClaimOnServer(const std::string& matchId, std::function<void(bool, m
     );
 }
 
-void spinStandardRouletteOnServer(int spins, std::function<void(bool, matjson::Value)> callback) {
+void spinStandardRouletteOnServer(int spins, int discountPercent, std::function<void(bool, matjson::Value)> callback) {
     auto am = GJAccountManager::sharedState();
     if (!am || am->m_accountID == 0) { callback(false, matjson::Value()); return; }
     if (HMACAuth::getSessionToken().empty()) { callback(false, matjson::Value()); return; }
@@ -748,6 +793,7 @@ void spinStandardRouletteOnServer(int spins, std::function<void(bool, matjson::V
 
     matjson::Value payload = matjson::Value::object();
     payload.set("spins", spins);
+    payload.set("discount_percent", discountPercent);
 
     auto req = web::WebRequest();
     HMACAuth::signRequest(req, accountID, payload);
@@ -777,7 +823,7 @@ void spinStandardRouletteOnServer(int spins, std::function<void(bool, matjson::V
     );
 }
 
-void spinGemRouletteOnServer(std::function<void(bool, matjson::Value)> callback) {
+void spinGemRouletteOnServer(int discountPercent, std::function<void(bool, matjson::Value)> callback) {
     auto am = GJAccountManager::sharedState();
     if (!am || am->m_accountID == 0) { callback(false, matjson::Value()); return; }
     if (HMACAuth::getSessionToken().empty()) { callback(false, matjson::Value()); return; }
@@ -786,6 +832,7 @@ void spinGemRouletteOnServer(std::function<void(bool, matjson::Value)> callback)
     std::string url = fmt::format("{}/gem-roulette/spin", SERVER_URL);
 
     matjson::Value payload = matjson::Value::object();
+    payload.set("discount_percent", discountPercent);
 
     auto req = web::WebRequest();
     HMACAuth::signRequest(req, accountID, payload);

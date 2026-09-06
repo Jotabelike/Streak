@@ -95,10 +95,14 @@ protected:
                     g_streakData.superStars   = bal["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
                     g_streakData.starTickets  = bal["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
                     g_streakData.gems         = bal["gems"].as<int>().unwrapOr(g_streakData.gems);
-                    g_streakData.streakShields = bal["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields);
+                    g_streakData.streakShields = std::clamp(
+                        bal["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields),
+                        0, STREAK_MAX_SHIELDS
+                    );
                     g_streakData.currentXP    = bal["current_xp"].as<int>().unwrapOr(g_streakData.currentXP);
                     g_streakData.currentLevel = bal["current_level"].as<int>().unwrapOr(g_streakData.currentLevel);
                 }
+                showShieldConversionAlert(data);
 
                 // Sync pending list
                 g_streakData.pendingLevelRewards.clear();

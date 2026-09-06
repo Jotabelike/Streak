@@ -8,13 +8,14 @@
 #include "../RewardNotification.h"
 #include "../BannerNotification.h" 
 #include "GemRouletteConfig.h" 
+#include "PurchaseConfirmPopup.h"
 #include <functional>
 
 using namespace geode::prelude;
 
  
-extern void spinStandardRouletteOnServer(int spins, std::function<void(bool, matjson::Value)> callback);
-extern void spinGemRouletteOnServer(std::function<void(bool, matjson::Value)> callback);
+extern void spinStandardRouletteOnServer(int spins, int discountPercent, std::function<void(bool, matjson::Value)> callback);
+extern void spinGemRouletteOnServer(int discountPercent, std::function<void(bool, matjson::Value)> callback);
 
 enum class RouletteMode {
     Standard,
@@ -834,12 +835,33 @@ protected:
 
     void onSpin(CCObject*) {
         if (m_isSpinning) return;
+        int price = m_currentMode == RouletteMode::Standard
+            ? STANDARD_SPIN_COST
+            : GemRouletteConfig::getCostForStep(g_streakData.gemRouletteSpinCount);
+        auto currency = m_currentMode == RouletteMode::Standard
+            ? PurchaseCurrency::SuperStars
+            : PurchaseCurrency::Gems;
+        std::string sprite = m_currentMode == RouletteMode::Standard
+            ? fmt::format("{}"_spr, "star_gacha.png")
+            : fmt::format("{}"_spr, "gem.png");
+        std::string name = m_currentMode == RouletteMode::Standard ? "Roulette Spin" : "Gem Roulette Spin";
+
+        auto popup = PurchaseConfirmPopup::create(sprite, name, price, currency,
+            [this, keepAlive = Ref<CCNode>(this)](int discountPercent) {
+                this->performSpin(discountPercent);
+            });
+        if (popup) popup->show();
+    }
+
+    void performSpin(int discountPercent) {
+        if (m_isSpinning) return;
          
         std::vector<int> logicalAvailableIndices;
         if (m_currentMode == RouletteMode::Standard) {
-            if (g_streakData.superStars < STANDARD_SPIN_COST) {
+            int finalCost = discountedPurchasePrice(STANDARD_SPIN_COST, discountPercent);
+            if (g_streakData.superStars < finalCost) {
                 FLAlertLayer::create("Not Enough Super Stars",
-                    fmt::format("You need {} Super Stars.", STANDARD_SPIN_COST).c_str(), "OK")->show();
+                    fmt::format("You need {} Super Stars.", finalCost).c_str(), "OK")->show();
                 return;
             }
         }
@@ -856,8 +878,9 @@ protected:
                 return;
             }
             int spinCost = GemRouletteConfig::getCostForStep(g_streakData.gemRouletteSpinCount);
-            if (g_streakData.gems < spinCost) {
-                FLAlertLayer::create("Not Enough Gems", fmt::format("You need {} Gems.", spinCost), "OK")->show();
+            int finalCost = discountedPurchasePrice(spinCost, discountPercent);
+            if (g_streakData.gems < finalCost) {
+                FLAlertLayer::create("Not Enough Gems", fmt::format("You need {} Gems.", finalCost), "OK")->show();
                 return;
             }
         }
@@ -866,7 +889,7 @@ protected:
         toggleUI(false);
  
         if (m_currentMode == RouletteMode::Standard) {
-            spinStandardRouletteOnServer(1, [this, keepAlive = Ref<CCNode>(this)](bool ok, matjson::Value data) {
+            spinStandardRouletteOnServer(1, discountPercent, [this, keepAlive = Ref<CCNode>(this)](bool ok, matjson::Value data) {
                 if (!ok) {
                     m_isSpinning = false;
                     toggleUI(true);
@@ -897,7 +920,7 @@ protected:
         }
         else {
             auto capturedAvailable = logicalAvailableIndices;
-            spinGemRouletteOnServer([this, capturedAvailable, keepAlive = Ref<CCNode>(this)](bool ok, matjson::Value data) {
+            spinGemRouletteOnServer(discountPercent, [this, capturedAvailable, keepAlive = Ref<CCNode>(this)](bool ok, matjson::Value data) {
                 if (!ok) {
                     m_isSpinning = false;
                     toggleUI(true);
@@ -922,16 +945,29 @@ protected:
 
     void onSpinMultiple(CCObject*) {
         if (m_currentMode != RouletteMode::Standard) return;
-        if (g_streakData.superStars < STANDARD_SPIN_COST * 10) {
+        if (m_isSpinning) return;
+        auto popup = PurchaseConfirmPopup::create(
+            fmt::format("{}"_spr, "star_gacha.png"), "10 Roulette Spins",
+            STANDARD_SPIN_COST * 10, PurchaseCurrency::SuperStars,
+            [this, keepAlive = Ref<CCNode>(this)](int discountPercent) {
+                this->performSpinMultiple(discountPercent);
+            });
+        if (popup) popup->show();
+    }
+
+    void performSpinMultiple(int discountPercent) {
+        if (m_currentMode != RouletteMode::Standard) return;
+        int finalCost = discountedPurchasePrice(STANDARD_SPIN_COST * 10, discountPercent);
+        if (g_streakData.superStars < finalCost) {
             FLAlertLayer::create("Error",
-                fmt::format("Need {} Super Stars.", STANDARD_SPIN_COST * 10).c_str(), "OK")->show();
+                fmt::format("Need {} Super Stars.", finalCost).c_str(), "OK")->show();
             return;
         }
         if (m_isSpinning) return;
         m_isSpinning = true;
         toggleUI(false);
  
-        spinStandardRouletteOnServer(10, [this, keepAlive = Ref<CCNode>(this)](bool ok, matjson::Value data) {
+        spinStandardRouletteOnServer(10, discountPercent, [this, keepAlive = Ref<CCNode>(this)](bool ok, matjson::Value data) {
             if (!ok) {
                 m_isSpinning = false;
                 toggleUI(true);

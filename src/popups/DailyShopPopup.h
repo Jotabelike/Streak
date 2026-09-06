@@ -7,85 +7,9 @@
 #include "../BadgeNotification.h"
 #include "../BannerNotification.h"
 #include "../RewardNotification.h"
+#include "PurchaseConfirmPopup.h"
 
 using namespace geode::prelude;
- 
-class ShopConfirmPopup : public Popup {
-protected:
-    std::function<void()> m_onBuy;
-
-    bool init(std::string spriteName, std::string displayName, int price, std::function<void()> onBuy) {
-        if (!Popup::init(250.f, 200.f, "GJ_square04.png")) return false;
-        m_onBuy = onBuy;
-        this->setTitle("Confirm Purchase");
-
-        auto sprite = CCSprite::create(spriteName.c_str());
-        if (sprite) {
-            float maxDim = 70.f;
-            float currentMax = std::max(sprite->getContentSize().width, sprite->getContentSize().height);
-            if (currentMax > maxDim) {
-                sprite->setScale(maxDim / currentMax);
-            }
-            else {
-                sprite->setScale(1.1f);
-            }
-            sprite->setPosition({ m_size.width / 2, m_size.height / 2 + 30.f });
-            m_mainLayer->addChild(sprite);
-        }
-
-        auto nameLabel = CCLabelBMFont::create(displayName.c_str(), "goldFont.fnt");
-        nameLabel->setScale(0.55f);
-        nameLabel->setPosition({ m_size.width / 2, m_size.height / 2 - 15.f });
-        m_mainLayer->addChild(nameLabel);
-
-        auto priceNode = CCNode::create();
-        auto priceLabel = CCLabelBMFont::create(std::to_string(price).c_str(), "goldFont.fnt");
-        priceLabel->setScale(0.45f);
-        auto gemIcon = CCSprite::create("gem.png"_spr);
-        gemIcon->setScale(0.18f);
-        float totalW = priceLabel->getScaledContentSize().width + gemIcon->getScaledContentSize().width + 5.f;
-        priceLabel->setPosition({ -totalW / 2 + priceLabel->getScaledContentSize().width / 2, 0 });
-        gemIcon->setPosition({ priceLabel->getPositionX() + priceLabel->getScaledContentSize().width / 2 + 5.f + gemIcon->getScaledContentSize().width / 2, 0 });
-        priceNode->addChild(priceLabel);
-        priceNode->addChild(gemIcon);
-        priceNode->setPosition({ m_size.width / 2, m_size.height / 2 - 40.f });
-        m_mainLayer->addChild(priceNode);
-
-        auto menu = CCMenu::create();
-        menu->setPosition({ m_size.width / 2, 28.f });
-        m_mainLayer->addChild(menu);
-
-        auto cancelSpr = ButtonSprite::create("Cancel", 0, false, "goldFont.fnt", "GJ_button_06.png", 0, 0.7f);
-        auto cancelBtn = CCMenuItemSpriteExtra::create(cancelSpr, this, menu_selector(ShopConfirmPopup::onClose));
-        cancelBtn->setPosition({ -65.f, 0 });
-        menu->addChild(cancelBtn);
-
-        auto buySpr = ButtonSprite::create("Buy", 0, false, "goldFont.fnt", "GJ_button_01.png", 0, 0.7f);
-        auto buyBtn = CCMenuItemSpriteExtra::create(buySpr, this, menu_selector(ShopConfirmPopup::onConfirmBuy));
-        buyBtn->setPosition({ 65.f, 0 });
-        menu->addChild(buyBtn);
-
-        return true;
-    }
-
-    void onConfirmBuy(CCObject* sender) {
-        if (m_onBuy) m_onBuy();
-        this->onClose(sender);
-    }
-
-public:
-    static ShopConfirmPopup* create(std::string spriteName, std::string displayName, int price, std::function<void()> onBuy) {
-        auto ret = new ShopConfirmPopup();
-        if (ret && ret->init(spriteName, displayName, price, onBuy)) {
-            ret->autorelease();
-            return ret;
-        }
-        CC_SAFE_DELETE(ret);
-        return nullptr;
-    }
-};
-
- 
 class DailyShopPopup : public Popup {
 protected:
     CCLabelBMFont* m_gemLabel = nullptr;
@@ -366,28 +290,29 @@ protected:
         if (index < 0 || index >= (int)m_dailyItems.size()) return;
         auto item = m_dailyItems[index];
 
-        if (g_streakData.gems < item.price) {
-            FLAlertLayer::create("Shop", "Not enough Gems!", "OK")->show();
-            return;
-        }
-
-        ShopConfirmPopup::create(
+        PurchaseConfirmPopup::create(
             item.sprite,
             item.name,
             item.price,
-            [this, item]() {
-                this->processPurchase(item);
+            PurchaseCurrency::Gems,
+            [this, item](int discountPercent) {
+                this->processPurchase(item, discountPercent);
             }
         )->show();
     }
 
-    void processPurchase(const StreakData::ShopItem& item) {
-        if (g_streakData.gems < item.price) return;
+    void processPurchase(const StreakData::ShopItem& item, int discountPercent) {
+        int finalPrice = discountedPurchasePrice(item.price, discountPercent);
+        if (g_streakData.gems < finalPrice) {
+            FLAlertLayer::create("Shop", "Not enough Gems!", "OK")->show();
+            return;
+        }
 
         matjson::Value payload = matjson::Value::object();
         payload.set("itemID", item.id);
         payload.set("price", item.price);
         payload.set("isBadge", item.isBadge);
+        payload.set("discount_percent", discountPercent);
 
         claimOnServer("/daily-shop/purchase", payload, [this, item, keepAlive = Ref<CCNode>(this)](bool ok) {
             if (!ok) {
@@ -418,27 +343,27 @@ protected:
         if (index < 0 || index >= (int)m_dailyConsumables.size()) return;
         auto item = m_dailyConsumables[index];
 
-        if (g_streakData.gems < item.price) {
-            FLAlertLayer::create("Shop", "Not enough Gems!", "OK")->show();
-            return;
-        }
-
         std::string typeName = item.isTickets ? "Star Tickets" : "Super Stars";
         std::string sprName = item.isTickets ? "star_tiket.png" : "super_star.png";
         std::string displayName = fmt::format("x{} {}", item.amount, typeName);
 
-        ShopConfirmPopup::create(
+        PurchaseConfirmPopup::create(
             fmt::format("{}"_spr, sprName),
             displayName,
             item.price,
-            [this, item]() {
-                this->processConsumablePurchase(item);
+            PurchaseCurrency::Gems,
+            [this, item](int discountPercent) {
+                this->processConsumablePurchase(item, discountPercent);
             }
         )->show();
     }
 
-    void processConsumablePurchase(const StreakData::ConsumableItem& item) {
-        if (g_streakData.gems < item.price) return;
+    void processConsumablePurchase(const StreakData::ConsumableItem& item, int discountPercent) {
+        int finalPrice = discountedPurchasePrice(item.price, discountPercent);
+        if (g_streakData.gems < finalPrice) {
+            FLAlertLayer::create("Shop", "Not enough Gems!", "OK")->show();
+            return;
+        }
 
         int startAmount = item.isTickets ? g_streakData.starTickets : g_streakData.superStars;
 
@@ -446,6 +371,7 @@ protected:
         payload.set("price", item.price);
         payload.set("amount", item.amount);
         payload.set("isTickets", item.isTickets);
+        payload.set("discount_percent", discountPercent);
 
         claimOnServer("/daily-shop/purchase-consumable", payload, [this, item, startAmount, keepAlive = Ref<CCNode>(this)](bool ok) {
             if (!ok) {

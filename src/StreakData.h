@@ -8,12 +8,15 @@
 #include <iomanip>
 #include <sstream>
 #include <chrono> 
+#include <array>
 
 using namespace geode::prelude;
 
 inline constexpr int STREAK_MENU_MUSIC_CHANNEL = 7777;
 inline constexpr int STREAK_SONG_PREVIEW_CHANNEL = 7778;
 inline constexpr const char* STREAK_MENU_MUSIC_VOLUME_KEY = "streak_menu_music_volume";
+inline constexpr int STREAK_MAX_SHIELDS = 5;
+inline constexpr int STREAK_SHIELD_OVERFLOW_GEMS = 50;
 
 struct DiscordMilestone {
     int requirement;
@@ -206,9 +209,34 @@ struct StreakData {
     std::string banReason = "";
     int starTickets;
     int gems;
+    std::array<int, 5> discountTickets = { 0, 0, 0, 0, 0 };
     int fragments = 0;
     int gemRouletteSpinCount = 0;
     std::string streakID = "";
+
+    int getDiscountTicketCount(int percent) const {
+        switch (percent) {
+            case 10: return discountTickets[0];
+            case 25: return discountTickets[1];
+            case 50: return discountTickets[2];
+            case 80: return discountTickets[3];
+            case 99: return discountTickets[4];
+            default: return 0;
+        }
+    }
+
+    void setDiscountTicketCount(int percent, int count) {
+        size_t index = 5;
+        switch (percent) {
+            case 10: index = 0; break;
+            case 25: index = 1; break;
+            case 50: index = 2; break;
+            case 80: index = 3; break;
+            case 99: index = 4; break;
+            default: return;
+        }
+        discountTickets[index] = std::max(0, count);
+    }
     std::vector<int> streakCompletedLevels;
     std::map<std::string, int> streakPointsHistory;
     std::set<int> claimedStreakGoals;
@@ -517,6 +545,13 @@ struct StreakData {
        {0, "achievement_1.png"_spr, "Achievement Badge", BadgeCategory::SPECIAL, "achievement_badge1", true, "XJotaBeLikeX", true},
        {0, "achievement_2.png"_spr, "Achievement Badge", BadgeCategory::LEGENDARY, "achievement_badge2", true, "XJotaBeLikeX", true },
        {0, "achievement_3.png"_spr, "Achievement Badge", BadgeCategory::MYTHIC, "achievement_badge3", true, "XJotaBeLikeX" },
+
+       //crystals
+       {0, "crystal_quartz_badge.png"_spr, "Quartz Fragment", BadgeCategory::SPECIAL, "crystal_quartz_badge", true, "XJotaBeLikeX"},
+       {0, "crystal_sapphire_badge.png"_spr, "Sapphire Heart", BadgeCategory::SPECIAL, "crystal_sapphire_badge", true, "XJotaBeLikeX"},
+       {0, "crystal_amethyst_badge.png"_spr, "Amethyst Core", BadgeCategory::EPIC, "crystal_amethyst_badge", true, "XJotaBeLikeX"},
+       {0, "crystal_solar_badge.png"_spr, "Solar Crystal", BadgeCategory::LEGENDARY, "crystal_solar_badge", true, "XJotaBeLikeX"},
+       {0, "crystal_prism_badge.png"_spr, "Cosmic Prism", BadgeCategory::MYTHIC, "crystal_prism_badge", true, "XJotaBeLikeX"},
 
        //banderas
        { 0, "col.png"_spr, "Colombia", BadgeCategory::COMMON, "colombia_badge", true, "XJotaBeLikeX" },

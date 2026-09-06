@@ -47,6 +47,7 @@ void StreakData::resetToDefault() {
     isBanned = false;
     banReason = "";
     starTickets = 0;
+    discountTickets.fill(0);
     fragments = 0;
     specialRank = 0;
     lastRouletteIndex = 0;
@@ -239,6 +240,16 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     equippedSong = data["equipped_song_id"].as<std::string>().unwrapOr(std::string(""));
     superStars = safeInt(data, "super_stars", 0);
     starTickets = safeInt(data, "star_tickets", 0);
+    if (safeInt(data, "discount_ticket_inventory_version", 0) == 1 && data.contains("discount_tickets")) {
+        auto tickets = data["discount_tickets"];
+        setDiscountTicketCount(10, tickets["10"].as<int>().unwrapOr(0));
+        setDiscountTicketCount(25, tickets["25"].as<int>().unwrapOr(0));
+        setDiscountTicketCount(50, tickets["50"].as<int>().unwrapOr(0));
+        setDiscountTicketCount(80, tickets["80"].as<int>().unwrapOr(0));
+        setDiscountTicketCount(99, tickets["99"].as<int>().unwrapOr(0));
+    } else {
+        discountTickets.fill(0);
+    }
     lastRouletteIndex = safeInt(data, "last_roulette_index", 0);
     discordCount = safeInt(data, "discord_count", 0);
     discordGoalMax = safeInt(data, "discord_goal_max", 1000);
@@ -399,7 +410,7 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     if (data.contains("claimed_pass_season_missions")) parseClaimedMissions(data["claimed_pass_season_missions"], claimedPassSeasonMissions);
     else claimedPassSeasonMissions.clear();
 
-    streakShields = safeInt(data, "streak_shields", 0);
+    streakShields = std::clamp(safeInt(data, "streak_shields", 0), 0, STREAK_MAX_SHIELDS);
     shieldsEnabled = data["shields_enabled"].as<bool>().unwrapOr(false);
     gems = safeInt(data, "gems", 0);
     fragments = safeInt(data, "fragments", 0);
@@ -1374,9 +1385,9 @@ StreakData::SongInfo* StreakData::getEquippedSong() {
 std::string StreakData::getEquippedSongFile() {
     auto info = getSongInfo(equippedSong);
     if (info && isSongUnlocked(equippedSong)) return info->fileName;
-    // Default menu theme when no song is equipped: song_3 (otherside, tema de la temporada).
-    if (auto def = getSongInfo("song_3")) return def->fileName;
-    return std::string("s3.mp3"_spr);
+    // Default menu theme when no song is equipped: song_1 (Streak Theme).
+    if (auto def = getSongInfo("song_1")) return def->fileName;
+    return std::string("s1.mp3"_spr);
 }
 
 bool StreakData::isStreakGoalClaimed(int index) const {

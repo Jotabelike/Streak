@@ -7,6 +7,7 @@
 #include "../RewardNotification.h"
 #include "../BannerNotification.h"
 #include "SharedVisuals.h" 
+#include "PurchaseConfirmPopup.h"
 
 using namespace geode::prelude;
  
@@ -438,16 +439,14 @@ protected:
             category = info->rarity;
         }
 
-        if (g_streakData.starTickets < price) {
-            FLAlertLayer::create("Not Enough Tickets", "You need more tickets!", "OK")->show();
-            return;
-        }
-
-        ItemConfirmPopup::create(spriteName, displayName, price, [this, itemID, price, category, isBadge]() {
+        PurchaseConfirmPopup::create(spriteName, displayName, price, PurchaseCurrency::StarTickets,
+            [this, itemID, price, category, isBadge](int discountPercent) {
             g_streakData.load();
-            if (g_streakData.starTickets >= price) {
+            int finalPrice = discountedPurchasePrice(price, discountPercent);
+            if (g_streakData.starTickets >= finalPrice) {
                 matjson::Value payload = matjson::Value::object();
                 payload.set("itemID", itemID);
+                payload.set("discount_percent", discountPercent);
                 claimOnServer("/shop/purchase", payload, [this, itemID, category, isBadge, keepAlive = Ref<CCNode>(this)](bool ok) {
                     if (!ok) {
                         FLAlertLayer::create("Error", "Purchase failed. Try again.", "OK")->show();
@@ -493,6 +492,8 @@ protected:
                     }
                     updatePlayerDataInFirebase();
                 });
+            } else {
+                FLAlertLayer::create("Not Enough Tickets", "You need more tickets!", "OK")->show();
             }
             })->show();
     }

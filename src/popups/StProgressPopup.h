@@ -13,6 +13,7 @@
 #include "PremiumUnlockAnim.h"
 #include "GoldTicketMissionsPopup.h"
 #include "PassPurchasePopup.h"
+#include "PurchaseConfirmPopup.h"
 #include "BuyGoldTicketsPopup.h"
 #include "GiftPassPopup.h"
 #include "../NameModifiers.h"
@@ -27,7 +28,7 @@ protected:
     static constexpr int TOTAL_PAID_TIERS = MONTHLY_GOAL_SP / PAID_TIER_STEP;
     static constexpr int MILESTONE_SP = 200;
 
-    enum class PassRewardType { None, Tickets, Stars, Gems, Shields, Chest, Badge, Banner, NameItem };
+    enum class PassRewardType { None, Tickets, Stars, Gems, Shields, DiscountTicket, Chest, Badge, Banner, NameItem };
 
     struct PassReward {
         PassRewardType type = PassRewardType::None;
@@ -71,11 +72,19 @@ protected:
         if (s == "stars")     return PassRewardType::Stars;
         if (s == "gems")      return PassRewardType::Gems;
         if (s == "shields")   return PassRewardType::Shields;
+        if (s == "discount_ticket") return PassRewardType::DiscountTicket;
         if (s == "chest")     return PassRewardType::Chest;
         if (s == "badge")     return PassRewardType::Badge;
         if (s == "banner")    return PassRewardType::Banner;
         if (s == "name_item") return PassRewardType::NameItem;
         return PassRewardType::None;
+    }
+
+    static int discountPercentForReward(const PassReward& reward) {
+        for (int percent : { 10, 25, 50, 80, 99 }) {
+            if (reward.itemID == std::to_string(percent)) return percent;
+        }
+        return 0;
     }
 
     static PassReward getFreeReward(int tier) {
@@ -182,8 +191,12 @@ protected:
             }
             case PassRewardType::Shields: {
                 int start = g_streakData.streakShields;
-                g_streakData.streakShields += reward.amount;
-                RewardNotification::show(spr, start, reward.amount, spawnPos);
+                int accepted = std::min(reward.amount, std::max(0, STREAK_MAX_SHIELDS - start));
+                int converted = std::max(0, reward.amount - accepted);
+                g_streakData.streakShields += accepted;
+                g_streakData.gems += converted * STREAK_SHIELD_OVERFLOW_GEMS;
+                if (accepted > 0) RewardNotification::show(spr, start, accepted, spawnPos);
+                showShieldConversionAlert(converted, converted * STREAK_SHIELD_OVERFLOW_GEMS);
                 break;
             }
             default: break;
@@ -194,6 +207,30 @@ protected:
         auto node = CCNode::create();
         node->setContentSize({ 44.f, 44.f });
         node->setAnchorPoint({ 0.5f, 0.5f });
+
+        if (reward.type == PassRewardType::DiscountTicket) {
+            int percent = discountPercentForReward(reward);
+            auto spr = percent > 0
+                ? CCSprite::create(fmt::format("discount_ticket_{}.png"_spr, percent).c_str())
+                : nullptr;
+            if (!spr) spr = CCSprite::createWithSpriteFrameName("GJ_unknownBtn_001.png");
+            if (spr) {
+                float maxSize = 38.f;
+                float scale = maxSize / std::max({ spr->getContentSize().width, spr->getContentSize().height, 1.f });
+                spr->setScale(scale);
+                spr->setPosition({ 22.f, 27.f });
+                node->addChild(spr);
+            }
+            auto lbl = CCLabelBMFont::create(
+                fmt::format("x{}", std::max(1, reward.amount)).c_str(),
+                "bigFont.fnt"
+            );
+            lbl->setScale(0.28f);
+            lbl->setAnchorPoint({ 0.5f, 1.f });
+            lbl->setPosition({ 22.f, 9.f });
+            node->addChild(lbl);
+            return node;
+        }
 
         if (reward.type == PassRewardType::Badge) {
             auto info = g_streakData.getBadgeInfo(reward.itemID);
@@ -358,6 +395,15 @@ protected:
     // Plays the currency gain animation for a reward whose balance was already
     // updated from the server response.
     void showPassRewardAnim(const PassReward& reward, CCPoint spawnPos) {
+        if (reward.type == PassRewardType::DiscountTicket) {
+            int percent = discountPercentForReward(reward);
+            if (percent <= 0 || reward.amount <= 0) return;
+            std::string spr = fmt::format("discount_ticket_{}.png"_spr, percent);
+            int current = g_streakData.getDiscountTicketCount(percent);
+            RewardNotification::show(spr.c_str(), std::max(0, current - reward.amount), reward.amount, spawnPos);
+            return;
+        }
+
         const char* spr = spriteForReward(reward.type);
         if (!spr || reward.amount <= 0) return;
         int current = 0;
@@ -394,8 +440,10 @@ protected:
         payload.set("track", track);
         payload.set("tier", tier);
 
-        claimOnServer("/streak-pass/tier/claim", payload,
-            [this, isFree, tier, reward, spawnPos, keepAlive = Ref<CCNode>(this)](bool ok) {
+        claimOnServerEx("/streak-pass/tier/claim", payload,
+            [this, isFree, tier, reward, spawnPos, keepAlive = Ref<CCNode>(this)](
+                bool ok, int, const matjson::Value& data
+            ) {
                 if (!ok) {
                     FLAlertLayer::create("Pass",
                         "Could not claim the reward. Check your connection and try again.", "OK")->show();
@@ -407,10 +455,17 @@ protected:
                 bool isCurrency = reward.type == PassRewardType::Tickets
                                || reward.type == PassRewardType::Stars
                                || reward.type == PassRewardType::Gems
-                               || reward.type == PassRewardType::Shields;
+                               || reward.type == PassRewardType::Shields
+                               || reward.type == PassRewardType::DiscountTicket;
                 if (isCurrency) {
                     // Balance already updated from the server response.
-                    showPassRewardAnim(reward, spawnPos);
+                    PassReward animatedReward = reward;
+                    if (reward.type == PassRewardType::Shields &&
+                        data.contains("shield_conversion") && !data["shield_conversion"].isNull()) {
+                        int converted = data["shield_conversion"]["converted_shields"].as<int>().unwrapOr(0);
+                        animatedReward.amount = std::max(0, reward.amount - converted);
+                    }
+                    showPassRewardAnim(animatedReward, spawnPos);
                 } else {
                     // Chest / Banner / NameItem: grantReward opens the chest popup or
                     // unlocks the item locally (server already recorded the unlock).
@@ -654,17 +709,21 @@ protected:
 
         int price = std::max(0, g_streakData.passPrice);
 
-        auto popup = PassPurchasePopup::create(price, [this, price]() {
+        auto popup = PurchaseConfirmPopup::create(
+            "pass_img.png"_spr, "Premium Pass", price, PurchaseCurrency::Gems,
+            [this, price](int discountPercent) {
             if (g_streakData.isPremiumPassActive()) return;
-            if (price > 0 && g_streakData.gems < price) {
+            int finalPrice = discountedPurchasePrice(price, discountPercent);
+            if (finalPrice > 0 && g_streakData.gems < finalPrice) {
                 FLAlertLayer::create(
                     "Not enough gems",
-                    fmt::format("You need <cy>{}</c> gems to unlock the Premium Pass.", price).c_str(),
+                    fmt::format("You need <cy>{}</c> gems to unlock the Premium Pass.", finalPrice).c_str(),
                     "OK"
                 )->show();
                 return;
             }
             matjson::Value payload = matjson::Value::object();
+            payload.set("discount_percent", discountPercent);
             claimOnServer("/streak-pass/buy-premium", payload, [this, keepAlive = Ref<CCNode>(this)](bool ok) {
                 if (!ok) {
                     FLAlertLayer::create("Error", "Purchase failed. Try again.", "OK")->show();
