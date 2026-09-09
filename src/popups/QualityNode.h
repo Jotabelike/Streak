@@ -106,6 +106,15 @@ public:
                     m_particles->setStartColor({ r / 255.f, g / 255.f, b / 255.f, 1.0f });
                 }
             }
+            else if (m_currentCategory == 5) {
+                r = 0;
+                g = wave * 240;
+                b = wave * 255;
+
+                if (i == count / 2 && m_particles) {
+                    m_particles->setStartColor({ 0.0f, g / 255.f, b / 255.f, 1.0f });
+                }
+            }
 
             letter->setColor({ r, g, b });
         }
@@ -128,6 +137,7 @@ public:
         else if (category == 2) text = "Epic";
         else if (category == 3) text = "Legendary";
         else if (category == 4) text = "Mythic";
+        else if (category == 5) text = "Secrets";
 
         m_label->setString(text.c_str());
 
@@ -204,13 +214,19 @@ public:
                 startSize = 16.f;
                 life = 2.2f;
             }
+            else if (category == 5) {
+                endColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+                emissionRate = 65.f;
+                startSize = 18.f;
+                life = 2.5f;
+            }
 
             m_particles->setEmissionRate(emissionRate);
             m_particles->setStartSize(startSize);
             m_particles->setStartSizeVar(startSize * 0.3f);
             m_particles->setLife(life);
             m_particles->setLifeVar(life * 0.3f);
-            if (category != 4) m_particles->setStartColor(startColor);
+            if (category != 4 && category != 5) m_particles->setStartColor(startColor);
             m_particles->setStartColorVar({ 0.1f, 0.1f, 0.1f, 0.0f });
             m_particles->setEndColor(endColor);
             m_particles->setEndColorVar({ 0.0f, 0.0f, 0.0f, 0.0f });

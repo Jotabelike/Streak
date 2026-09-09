@@ -127,7 +127,12 @@ protected:
             if (!g_streakData.isFreePassTierClaimed(t) && gold >= t * 100) return true;
         }
         if (g_streakData.isPremiumPassActive()) {
-            for (int t = 1; t <= paidMax; ++t) {
+            for (int t = 1; t <= std::min(50, paidMax); ++t) {
+                if (!g_streakData.isPaidPassTierClaimed(t) && gold >= t * 50) return true;
+            }
+        }
+        if (g_streakData.isStellarPassActive()) {
+            for (int t = 51; t <= paidMax; ++t) {
                 if (!g_streakData.isPaidPassTierClaimed(t) && gold >= t * 50) return true;
             }
         }

@@ -14,6 +14,7 @@
 #include "../StatusSpinner.h"
 #include "../RewardNotification.h"
 #include "../HMACAuth.h"
+#include "LeaderboardPodiumLayer.h"
 
 using namespace geode::prelude;
 
@@ -266,6 +267,14 @@ protected:
     };
 
     Fields m_fields;
+    std::vector<matjson::Value> m_podiumPlayers;
+    CCMenuItemSpriteExtra* m_podiumButton = nullptr;
+
+    void onPodium(CCObject*) {
+        if (auto scene = LeaderboardPodiumLayer::scene(m_podiumPlayers)) {
+            CCDirector::sharedDirector()->pushScene(CCTransitionFade::create(0.3f, scene));
+        }
+    }
 
     void onRewardsInfo(CCObject*) {
         std::string rewardText =
@@ -378,6 +387,9 @@ protected:
 
             if (data.contains("list") && data["list"].isArray()) {
                 auto playersVec = data["list"].as<std::vector<matjson::Value>>().unwrap();
+                m_podiumPlayers.assign(playersVec.begin(), playersVec.begin() + std::min<size_t>(3, playersVec.size()));
+                m_podiumButton->setEnabled(true);
+                m_podiumButton->setOpacity(255);
                 this->populateScroll(playersVec);
                 this->updateMyRankUI(playersVec);
             }
@@ -566,6 +578,17 @@ protected:
         idLabel->setPosition({ 22.f, 18.f });
         idLabel->setID("streak-id-label");
         m_mainLayer->addChild(idLabel);
+
+        auto podiumArrow = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        podiumArrow->setFlipX(true);
+        podiumArrow->setScale(0.55f);
+        m_podiumButton = CCMenuItemSpriteExtra::create(podiumArrow, this, menu_selector(LeaderboardPopup::onPodium));
+        m_podiumButton->setID("open-podium-button");
+        m_podiumButton->setEnabled(false);
+        m_podiumButton->setOpacity(90);
+        auto podiumMenu = CCMenu::createWithItem(m_podiumButton);
+        podiumMenu->setPosition({ winSize.width - 27.f, 19.f });
+        m_mainLayer->addChild(podiumMenu, 10);
 
         this->m_fields.m_spinner = StatusSpinner::create();
         this->m_fields.m_spinner->setPosition(winSize / 2);

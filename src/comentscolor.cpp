@@ -57,7 +57,7 @@ class $modify(MyColoredCommentCell, CommentCell) {
     bool isBadgeMythic(const std::string & badgeID) {
         if (badgeID.empty() || badgeID == "none" || badgeID == "pending") return false;
         if (auto badgeInfo = g_streakData.getBadgeInfo(badgeID)) {
-            return badgeInfo->category == StreakData::BadgeCategory::MYTHIC;
+            return StreakData::usesMythicPresentation(badgeInfo->category);
         }
         return false;
     }
@@ -180,7 +180,7 @@ class $modify(MyColoredCommentCell, CommentCell) {
         if (accountID == GJAccountManager::sharedState()->m_accountID) {
             if (auto* equippedBadge = g_streakData.getEquippedBadge()) {
               
-                if (equippedBadge->category == StreakData::BadgeCategory::MYTHIC && showRainbow) {
+                if (StreakData::usesMythicPresentation(equippedBadge->category) && showRainbow) {
                     this->schedule(schedule_selector(MyColoredCommentCell::updateRainbowEffect));
                 }
             }

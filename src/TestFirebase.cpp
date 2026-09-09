@@ -263,7 +263,7 @@ void updatePlayerDataInFirebase() {
     bool hasMythicEquipped = false;
     if (!g_streakData.equippedBadge.empty()) {
         if (auto* badgeInfo = g_streakData.getBadgeInfo(g_streakData.equippedBadge)) {
-            if (badgeInfo->category == StreakData::BadgeCategory::MYTHIC) hasMythicEquipped = true;
+            if (StreakData::usesMythicPresentation(badgeInfo->category)) hasMythicEquipped = true;
         }
     }
     playerData.set("has_mythic_color", hasMythicEquipped);
@@ -303,8 +303,6 @@ void updatePlayerDataInFirebase() {
 
     playerData.set("streakPointsThisMonth", g_streakData.streakPointsThisMonth);
     playerData.set("lastMonth", g_streakData.lastMonth);
-    playerData.set("premium_pass_month", g_streakData.premiumPassMonth);
-
     std::vector<int> freePassTiersArr;
     for (int t : g_streakData.claimedFreePassTiers) freePassTiersArr.push_back(t);
     playerData.set("claimed_free_pass_tiers", freePassTiersArr);

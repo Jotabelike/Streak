@@ -59,6 +59,7 @@ inline ccColor3B getBrightQualityColor(StreakData::BadgeCategory category) {
     case StreakData::BadgeCategory::EPIC:     return ccc3(255, 0, 255);
     case StreakData::BadgeCategory::LEGENDARY:return ccc3(255, 200, 0);
     case StreakData::BadgeCategory::MYTHIC:   return ccc3(255, 60, 60);
+    case StreakData::BadgeCategory::SECRETS: return ccc3(0, 240, 255);
     default:                                  return ccc3(255, 255, 255);
     }
 }

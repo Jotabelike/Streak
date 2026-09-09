@@ -165,7 +165,99 @@ namespace NameModifiers {
                     g = (GLubyte)std::min(255.f, fg);
                     b = (GLubyte)std::min(255.f, fb);
                 }
-
+                else if (m_style == "Chessboard") {
+                    int step = static_cast<int>(std::floor(m_t * 1.1f));
+                    bool light = ((i + step) % 2) == 0;
+                    r = light ? 245 : 65;
+                    g = light ? 235 : 70;
+                    b = light ? 205 : 88;
+                }
+                else if (m_style == "Signal Code") {
+                    const ccColor3B palette[] = {
+                        { 245, 55, 65 }, { 255, 190, 35 }, { 45, 225, 105 }
+                    };
+                    int step = static_cast<int>(std::floor(m_t * 1.45f));
+                    auto color = palette[(i + step) % 3];
+                    r = color.r; g = color.g; b = color.b;
+                }
+                else if (m_style == "Ink March") {
+                    int route = std::max(1, count * 2 - 2);
+                    int active = static_cast<int>(std::floor(m_t * 1.7f)) % route;
+                    if (active >= count) active = count * 2 - 2 - active;
+                    int distance = std::abs(i - active);
+                    if (distance == 0) { r = 25; g = 55; b = 95; }
+                    else if (distance == 1) { r = 65; g = 165; b = 180; }
+                    else { r = 185; g = 245; b = 235; }
+                }
+                else if (m_style == "Split Complement") {
+                    bool swapped = (static_cast<int>(std::floor(m_t * .7f)) % 2) != 0;
+                    bool left = i < (count + 1) / 2;
+                    bool coral = left != swapped;
+                    r = coral ? 255 : 45;
+                    g = coral ? 105 : 220;
+                    b = coral ? 90 : 225;
+                }
+                else if (m_style == "Thermal Steps") {
+                    const ccColor3B palette[] = {
+                        { 30, 35, 120 }, { 20, 145, 210 }, { 35, 220, 135 },
+                        { 225, 235, 45 }, { 255, 125, 25 }, { 235, 35, 65 }
+                    };
+                    int step = static_cast<int>(std::floor(m_t * .9f));
+                    auto color = palette[((i / 2) + step) % 6];
+                    r = color.r; g = color.g; b = color.b;
+                }
+                else if (m_style == "Hologram Stripes") {
+                    const ccColor3B palette[] = {
+                        { 235, 255, 255 }, { 50, 225, 245 }, { 245, 90, 220 }, { 125, 105, 245 }
+                    };
+                    int step = static_cast<int>(std::floor(m_t * 1.25f));
+                    auto color = palette[(i + step * 2) % 4];
+                    r = color.r; g = color.g; b = color.b;
+                }
+                else if (m_style == "Sepia Film") {
+                    const int flicker[] = { 0, 18, -6, 8, -12, 4, 14 };
+                    int frame = static_cast<int>(std::floor(m_t * 3.2f)) % 7;
+                    int value = flicker[(frame + i * 3) % 7];
+                    r = static_cast<GLubyte>(std::max(0, std::min(255, 205 + value)));
+                    g = static_cast<GLubyte>(std::max(0, std::min(255, 165 + value)));
+                    b = static_cast<GLubyte>(std::max(0, std::min(255, 105 + value / 2)));
+                }
+                else if (m_style == "Stained Glass") {
+                    const ccColor3B palette[] = {
+                        { 205, 35, 75 }, { 35, 145, 210 }, { 245, 175, 35 },
+                        { 75, 190, 105 }, { 145, 65, 205 }, { 235, 90, 165 }, { 40, 190, 185 }
+                    };
+                    int turn = static_cast<int>(std::floor(m_t * .32f));
+                    auto color = palette[(i * 5 + turn) % 7];
+                    r = color.r; g = color.g; b = color.b;
+                }
+                else if (m_style == "Lunar Phases") {
+                    int span = std::max(1, count + 1);
+                    int phase = static_cast<int>(std::floor(m_t * 1.05f)) % (span * 2);
+                    int radius = phase <= span ? phase : span * 2 - phase;
+                    float distance = std::abs(i - (count - 1) * .5f);
+                    if (distance <= radius * .5f) { r = 245; g = 248; b = 220; }
+                    else if (distance <= radius * .5f + 1.f) { r = 135; g = 155; b = 185; }
+                    else { r = 48; g = 55; b = 82; }
+                }
+                else if (m_style == "Blueprint") {
+                    int step = static_cast<int>(std::floor(m_t * 1.35f));
+                    int mark = (i + step) % 5;
+                    if (mark == 0) { r = 245; g = 250; b = 255; }
+                    else if (mark == 1 || mark == 4) { r = 95; g = 185; b = 235; }
+                    else { r = 25; g = 95; b = 175; }
+                }
+                else if (m_style == "Limbo Fracture") {
+                    const ccColor3B fracture[] = {
+                        { 18, 8, 35 }, { 105, 35, 185 }, { 225, 45, 190 },
+                        { 55, 205, 245 }, { 245, 245, 255 }
+                    };
+                    int beat = static_cast<int>(std::floor(m_t * 2.4f));
+                    int shard = (i * 7 + beat * 3 + (i % 2) * beat) % 11;
+                    int colorIndex = shard == 0 ? 4 : (shard % 4);
+                    auto color = fracture[colorIndex];
+                    r = color.r; g = color.g; b = color.b;
+                }
                 letter->setColor({ r, g, b });
             }
         }
@@ -194,7 +286,11 @@ namespace NameModifiers {
             colorID == "Abyss Wave" || colorID == "Synthwave" || colorID == "Pastel Wave" ||
             colorID == "Aurora Wave" || colorID == "Galaxy Wave" || colorID == "Crazy Wave" ||
             colorID == "Bronze Wave" || colorID == "Platinum Wave" ||
-            colorID == "Gold Wave" || colorID == "Diamond Wave") {
+            colorID == "Gold Wave" || colorID == "Diamond Wave" ||
+            colorID == "Chessboard" || colorID == "Signal Code" || colorID == "Ink March" ||
+            colorID == "Split Complement" || colorID == "Thermal Steps" || colorID == "Hologram Stripes" ||
+            colorID == "Sepia Film" || colorID == "Stained Glass" || colorID == "Lunar Phases" ||
+            colorID == "Blueprint" || colorID == "Limbo Fracture") {
             label->setCascadeColorEnabled(false);
             auto updater = GradientUpdater::create(label, colorID);
             updater->setTag(8888);

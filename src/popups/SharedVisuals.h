@@ -522,7 +522,9 @@ public:
             badgeNode->addChild(badgeSprite, 2);
         }
 
-        m_mythicLabel = CCLabelBMFont::create("Mythic", "goldFont.fnt");
+        const char* rarityText = badge.category == StreakData::BadgeCategory::SECRETS
+            ? "Secret" : "Mythic";
+        m_mythicLabel = CCLabelBMFont::create(rarityText, "goldFont.fnt");
         m_mythicLabel->setColor({ 255, 80, 80 });
         m_mythicLabel->setAnchorPoint({ 0, 0.5f });
         m_mythicLabel->setPosition({ -200.f, winSize.height - 40.f });

@@ -984,7 +984,7 @@ protected:
             if (!m_tempBadgeID.empty()) {
                 if (isNewBadge) {
                     auto* badgeInfo = g_streakData.getBadgeInfo(m_tempBadgeID);
-                    if (badgeInfo && badgeInfo->category == StreakData::BadgeCategory::MYTHIC) {
+                    if (badgeInfo && StreakData::usesMythicPresentation(badgeInfo->category)) {
                         auto animLayer = MythicAnimationLayer::create(
                             *badgeInfo,
                             [this, showConsumables]() {
@@ -2018,18 +2018,15 @@ protected:
 
     void buildDefaultMilestones() {
         m_milestones.clear();
-        m_milestones.push_back({ 1, RewardKind::Gems,    50,  "" });
-        m_milestones.push_back({ 2, RewardKind::Stars,   5,   "" });
-        m_milestones.push_back({ 3, RewardKind::Tickets, 5,   "" });
-        m_milestones.push_back({ 4, RewardKind::Gems,    100, "" });
-        m_milestones.push_back({ 5, RewardKind::Stars,   10,  "" });
-        m_milestones.push_back({ 6, RewardKind::Chest,   5,   "" });
-        m_milestones.push_back({ 7, RewardKind::NameColor, 0, "Galaxy Wave" });
-
-        std::string b8 = m_fragmentBanners.size() > 0 ? m_fragmentBanners[0] : "banner_60";
-        std::string b9 = m_fragmentBanners.size() > 1 ? m_fragmentBanners[1] : "banner_59";
-        m_milestones.push_back({ 8, RewardKind::Banner, 0, b8 });
-        m_milestones.push_back({ 9, RewardKind::Banner, 0, b9 });
+        m_milestones.push_back({ 1, RewardKind::Gems,      75,  "" });
+        m_milestones.push_back({ 2, RewardKind::Chest,     2,   "" });
+        m_milestones.push_back({ 3, RewardKind::Gems,      150, "" });
+        m_milestones.push_back({ 4, RewardKind::Chest,     3,   "" });
+        m_milestones.push_back({ 5, RewardKind::Gems,      250, "" });
+        m_milestones.push_back({ 6, RewardKind::Chest,     4,   "" });
+        m_milestones.push_back({ 7, RewardKind::Gems,      400, "" });
+        m_milestones.push_back({ 8, RewardKind::Chest,     5,   "" });
+        m_milestones.push_back({ 9, RewardKind::NameColor, 0,   "Limbo Fracture" });
     }
 
     void rebuild() {
@@ -2393,7 +2390,7 @@ protected:
                     if (info) {
                         std::string rTxt = g_streakData.getCategoryName(info->rarity);
                         ccColor3B rCol = g_streakData.getCategoryColor(info->rarity);
-                        if (info->rarity == StreakData::BadgeCategory::MYTHIC) {
+                        if (StreakData::usesMythicPresentation(info->rarity)) {
                             auto anim = MythicBannerAnimationLayer::create(
                                 *info, [id = matched->itemID, info, rTxt, rCol]() {
                                     BannerNotification::show(id, info->spriteName, info->displayName, rTxt, rCol);
@@ -2427,7 +2424,7 @@ protected:
                     bool wasNew = !g_streakData.isBadgeUnlocked(matched->itemID);
                     if (wasNew) g_streakData.unlockBadge(matched->itemID);
                     auto info = g_streakData.getBadgeInfo(matched->itemID);
-                    if (info && info->category == StreakData::BadgeCategory::MYTHIC) {
+                    if (info && StreakData::usesMythicPresentation(info->category)) {
                         std::string id = matched->itemID;
                         auto anim = MythicAnimationLayer::create(
                             *info, [id]() { BadgeNotification::show(id); });

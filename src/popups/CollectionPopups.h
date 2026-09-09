@@ -4,6 +4,7 @@
 #include "../FirebaseManager.h"
 #include "../NameModifiers.h"
 #include "../StreakMusic.h"
+#include "../PassNameCosmetics.h"
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
 #include "QualityNode.h"
@@ -591,7 +592,12 @@ protected:
 
             if (price <= 0) {
                 if (m_buyNameBtn) m_buyNameBtn->setVisible(false);
-                if (m_eventOnlyLabel) m_eventOnlyLabel->setVisible(true);
+                if (m_eventOnlyLabel) {
+                    m_eventOnlyLabel->setString(
+                        StreakData::isPassExclusiveNameItem(id) ? "Stellar Pass required" : "Only obtainable in events"
+                    );
+                    m_eventOnlyLabel->setVisible(true);
+                }
             } else {
                 if (m_buyPriceLabel) m_buyPriceLabel->setString(fmt::format("{}", price).c_str());
                 if (m_buyNameBtn) m_buyNameBtn->setVisible(true);
@@ -834,22 +840,25 @@ protected:
         "Scanner", "Shadow", "Shockwave", "Smoke", "Snow", "Sparkle",
         "Spotlight", "Stars", "Supernova", "Toxic", "Void"
         };
+        for (auto item : PassNameCosmetics::EFFECTS) effects.emplace_back(item);
 
         std::vector<std::string> animations = {
               "None", "Blink", "Bounce", "Domino", "DVD", "Dynamic Jump", "Float",
               "Glitch", "Heartbeat", "Jelly", "Pulse", "Shake", "Spin",
               "Spiral", "Squish", "Swing", "Tremble", "Wave", "Wobble"
         };
+        for (auto item : PassNameCosmetics::ANIMATIONS) animations.emplace_back(item);
         std::vector<std::string> colors = {
                 "Default", "Black", "Blue", "Brown", "Cyan", "Gold", "Green",
                 "Lime", "Magenta", "Maroon", "Mint", "Navy", "Orange",
                 "Peach", "Pink", "Purple", "Red", "Silver", "Teal", "Yellow",
                 "Crazy Wave",
-                "Cyberpunk Wave", "Fire Wave", "Galaxy Wave", "Golden Wave", "Ice Wave", "Ocean Wave",
+                "Cyberpunk Wave", "Fire Wave", "Galaxy Wave", "Limbo Fracture", "Golden Wave", "Ice Wave", "Ocean Wave",
                 "Rainbow", "Rainbow Wave", "Royal Wave", "Sunset Wave", "Toxic Wave",
                 "Abyss Wave","Disco Blink", "Synthwave", "Pastel Wave", "Aurora Wave",
                 "Static Blood", "Static Deep Sea", "Static Toxic", "Static Vaporwave"
         };
+        for (auto item : PassNameCosmetics::COLORS) colors.emplace_back(item);
 
         std::vector<std::string> fonts = {
             "Default", "Chat", "Gold", "Pusab",
@@ -980,7 +989,7 @@ protected:
         buyMenu->setPosition({ 0.f, -95.f });
         m_namesContainer->addChild(buyMenu);
 
-        m_eventOnlyLabel = CCLabelBMFont::create("Event reward", "goldFont.fnt");
+        m_eventOnlyLabel = CCLabelBMFont::create("Only obtainable in events", "goldFont.fnt");
         m_eventOnlyLabel->setScale(0.5f);
         m_eventOnlyLabel->setPosition({ 0.f, -95.f });
         m_eventOnlyLabel->setVisible(false);
@@ -1029,6 +1038,7 @@ protected:
     void onSwitchToBanners(CCObject*) {
         if (m_currentMode == MODE_BANNERS) return;
         m_currentMode = MODE_BANNERS;
+        if (m_currentCategory >= 5) m_currentCategory = 4;
         toggleUIVisibility(false);
         updateCategoryDisplay();
     }
@@ -1282,12 +1292,14 @@ protected:
     }
 
     void onNextCategory(CCObject*) {
-        m_currentCategory = (m_currentCategory + 1) % 5;
+        const int categoryCount = m_currentMode == MODE_BADGES ? 6 : 5;
+        m_currentCategory = (m_currentCategory + 1) % categoryCount;
         updateCategoryDisplay();
     }
 
     void onPreviousCategory(CCObject*) {
-        m_currentCategory = (m_currentCategory - 1 + 5) % 5;
+        const int categoryCount = m_currentMode == MODE_BADGES ? 6 : 5;
+        m_currentCategory = (m_currentCategory - 1 + categoryCount) % categoryCount;
         updateCategoryDisplay();
     }
 

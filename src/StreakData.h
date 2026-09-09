@@ -35,8 +35,13 @@ struct StreakData {
         SPECIAL,
         EPIC,
         LEGENDARY,
-        MYTHIC
+        MYTHIC,
+        SECRETS
     };
+
+    static bool usesMythicPresentation(BadgeCategory category) {
+        return category == BadgeCategory::MYTHIC || category == BadgeCategory::SECRETS;
+    }
 
     struct ShopItem {
         std::string id;
@@ -163,6 +168,8 @@ struct StreakData {
         std::string currency;  // gems | tickets | stars
         int stock = 0;         // compras maximas por jugador (0 = ilimitado)
         int bought = 0;        // veces que YA lo compro este jugador
+        int unlockSpend = 0;   // gemas gastadas en esta edicion antes de comprarlo
+        bool featured = false; // premio mayor; recibe una carta destacada
 
         bool isCosmetic() const {
             return type == "banner" || type == "badge" || type == "name_item" || type == "song";
@@ -174,6 +181,7 @@ struct StreakData {
         std::string shopId;
         std::string title;
         long long endsAt = 0;  // ms epoch; 0 = sin fecha de cierre
+        int gemsSpent = 0;     // gasto real del jugador en esta edicion
         std::vector<SeasonShopItem> items;
     };
     SeasonShopState seasonShop;
@@ -262,6 +270,7 @@ struct StreakData {
     void unlockNameItem(const std::string& item);
     int getNameItemPrice(const std::string& item);
     static bool isEventOnlyNameItem(const std::string& item);
+    static bool isPassExclusiveNameItem(const std::string& item);
 
     std::chrono::steady_clock::time_point lastPointTime;
 
@@ -303,6 +312,10 @@ struct StreakData {
     int streakPointsThisMonth = 0;
     std::string lastMonth = "";
     std::string premiumPassMonth = "";
+    std::string premiumPassID = "";
+    bool premiumPassIDSupported = false;
+    std::string stellarPassID = "";
+    bool stellarPassIDSupported = false;
     std::set<int> claimedFreePassTiers;
     std::set<int> claimedPaidPassTiers;
     bool passCompleteRewardClaimed = false;
@@ -552,6 +565,20 @@ struct StreakData {
        {0, "crystal_amethyst_badge.png"_spr, "Amethyst Core", BadgeCategory::EPIC, "crystal_amethyst_badge", true, "XJotaBeLikeX"},
        {0, "crystal_solar_badge.png"_spr, "Solar Crystal", BadgeCategory::LEGENDARY, "crystal_solar_badge", true, "XJotaBeLikeX"},
        {0, "crystal_prism_badge.png"_spr, "Cosmic Prism", BadgeCategory::MYTHIC, "crystal_prism_badge", true, "XJotaBeLikeX"},
+       {0, "crystal_crown_badge.png"_spr, "Glacial Crown", BadgeCategory::SECRETS, "crystal_crown_badge", true, "XJotaBeLikeX"},
+       {0, "crystal_moth_badge.png"_spr, "Prismatic Moth", BadgeCategory::SECRETS, "crystal_moth_badge", true, "XJotaBeLikeX"},
+       {0, "crystal_serpent_badge.png"_spr, "Emerald Serpent", BadgeCategory::SECRETS, "crystal_serpent_badge", true, "XJotaBeLikeX"},
+       {0, "crystal_eclipse_badge.png"_spr, "Obsidian Eclipse", BadgeCategory::SECRETS, "crystal_eclipse_badge", true, "XJotaBeLikeX"},
+       {0, "crystal_phoenix_badge.png"_spr, "Ruby Phoenix", BadgeCategory::SECRETS, "crystal_phoenix_badge", true, "XJotaBeLikeX"},
+       {0, "crystal_hourglass_badge.png"_spr, "Temporal Crystal", BadgeCategory::SECRETS, "crystal_hourglass_badge", true, "XJotaBeLikeX"},
+
+       // Season Shop exclusives. The final flag keeps these out of the Daily Shop.
+       {0, "shop_crystal_skull_badge.png"_spr, "Frostbound Skull", BadgeCategory::MYTHIC, "shop_crystal_skull_badge", true, "XJotaBeLikeX", true},
+       {0, "shop_astral_eye_badge.png"_spr, "Astral Eye", BadgeCategory::MYTHIC, "shop_astral_eye_badge", true, "XJotaBeLikeX", true},
+       {0, "shop_crystal_wolf_badge.png"_spr, "Crystal Wolf", BadgeCategory::MYTHIC, "shop_crystal_wolf_badge", true, "XJotaBeLikeX", true},
+       {0, "shop_arcane_key_badge.png"_spr, "Arcane Key", BadgeCategory::MYTHIC, "shop_arcane_key_badge", true, "XJotaBeLikeX", true},
+       {0, "shop_void_rose_badge.png"_spr, "Void Rose", BadgeCategory::MYTHIC, "shop_void_rose_badge", true, "XJotaBeLikeX", true},
+       {0, "shop_storm_relic_badge.png"_spr, "Storm Relic", BadgeCategory::MYTHIC, "shop_storm_relic_badge", true, "XJotaBeLikeX", true},
 
        //banderas
        { 0, "col.png"_spr, "Colombia", BadgeCategory::COMMON, "colombia_badge", true, "XJotaBeLikeX" },
@@ -689,6 +716,7 @@ struct StreakData {
     std::string getCurrentWeek();
     std::string getCurrentMonth();
     bool isPremiumPassActive();
+    bool isStellarPassActive();
     bool isFreePassTierClaimed(int tier) const;
     bool isPaidPassTierClaimed(int tier) const;
     void setFreePassTierClaimed(int tier);

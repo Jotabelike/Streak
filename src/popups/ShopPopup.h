@@ -460,7 +460,7 @@ protected:
                     FMODAudioEngine::sharedEngine()->playEffect("buy_obj.mp3"_spr);
 
                     if (isBadge) {
-                        if (category == StreakData::BadgeCategory::MYTHIC) {
+                        if (StreakData::usesMythicPresentation(category)) {
                             auto badgeInfo = g_streakData.getBadgeInfo(itemID);
                             if (badgeInfo) {
                                 auto animLayer = MythicAnimationLayer::create(
@@ -474,7 +474,7 @@ protected:
                     } else {
                         auto info = g_streakData.getBannerInfo(itemID);
                         if (info) {
-                            if (category == StreakData::BadgeCategory::MYTHIC) {
+                            if (StreakData::usesMythicPresentation(category)) {
                                 auto animLayer = MythicBannerAnimationLayer::create(
                                     *info, [itemID, info]() {
                                         std::string rTxt = g_streakData.getCategoryName(info->rarity);

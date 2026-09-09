@@ -10,29 +10,36 @@
 #include "../NameModifiers.h"
 #include "../utils/ScrollbarUtils.h"
 #include "../utils/RoundedProgressBar.h"
+#include "PurchaseConfirmPopup.h"
+#include "SharedVisuals.h"
 #include "StreakChestPopup.h"
 
 using namespace geode::prelude;
 
 // Tienda de temporada. El catalogo entero (items, precios, stock) lo define el
 // servidor en settings/season_shop; aqui solo se dibuja y se manda el itemId al
-// comprar. Todo se paga con gemas. Se muestra en rejilla de 3 columnas por 3
-// filas visibles; si hay mas entradas (el catalogo base trae 12) la lista
-// scrollea.
+// comprar. Las badges se pagan con gemas y los cofres con estrellas. El catalogo
+// se presenta como un carril horizontal y puede incluir un premio mayor bloqueado
+// por gasto acumulado en gemas.
 class SeasonShopPopup : public Popup {
 protected:
     ScrollLayer* m_scroll = nullptr;
     CCLabelBMFont* m_timerLabel = nullptr;
     CCLabelBMFont* m_gemLabel = nullptr;
+    CCLabelBMFont* m_starLabel = nullptr;
+    CCLabelBMFont* m_spendLabel = nullptr;
+    RoundedProgressBar* m_spendBar = nullptr;
     bool m_busy = false;
 
-    // Casillas en formato carta: mas altas que anchas, con el premio ocupando
-    // casi todo y solo el precio debajo.
-    static constexpr int COLUMNS = 3;
-    static constexpr int VISIBLE_ROWS = 3;
-    static constexpr float CELL_W = 70.f;
-    static constexpr float CELL_H = 84.f;
-    static constexpr float ICON_BOX = 52.f;
+    static constexpr float LIST_W = 428.f;
+    static constexpr float LIST_H = 180.f;
+    static constexpr float CELL_W = 104.f;
+    static constexpr float FEATURED_W = 132.f;
+    static constexpr float CELL_H = 82.f;
+    static constexpr float FEATURED_H = 170.f;
+    static constexpr float ICON_BOX = 42.f;
+    static constexpr float FEATURED_ICON_BOX = 82.f;
+    static constexpr float CARD_GAP = 7.f;
     // A partir de este precio la carta lleva fondo degradado animado, como los
     // tiers milestone del pase.
     static constexpr int MULTICOLOR_PRICE = 800;
@@ -44,6 +51,47 @@ protected:
         float hue;
     };
     std::vector<AnimatedGradient> m_animatedGradients;
+
+    int grandPrizeRequirement() const {
+        int required = 0;
+        for (const auto& item : g_streakData.seasonShop.items) {
+            required = std::max(required, item.unlockSpend);
+        }
+        return required;
+    }
+
+    bool usesStars(const StreakData::SeasonShopItem& item) const {
+        return item.currency == "stars";
+    }
+
+    int currencyBalance(const StreakData::SeasonShopItem& item) const {
+        return usesStars(item) ? g_streakData.superStars : g_streakData.gems;
+    }
+
+    PurchaseCurrency purchaseCurrency(const StreakData::SeasonShopItem& item) const {
+        return usesStars(item) ? PurchaseCurrency::SuperStars : PurchaseCurrency::Gems;
+    }
+
+    std::string itemSpriteName(const StreakData::SeasonShopItem& item) const {
+        if (item.type == "banner") {
+            if (auto info = g_streakData.getBannerInfo(item.rewardId)) return info->spriteName;
+        } else if (item.type == "badge") {
+            if (auto info = g_streakData.getBadgeInfo(item.rewardId)) return info->spriteName;
+        } else if (item.type == "song") {
+            if (auto info = g_streakData.getSongInfo(item.rewardId)) return info->iconName;
+        } else if (item.type == "chest") {
+            return fmt::format("{}/ChestStar{}.png", Mod::get()->getID(), std::clamp(item.amount, 1, 6));
+        } else if (item.type == "tickets") {
+            return "star_tiket.png"_spr;
+        } else if (item.type == "stars") {
+            return "super_star.png"_spr;
+        } else if (item.type == "gems") {
+            return "gem.png"_spr;
+        } else if (item.type == "shields") {
+            return "heart.png"_spr;
+        }
+        return "GJ_unknownBtn_001.png";
+    }
 
     // Fondo redondeado con degradado, mismo recorte que usa el pase.
     CCNode* makeRoundedGradient(float w, float h, ccColor3B a, ccColor3B b, GLubyte opacity,
@@ -159,6 +207,19 @@ protected:
 
     void refreshBalances() {
         if (m_gemLabel) m_gemLabel->setString(fmt::format("{}", g_streakData.gems).c_str());
+        if (m_starLabel) m_starLabel->setString(fmt::format("{}", g_streakData.superStars).c_str());
+        const int required = grandPrizeRequirement();
+        const int spent = std::max(0, g_streakData.seasonShop.gemsSpent);
+        if (m_spendLabel) {
+            m_spendLabel->setVisible(required > 0);
+            m_spendLabel->setString(required > 0
+                ? fmt::format("{}/{} GEMS", std::min(spent, required), required).c_str()
+                : "");
+        }
+        if (m_spendBar) {
+            m_spendBar->setVisible(required > 0);
+            m_spendBar->setProgress(required > 0 ? static_cast<float>(spent) / static_cast<float>(required) : 0.f);
+        }
     }
 
     void updateTimer(float) {
@@ -176,68 +237,90 @@ protected:
     }
 
     CCNode* buildCell(const StreakData::SeasonShopItem& item, int index, float cellW) {
+        const float cellH = item.featured ? FEATURED_H : CELL_H;
         auto cell = CCNode::create();
-        cell->setContentSize({ cellW, CELL_H });
+        cell->setContentSize({ cellW, cellH });
 
         const bool owned = alreadyOwned(item);
         const bool soldOut = item.soldOut();
-        const bool locked = owned || soldOut;
+        const bool requirementLocked = item.unlockSpend > 0 &&
+            g_streakData.seasonShop.gemsSpent < item.unlockSpend;
+        const bool locked = owned || soldOut || requirementLocked;
 
-        // Las cartas caras llevan degradado animado; el resto, fondo plano.
-        float bgW = cellW - 6.f, bgH = CELL_H - 5.f;
-        if (!locked && item.price > MULTICOLOR_PRICE) {
+        float bgW = cellW - 6.f, bgH = cellH - 5.f;
+        if (item.featured || (!locked && item.price > MULTICOLOR_PRICE)) {
             CCLayerGradient* gradient = nullptr;
-            auto bg = makeRoundedGradient(bgW, bgH, { 90, 200, 255 }, { 200, 120, 255 }, 220, &gradient);
-            bg->setPosition({ cellW / 2.f, CELL_H / 2.f });
+            auto bg = makeRoundedGradient(bgW, bgH,
+                item.featured ? ccColor3B{ 0, 205, 230 } : ccColor3B{ 90, 200, 255 },
+                item.featured ? ccColor3B{ 15, 15, 20 } : ccColor3B{ 200, 120, 255 },
+                requirementLocked ? 145 : 220, &gradient);
+            bg->setPosition({ cellW / 2.f, cellH / 2.f });
             cell->addChild(bg);
             if (gradient) m_animatedGradients.push_back({ gradient, 0.f });
         } else {
             auto bg = CCScale9Sprite::create("square02_001.png");
             bg->setContentSize({ bgW, bgH });
-            bg->setPosition({ cellW / 2.f, CELL_H / 2.f });
+            bg->setPosition({ cellW / 2.f, cellH / 2.f });
             bg->setColor(locked ? ccColor3B{ 0, 0, 0 } : ccColor3B{ 20, 30, 60 });
             bg->setOpacity(locked ? 130 : 170);
             cell->addChild(bg);
         }
 
-        auto icon = createItemIcon(item, ICON_BOX, locked);
-        icon->setPosition({ cellW / 2.f, CELL_H / 2.f + 10.f });
-        cell->addChild(icon, 2);
+        if (item.featured) {
+            auto featured = CCLabelBMFont::create("GRAND PRIZE", "goldFont.fnt");
+            featured->setScale(0.34f);
+            featured->setColor({ 100, 255, 255 });
+            featured->setPosition({ cellW / 2.f, cellH - 13.f });
+            cell->addChild(featured, 4);
 
-        // Cuantas quedan, solo en lo que se puede comprar varias veces: sin
-        // esto, tras la primera compra la carta se ve igual y parece que ya no
-        // se puede volver a comprar. Los cofres se saltan esto: la rareza ya
-        // manda en la carta y el contador solo mete ruido.
-        if (!locked && item.stock > 1 && item.type != "chest") {
-            auto left = CCLabelBMFont::create(
-                fmt::format("x{}", item.stock - item.bought).c_str(), "goldFont.fnt");
-            left->setScale(0.24f);
-            left->setColor({ 255, 235, 160 });
-            left->setPosition({ cellW / 2.f, 27.f });
-            cell->addChild(left, 3);
+            m_spendLabel = CCLabelBMFont::create("", "goldFont.fnt");
+            m_spendLabel->setScale(0.24f);
+            m_spendLabel->setColor({ 110, 245, 255 });
+            m_spendLabel->setPosition({ cellW / 2.f, 47.f });
+            cell->addChild(m_spendLabel, 5);
+
+            m_spendBar = RoundedProgressBar::create(cellW - 22.f, 8.f);
+            m_spendBar->setGradientColors({ 0, 225, 240 }, { 8, 8, 12 });
+            m_spendBar->setBackgroundColor({ 18, 25, 36 });
+            m_spendBar->setPosition({ cellW / 2.f, 36.f });
+            cell->addChild(m_spendBar, 5);
         }
 
-        // Linea inferior: boton de precio, o el motivo por el que no se puede.
+        const int shownUnit = item.stock > 0 ? std::min(item.bought + 1, item.stock) : item.bought + 1;
+        const std::string unitText = item.stock > 0
+            ? fmt::format("{}/{}", shownUnit, item.stock)
+            : fmt::format("{}", shownUnit);
+        auto unit = CCLabelBMFont::create(unitText.c_str(), "goldFont.fnt");
+        unit->setScale(item.featured ? 0.31f : 0.27f);
+        unit->setColor({ 255, 238, 170 });
+        unit->setPosition({ cellW / 2.f, cellH - (item.featured ? 30.f : 10.f) });
+        cell->addChild(unit, 4);
+
+        const float iconBox = item.featured ? FEATURED_ICON_BOX : ICON_BOX;
+        auto icon = createItemIcon(item, iconBox, locked && !owned);
+        icon->setPosition({ cellW / 2.f, item.featured ? 94.f : 41.f });
+        cell->addChild(icon, 2);
+
         if (locked) {
-            auto lbl = CCLabelBMFont::create(owned ? "Owned" : "Sold out", "goldFont.fnt");
-            lbl->setScale(0.26f);
-            lbl->setColor({ 170, 170, 170 });
-            lbl->setPosition({ cellW / 2.f, 14.f });
+            std::string status = owned ? "Owned" : (soldOut ? "Sold out" :
+                fmt::format("Spend {} more", item.unlockSpend - g_streakData.seasonShop.gemsSpent));
+            auto lbl = CCLabelBMFont::create(status.c_str(), "goldFont.fnt");
+            lbl->setScale(requirementLocked ? 0.27f : 0.3f);
+            lbl->setColor(requirementLocked ? ccColor3B{ 100, 245, 255 } : ccColor3B{ 170, 170, 170 });
+            lbl->limitLabelWidth(cellW - 8.f, requirementLocked ? 0.27f : 0.3f, 0.18f);
+            lbl->setPosition({ cellW / 2.f, item.featured ? 18.f : 11.f });
             cell->addChild(lbl, 2);
         } else {
-            // El boton es SOLO el precio, no la carta entera: un boton que
-            // cubriese toda la casilla se queda con el toque y la lista deja de
-            // scrollear al arrastrar sobre ella.
-            const bool affordable = g_streakData.gems >= item.price;
+            const bool affordable = currencyBalance(item) >= item.price;
             auto btnSpr = ButtonSprite::create(
                 fmt::format("  {}", item.price).c_str(), 0, false, "bigFont.fnt",
                 affordable ? "GJ_button_01.png" : "GJ_button_06.png", 0, 0.42f);
 
-            auto gemIcon = CCSprite::create("gem.png"_spr);
-            if (gemIcon) {
-                gemIcon->setScale(0.13f);
-                gemIcon->setPosition({ 11.f, btnSpr->getContentSize().height / 2.f });
-                btnSpr->addChild(gemIcon);
+            auto currencyIcon = CCSprite::create(usesStars(item) ? "super_star.png"_spr : "gem.png"_spr);
+            if (currencyIcon) {
+                currencyIcon->setScale(usesStars(item) ? 0.135f : 0.13f);
+                currencyIcon->setPosition({ 11.f, btnSpr->getContentSize().height / 2.f });
+                btnSpr->addChild(currencyIcon);
             }
             float maxBtnW = cellW - 10.f;
             if (btnSpr->getScaledContentSize().width > maxBtnW) {
@@ -255,51 +338,72 @@ protected:
             auto btn = CCMenuItemSpriteExtra::create(btnSpr, this, menu_selector(SeasonShopPopup::onBuy));
             btn->setTag(index);
             auto menu = CCMenu::createWithItem(btn);
-            menu->setPosition({ cellW / 2.f, 14.f });
+            menu->setPosition({ cellW / 2.f, item.featured ? 18.f : 11.f });
             cell->addChild(menu, 5);
         }
 
         return cell;
     }
 
-    // keepPosition solo al redibujar tras una compra; al abrir (o al llegar los
-    // datos del servidor) la lista debe empezar arriba. Ojo: en ScrollLayer el
-    // 0 es el FONDO de la lista y el tope es -contentH + viewH, asi que
-    // conservar la posicion inicial dejaba la tienda abierta por abajo.
     void rebuildList(bool keepPosition = false) {
         if (!m_scroll) return;
-        float preservedY = m_scroll->m_contentLayer->getPositionY();
+        float preservedX = m_scroll->m_contentLayer->getPositionX();
         m_scroll->m_contentLayer->removeAllChildren();
+        m_spendLabel = nullptr;
+        m_spendBar = nullptr;
         m_animatedGradients.clear();
 
         const auto& items = g_streakData.seasonShop.items;
-        float width = m_scroll->getContentSize().width;
-        float cellW = width / (float)COLUMNS;
-        int rows = std::max(1, ((int)items.size() + COLUMNS - 1) / COLUMNS);
-        float totalHeight = std::max(m_scroll->getContentSize().height, CELL_H * (float)rows);
-        m_scroll->m_contentLayer->setContentSize({ width, totalHeight });
+        int featuredCount = 0;
+        int regularCount = 0;
+        for (const auto& item : items) {
+            if (item.featured) ++featuredCount;
+            else ++regularCount;
+        }
+        const int regularColumns = (regularCount + 1) / 2;
+        float totalWidth = 10.f +
+            featuredCount * (FEATURED_W + CARD_GAP) +
+            regularColumns * (CELL_W + CARD_GAP);
+        totalWidth = std::max(m_scroll->getContentSize().width, totalWidth + 3.f);
+        m_scroll->m_contentLayer->setContentSize({ totalWidth, LIST_H });
 
+        float featuredX = 7.f;
         for (int i = 0; i < (int)items.size(); ++i) {
-            int row = i / COLUMNS;
-            int col = i % COLUMNS;
-            auto cell = buildCell(items[i], i, cellW);
-            cell->setPosition({ cellW * (float)col, totalHeight - CELL_H * (float)(row + 1) });
+            if (!items[i].featured) continue;
+            auto cell = buildCell(items[i], i, FEATURED_W);
+            cell->setPosition({ featuredX, (LIST_H - FEATURED_H) / 2.f });
             m_scroll->m_contentLayer->addChild(cell);
+            featuredX += FEATURED_W + CARD_GAP;
+        }
+
+        const float regularStartX = featuredX;
+        int regularIndex = 0;
+        for (int i = 0; i < (int)items.size(); ++i) {
+            if (items[i].featured) continue;
+            const int column = regularIndex / 2;
+            const int row = regularIndex % 2;
+            auto cell = buildCell(items[i], i, CELL_W);
+            cell->setPosition({
+                regularStartX + column * (CELL_W + CARD_GAP),
+                row == 0 ? LIST_H - CELL_H - 4.f : 4.f
+            });
+            m_scroll->m_contentLayer->addChild(cell);
+            ++regularIndex;
         }
 
         if (items.empty()) {
             auto empty = CCLabelBMFont::create("The shop is empty right now.", "bigFont.fnt");
             empty->setScale(0.4f);
             empty->setColor({ 190, 190, 190 });
-            empty->setPosition({ width / 2.f, totalHeight / 2.f });
+            empty->setPosition({ LIST_W / 2.f, LIST_H / 2.f });
             m_scroll->m_contentLayer->addChild(empty);
         }
 
         if (keepPosition) {
-            float topY = m_scroll->getContentSize().height - totalHeight; // <= 0
-            m_scroll->m_contentLayer->setPositionY(std::clamp(preservedY, topY, 0.f));
+            float minX = std::min(0.f, m_scroll->getContentSize().width - totalWidth);
+            m_scroll->m_contentLayer->setPositionX(std::clamp(preservedX, minX, 0.f));
         } else {
-            m_scroll->moveToTop();
+            m_scroll->m_contentLayer->setPositionX(0.f);
         }
         refreshBalances();
     }
@@ -311,35 +415,54 @@ protected:
         if (index < 0 || index >= (int)items.size()) return;
         const auto item = items[index];
 
-        if (g_streakData.gems < item.price) {
-            FLAlertLayer::create("Season Shop", "You don't have enough <cl>gems</c> for this.", "OK")->show();
+        if (item.unlockSpend > 0 && g_streakData.seasonShop.gemsSpent < item.unlockSpend) {
+            FLAlertLayer::create("Grand Prize",
+                fmt::format("Spend <cy>{}</c> more gems in this Season Shop to unlock it.",
+                    item.unlockSpend - g_streakData.seasonShop.gemsSpent).c_str(), "OK")->show();
             return;
         }
 
-        createQuickPopup("Confirm Purchase",
-            fmt::format("Buy <cy>{}</c> for <cl>{}</c> gems?", itemLabel(item), item.price),
-            "Cancel", "Buy",
-            [this, item, keepAlive = Ref<CCNode>(this)](auto, bool confirmed) {
-                if (confirmed) this->requestPurchase(item);
+        auto popup = PurchaseConfirmPopup::create(
+            itemSpriteName(item), itemLabel(item), item.price, purchaseCurrency(item),
+            [this, item, keepAlive = Ref<CCNode>(this)](int discountPercent) {
+                int finalPrice = discountedPurchasePrice(item.price, discountPercent);
+                if (currencyBalance(item) < finalPrice) {
+                    FLAlertLayer::create("Season Shop",
+                        usesStars(item) ? "You don't have enough <cy>stars</c> for this."
+                                        : "You don't have enough <cl>gems</c> for this.",
+                        "OK")->show();
+                    return;
+                }
+                this->requestPurchase(item, discountPercent);
             });
+        if (popup) popup->show();
     }
 
-    void requestPurchase(const StreakData::SeasonShopItem& item) {
+    void requestPurchase(const StreakData::SeasonShopItem& item, int discountPercent) {
         if (m_busy) return;
         m_busy = true;
 
         matjson::Value payload = matjson::Value::object();
         payload.set("item_id", item.itemId);
+        payload.set("discount_percent", discountPercent);
 
         claimOnServerEx("/season-shop/purchase", payload,
             [this, item, keepAlive = Ref<CCNode>(this)](bool ok, int code, const matjson::Value& data) {
                 m_busy = false;
                 if (!ok) {
-                    const char* msg = "Could not complete the purchase. Try again.";
-                    if (code == 402) msg = "You don't have enough gems for this.";
+                    std::string msg = "Could not complete the purchase. Try again.";
+                    if (code == 402) msg = usesStars(item)
+                        ? "You don't have enough stars for this."
+                        : "You don't have enough gems for this.";
                     else if (code == 409) msg = "You already own this, or it's sold out.";
+                    else if (code == 423) {
+                        int spent = data["gems_spent"].as<int>().unwrapOr(g_streakData.seasonShop.gemsSpent);
+                        int required = data["required_spend"].as<int>().unwrapOr(item.unlockSpend);
+                        msg = fmt::format("Spend {} more gems in this Season Shop to unlock it.",
+                            std::max(0, required - spent));
+                    }
                     else if (code == 403 || code == 404) msg = "This offer is no longer available.";
-                    FLAlertLayer::create("Season Shop", msg, "OK")->show();
+                    FLAlertLayer::create("Season Shop", msg.c_str(), "OK")->show();
                     rebuildList(true);
                     return;
                 }
@@ -347,9 +470,20 @@ protected:
             });
     }
 
-    // El servidor ya cobro las gemas y registro la compra; aqui solo se refleja
+    // El servidor ya cobro la moneda correspondiente y registro la compra; aqui
+    // se sincronizan los saldos y se entrega lo comprado.
     // en local y se entrega lo comprado.
     void applyPurchase(const StreakData::SeasonShopItem& item, const matjson::Value& data) {
+        const int fallbackSpent = g_streakData.seasonShop.gemsSpent +
+            (usesStars(item) ? 0 : data["purchase"]["final_price"].as<int>().unwrapOr(item.price));
+        g_streakData.seasonShop.gemsSpent = data["gems_spent"].as<int>().unwrapOr(fallbackSpent);
+        if (data.contains("balances")) {
+            auto balances = data["balances"];
+            g_streakData.gems = balances["gems"].as<int>().unwrapOr(g_streakData.gems);
+            g_streakData.superStars = balances["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
+            g_streakData.starTickets = balances["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
+            g_streakData.streakShields = balances["streak_shields"].as<int>().unwrapOr(g_streakData.streakShields);
+        }
         for (auto& it : g_streakData.seasonShop.items) {
             if (it.itemId == item.itemId) {
                 it.bought = data["bought"].as<int>().unwrapOr(it.bought + 1);
@@ -379,7 +513,15 @@ protected:
             }
         } else if (item.type == "badge") {
             g_streakData.unlockBadge(item.rewardId);
-            BadgeNotification::show(item.rewardId);
+            if (auto info = g_streakData.getBadgeInfo(item.rewardId);
+                info && StreakData::usesMythicPresentation(info->category)) {
+                auto animation = MythicAnimationLayer::create(*info, [id = item.rewardId]() {
+                    BadgeNotification::show(id);
+                });
+                CCDirector::sharedDirector()->getRunningScene()->addChild(animation, 99999);
+            } else {
+                BadgeNotification::show(item.rewardId);
+            }
         } else if (item.type == "song") {
             g_streakData.unlockSong(item.rewardId);
             if (auto info = g_streakData.getSongInfo(item.rewardId)) {
@@ -410,6 +552,14 @@ protected:
     }
 
     void update(float dt) override {
+        if (m_scroll && m_scroll->m_contentLayer) {
+            float contentW = m_scroll->m_contentLayer->getContentSize().width;
+            float viewW = m_scroll->getContentSize().width;
+            float minX = std::min(0.f, viewW - contentW);
+            float currentX = m_scroll->m_contentLayer->getPositionX();
+            if (currentX > 0.f) m_scroll->m_contentLayer->setPositionX(0.f);
+            else if (currentX < minX) m_scroll->m_contentLayer->setPositionX(minX);
+        }
         for (auto& ag : m_animatedGradients) {
             if (!ag.layer) continue;
             ag.hue += dt * 0.35f;
@@ -422,11 +572,7 @@ protected:
     }
 
     bool init() override {
-        // 3 columnas x 3 filas visibles. El ancho extra deja sitio al scrollbar
-        // en el margen derecho sin comerse las cartas.
-        float listW = COLUMNS * CELL_W;
-        float listH = VISIBLE_ROWS * CELL_H;
-        if (!Popup::init(listW + 42.f, listH + 46.f, "geode.loader/GE_square03.png")) return false;
+        if (!Popup::init(460.f, 292.f, "geode.loader/GE_square03.png")) return false;
         auto winSize = m_mainLayer->getContentSize();
 
         const auto& shop = g_streakData.seasonShop;
@@ -434,12 +580,11 @@ protected:
         // El popup es estrecho: el titulo se encoge para no chocar con las
         // gemas ni con el contador de cierre.
         if (m_title) {
-            float maxTitleW = winSize.width - 96.f;
+            float maxTitleW = winSize.width - 240.f;
             float titleW = m_title->getScaledContentSize().width;
             if (titleW > maxTitleW) m_title->setScale(m_title->getScale() * maxTitleW / titleW);
         }
 
-        // Gemas a la izquierda y cierre a la derecha, en la linea del titulo.
         float headerY = winSize.height - 19.f;
         if (auto gem = CCSprite::create("gem.png"_spr)) {
             gem->setScale(0.17f);
@@ -452,18 +597,32 @@ protected:
         m_gemLabel->setPosition({ 27.f, headerY });
         m_mainLayer->addChild(m_gemLabel, 5);
 
+        if (auto star = CCSprite::create("super_star.png"_spr)) {
+            star->setScale(0.16f);
+            star->setPosition({ 76.f, headerY });
+            m_mainLayer->addChild(star, 5);
+        }
+        m_starLabel = CCLabelBMFont::create("0", "bigFont.fnt");
+        m_starLabel->setAnchorPoint({ 0.f, 0.5f });
+        m_starLabel->setScale(0.28f);
+        m_starLabel->setPosition({ 87.f, headerY });
+        m_mainLayer->addChild(m_starLabel, 5);
+
         m_timerLabel = CCLabelBMFont::create("", "goldFont.fnt");
         m_timerLabel->setAnchorPoint({ 1.f, 0.5f });
         m_timerLabel->setScale(0.32f);
         m_timerLabel->setPosition({ winSize.width - 16.f, headerY });
         m_mainLayer->addChild(m_timerLabel, 5);
 
-        m_scroll = ScrollLayer::create({ listW, listH });
-        // Desplazada a la izquierda del centro: el hueco de la derecha es del
-        // scrollbar.
-        m_scroll->setPosition({ (winSize.width - listW) / 2.f - 7.f, 8.f });
+        m_scroll = ScrollLayer::create({ LIST_W, LIST_H }, true, false);
+        m_scroll->setPosition({ (winSize.width - LIST_W) / 2.f, 42.f });
         m_mainLayer->addChild(m_scroll, 4);
-        addScrollbar(m_scroll, 6.f, m_mainLayer);
+
+        auto dragHint = CCLabelBMFont::create("Drag sideways to browse", "goldFont.fnt");
+        dragHint->setScale(0.24f);
+        dragHint->setColor({ 170, 185, 205 });
+        dragHint->setPosition({ winSize.width / 2.f, 22.f });
+        m_mainLayer->addChild(dragHint, 5);
 
         rebuildList();
         updateTimer(0.f);

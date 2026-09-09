@@ -1,5 +1,6 @@
 ﻿#include "StreakData.h"
 #include "FirebaseManager.h"
+#include "PassNameCosmetics.h"
 #include <Geode/utils/cocos.hpp>
 #include <sstream>
 #include <iomanip>
@@ -83,6 +84,10 @@ void StreakData::resetToDefault() {
     streakPointsThisMonth = 0;
     lastMonth = "";
     premiumPassMonth = "";
+    premiumPassID = "";
+    premiumPassIDSupported = false;
+    stellarPassID = "";
+    stellarPassIDSupported = false;
     claimedFreePassTiers.clear();
     claimedPaidPassTiers.clear();
     passCompleteRewardClaimed = false;
@@ -186,6 +191,7 @@ void StreakData::parseSeasonShop(const matjson::Value& shop, SeasonShopState& ou
     out.title = shop["title"].as<std::string>().unwrapOr("Season Shop");
     out.endsAt = shop.contains("ends_at") && shop["ends_at"].isNumber()
         ? shop["ends_at"].as<long long>().unwrapOr(0LL) : 0LL;
+    out.gemsSpent = shop["gems_spent"].as<int>().unwrapOr(0);
     out.items.clear();
 
     // my_buys llega como { item_id: veces }.
@@ -212,6 +218,8 @@ void StreakData::parseSeasonShop(const matjson::Value& shop, SeasonShopState& ou
             item.price = it["price"].as<int>().unwrapOr(0);
             item.currency = it["currency"].as<std::string>().unwrapOr("gems");
             item.stock = it["stock"].as<int>().unwrapOr(0);
+            item.unlockSpend = it["unlock_spend"].as<int>().unwrapOr(0);
+            item.featured = it["featured"].as<bool>().unwrapOr(false);
             auto found = buys.find(item.itemId);
             item.bought = (found != buys.end()) ? found->second : 0;
             out.items.push_back(item);
@@ -273,6 +281,10 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     streakPointsThisMonth = safeInt(data, "streakPointsThisMonth", 0);
     lastMonth = data["lastMonth"].as<std::string>().unwrapOr(std::string(""));
     premiumPassMonth = data["premium_pass_month"].as<std::string>().unwrapOr(std::string(""));
+    premiumPassIDSupported = data.contains("premium_pass_id");
+    premiumPassID = data["premium_pass_id"].as<std::string>().unwrapOr(std::string(""));
+    stellarPassIDSupported = data.contains("stellar_pass_id");
+    stellarPassID = data["stellar_pass_id"].as<std::string>().unwrapOr(std::string(""));
     activePassID = data["active_pass_id"].as<std::string>().unwrapOr(std::string(""));
     passEnabled = data["pass_enabled"].as<bool>().unwrapOr(true);
     passPrice = data["pass_price"].as<int>().unwrapOr(1999);
@@ -421,6 +433,14 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     equippedNameColor = data["equipped_name_color"].as<std::string>().unwrapOr(std::string("Default"));
     equippedNameFont = data["equipped_name_font"].as<std::string>().unwrapOr(std::string("Default"));
     equippedNameEffect = data["equipped_name_effect"].as<std::string>().unwrapOr(std::string("None"));
+    if (PassNameCosmetics::isLegacyAnimation(equippedNameAnimation)) equippedNameAnimation = "None";
+    if (PassNameCosmetics::isLegacyColor(equippedNameColor)) equippedNameColor = "Default";
+    if (PassNameCosmetics::isLegacyEffect(equippedNameEffect)) equippedNameEffect = "None";
+    if (!isStellarPassActive()) {
+        if (isPassExclusiveNameItem(equippedNameAnimation)) equippedNameAnimation = "None";
+        if (isPassExclusiveNameItem(equippedNameColor)) equippedNameColor = "Default";
+        if (isPassExclusiveNameItem(equippedNameEffect)) equippedNameEffect = "None";
+    }
 
     if (data.contains("gem_roulette_state")) {
         gemRouletteState = data["gem_roulette_state"].as<std::vector<bool>>().unwrapOr(std::vector<bool>(7, false));
@@ -839,6 +859,7 @@ int StreakData::getTicketValueForRarity(BadgeCategory category) {
     case BadgeCategory::EPIC: return 50;
     case BadgeCategory::LEGENDARY: return 100;
     case BadgeCategory::MYTHIC: return 500;
+    case BadgeCategory::SECRETS: return 1000;
     default: return 0;
     }
 }
@@ -875,8 +896,16 @@ std::string StreakData::getCurrentMonth() {
 }
 
 bool StreakData::isPremiumPassActive() {
+    if (premiumPassIDSupported) {
+        return !activePassID.empty() && premiumPassID == activePassID;
+    }
     if (premiumPassMonth.empty()) return false;
     return premiumPassMonth == getCurrentMonth();
+}
+
+bool StreakData::isStellarPassActive() {
+    if (!stellarPassIDSupported) return false;
+    return !activePassID.empty() && stellarPassID == activePassID;
 }
 
 bool StreakData::isPassActive() const {
@@ -1223,6 +1252,7 @@ std::string StreakData::getCategoryName(BadgeCategory category) {
     case BadgeCategory::EPIC: return "Epic";
     case BadgeCategory::LEGENDARY: return "Legendary";
     case BadgeCategory::MYTHIC: return "Mythic";
+    case BadgeCategory::SECRETS: return "Secrets";
     default: return "Unknown";
     }
 }
@@ -1234,6 +1264,7 @@ ccColor3B StreakData::getCategoryColor(BadgeCategory category) {
     case BadgeCategory::EPIC: return { 170, 0, 255 };
     case BadgeCategory::LEGENDARY: return { 255, 165, 0 };
     case BadgeCategory::MYTHIC: return { 255, 50, 50 };
+    case BadgeCategory::SECRETS: return { 0, 240, 255 };
     default: return { 255, 255, 255 };
     }
 }
@@ -1404,6 +1435,7 @@ int StreakData::getPriceForRarity(BadgeCategory rarity) {
     case BadgeCategory::SPECIAL: return 25;
     case BadgeCategory::EPIC: return 50;
     case BadgeCategory::LEGENDARY: return 100;
+    case BadgeCategory::SECRETS: return 9999;
     default: return 9999;
     }
 }
@@ -1415,6 +1447,7 @@ int getRarityWeight(StreakData::BadgeCategory category) {
     case StreakData::BadgeCategory::EPIC:      return 30;
     case StreakData::BadgeCategory::LEGENDARY: return 5;
     case StreakData::BadgeCategory::MYTHIC:    return 0;
+    case StreakData::BadgeCategory::SECRETS:  return 0;
     default: return 0;
     }
 }
@@ -1446,7 +1479,7 @@ std::vector<StreakData::ShopItem> StreakData::getDailyShopSelection() {
         const std::string& name,
         const std::string& spr, int daysReq,
         bool excludeFromShop) {
-            if (cat == BadgeCategory::MYTHIC) return;
+            if (cat == BadgeCategory::MYTHIC || cat == BadgeCategory::SECRETS) return;
             if (excludeFromShop) return;
             if (daysReq > 0) return;
             candidates.push_back({ id, isBadge, getPriceForRarity(cat), cat, name, spr });
@@ -1781,6 +1814,7 @@ StreakData::LevelRewards StreakData::getRewardsForLevel(int level) {
 
 bool StreakData::isNameItemUnlocked(const std::string& item) {
     if (item == "Default" || item == "None") return true;
+    if (isPassExclusiveNameItem(item)) return isStellarPassActive();
     return unlockedNameItems.count(item) > 0;
 }
 
@@ -1791,14 +1825,19 @@ void StreakData::unlockNameItem(const std::string& item) {
 
 bool StreakData::isEventOnlyNameItem(const std::string& item) {
     static const std::set<std::string> kEventOnly = {
-        "Galaxy Wave"
+        "Galaxy Wave", "Limbo Fracture"
     };
     return kEventOnly.count(item) > 0;
+}
+
+bool StreakData::isPassExclusiveNameItem(const std::string& item) {
+    return PassNameCosmetics::contains(item);
 }
 
 int StreakData::getNameItemPrice(const std::string& item) {
 
     if (item == "Default" || item == "None") return 0;
+    if (isPassExclusiveNameItem(item)) return 0;
     if (isEventOnlyNameItem(item)) return 0;
     if (item.find("Wave") != std::string::npos ||
         item == "Synthwave" ||

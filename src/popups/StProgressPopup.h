@@ -22,10 +22,13 @@ using namespace geode::prelude;
 
 class StProgressPopup : public Popup {
 protected:
-    static constexpr int MONTHLY_GOAL_SP = 2500;
     static constexpr int PAID_TIER_STEP = 50;
     static constexpr int FREE_TIER_STEP = 100;
-    static constexpr int TOTAL_PAID_TIERS = MONTHLY_GOAL_SP / PAID_TIER_STEP;
+    static constexpr int VIP_TIER_COUNT = 50;
+    static constexpr int STELLAR_TIER_COUNT = 20;
+    static constexpr int TOTAL_PAID_TIERS = VIP_TIER_COUNT + STELLAR_TIER_COUNT;
+    static constexpr int TRACK_GOAL_SP = TOTAL_PAID_TIERS * PAID_TIER_STEP;
+    static constexpr float STELLAR_INTRO_WIDTH = 92.f;
     static constexpr int MILESTONE_SP = 200;
 
     enum class PassRewardType { None, Tickets, Stars, Gems, Shields, DiscountTicket, Chest, Badge, Banner, NameItem };
@@ -49,7 +52,8 @@ protected:
     ScrollLayer* m_scrollLayer = nullptr;
     CCLabelBMFont* m_countdownLabel = nullptr;
     CCLabelBMFont* m_goldLabel = nullptr;
-    RoundedProgressBar* m_progressBar = nullptr;
+    RoundedProgressBar* m_vipProgressBar = nullptr;
+    RoundedProgressBar* m_stellarProgressBar = nullptr;
     CCNode* m_premiumStatusNode = nullptr;
     std::vector<AnimatedGradient> m_animatedGradients;
     CCLayerGradient* m_bgGradient = nullptr;
@@ -385,7 +389,11 @@ protected:
         auto btn = static_cast<CCNode*>(sender);
         int tier = btn->getTag();
         CCPoint spawnPos = btn->convertToWorldSpaceAR(CCPointZero);
-        if (!g_streakData.isPremiumPassActive()) {
+        if (tier > VIP_TIER_COUNT && !g_streakData.isStellarPassActive()) {
+            FLAlertLayer::create("Stellar Pass", "Support the project on Ko-fi to unlock this Stellar reward.", "OK")->show();
+            return;
+        }
+        if (tier <= VIP_TIER_COUNT && !g_streakData.isPremiumPassActive()) {
             FLAlertLayer::create("Premium Pass", "Unlock the Premium Pass to claim this reward.", "OK")->show();
             return;
         }
@@ -425,7 +433,7 @@ protected:
     void requestClaimTier(const std::string& track, int tier, CCPoint spawnPos) {
         const bool isFree = (track == "free");
         if (isFree) {
-            if (tier <= 0 || tier > TOTAL_PAID_TIERS / 2) return;
+            if (tier <= 0 || tier > VIP_TIER_COUNT / 2) return;
             if (g_streakData.isFreePassTierClaimed(tier)) return;
             if (g_streakData.goldTickets < tier * FREE_TIER_STEP) return;
         } else {
@@ -588,17 +596,17 @@ protected:
 
     void refreshGoldBuyBar() {
         int g = g_streakData.goldTickets;
-        int goal = std::min(MONTHLY_GOAL_SP, ((g / FREE_TIER_STEP) + 1) * FREE_TIER_STEP);
+        int goal = std::min(TRACK_GOAL_SP, ((g / FREE_TIER_STEP) + 1) * FREE_TIER_STEP);
         int segStart = std::max(0, goal - FREE_TIER_STEP);
-        if (g >= MONTHLY_GOAL_SP) { goal = MONTHLY_GOAL_SP; segStart = MONTHLY_GOAL_SP - FREE_TIER_STEP; }
+        if (g >= TRACK_GOAL_SP) { goal = TRACK_GOAL_SP; segStart = TRACK_GOAL_SP - FREE_TIER_STEP; }
 
         if (m_goldBuyBar) {
             float denom = (float)std::max(1, goal - segStart);
-            m_goldBuyBar->setProgress((g >= MONTHLY_GOAL_SP) ? 1.f : (float)(g - segStart) / denom);
+            m_goldBuyBar->setProgress((g >= TRACK_GOAL_SP) ? 1.f : (float)(g - segStart) / denom);
         }
         if (m_goldBuyGoalLabel) {
             m_goldBuyGoalLabel->setString(
-                (g >= MONTHLY_GOAL_SP) ? "MAX" : fmt::format("Next: {}", goal).c_str());
+                (g >= TRACK_GOAL_SP) ? "MAX" : fmt::format("Next: {}", goal).c_str());
         }
     }
 
@@ -730,12 +738,30 @@ protected:
                     return;
                 }
                 g_streakData.premiumPassMonth = g_streakData.getCurrentMonth();
+                g_streakData.premiumPassID = g_streakData.activePassID;
+                g_streakData.premiumPassIDSupported = true;
                 PremiumUnlockAnim::show();
                 refreshHeader();
                 refreshTrack();
             });
         });
         if (popup) popup->show();
+    }
+
+    void onSupportStellar(CCObject*) {
+        std::string status = g_streakData.isStellarPassActive()
+            ? "\n\n<cg>Stellar is active for this pass.</c>"
+            : "";
+        createQuickPopup(
+            "Stellar Pass",
+            "Support the project with <cy>$3 USD</c> on Ko-fi to request Stellar access. "
+            "After the support is verified, access is activated manually from the server for the current pass."
+            + status,
+            "Cancel", "Ko-fi",
+            [](FLAlertLayer*, bool openKofi) {
+                if (openKofi) cocos2d::CCApplication::sharedApplication()->openURL("https://ko-fi.com/streakservers");
+            }
+        );
     }
 
     enum class TierState { Locked, Claimable, Claimed };
@@ -750,7 +776,11 @@ protected:
     TierState paidTierState(int tier) {
         int reqSP = tier * PAID_TIER_STEP;
         if (g_streakData.isPaidPassTierClaimed(tier)) return TierState::Claimed;
-        if (!g_streakData.isPremiumPassActive()) return TierState::Locked;
+        if (tier > VIP_TIER_COUNT) {
+            if (!g_streakData.isStellarPassActive()) return TierState::Locked;
+        } else if (!g_streakData.isPremiumPassActive()) {
+            return TierState::Locked;
+        }
         if (g_streakData.goldTickets >= reqSP) return TierState::Claimable;
         return TierState::Locked;
     }
@@ -861,6 +891,62 @@ protected:
         return cell;
     }
 
+    CCNode* buildStellarIntroCell(float colWidth, float cellHeight) {
+        auto cell = CCNode::create();
+        cell->setContentSize({ colWidth, cellHeight });
+        cell->ignoreAnchorPointForPosition(false);
+        cell->setAnchorPoint({ 0.5f, 0.5f });
+
+        auto panel = makeRoundedGradient(
+            colWidth - 8.f, cellHeight - 18.f,
+            { 35, 18, 90 }, { 45, 195, 255 }, 235
+        );
+        panel.node->setPosition({ colWidth / 2.f, cellHeight / 2.f });
+        cell->addChild(panel.node);
+        m_animatedGradients.push_back({ panel.gradient, 0.65f });
+
+        auto title = CCLabelBMFont::create("STELLAR", "goldFont.fnt");
+        title->setScale(0.42f);
+        title->setPosition({ colWidth / 2.f, cellHeight - 28.f });
+        cell->addChild(title, 3);
+
+        auto stellar = CCSprite::create("stellar.png"_spr);
+        if (!stellar) stellar = CCSprite::createWithSpriteFrameName("GJ_starsIcon_001.png");
+        if (stellar) {
+            float maxW = colWidth - 22.f;
+            float maxH = 74.f;
+            float sx = maxW / std::max(stellar->getContentSize().width, 1.f);
+            float sy = maxH / std::max(stellar->getContentSize().height, 1.f);
+            stellar->setScale(std::min(sx, sy));
+            stellar->setPosition({ colWidth / 2.f, cellHeight / 2.f + 16.f });
+            cell->addChild(stellar, 3);
+        }
+
+        bool active = g_streakData.isStellarPassActive();
+        auto activateSpr = ButtonSprite::create(
+            active ? "ACTIVE" : "Activate",
+            62, true, "goldFont.fnt",
+            active ? "GJ_button_02.png" : "GJ_button_05.png",
+            20.f, 0.36f
+        );
+        if (activateSpr) {
+            float maxW = colWidth - 22.f;
+            float maxH = 25.f;
+            float sx = maxW / std::max(activateSpr->getContentSize().width, 1.f);
+            float sy = maxH / std::max(activateSpr->getContentSize().height, 1.f);
+            activateSpr->setScale(std::min({ 1.f, sx, sy }));
+        }
+        auto activateBtn = CCMenuItemSpriteExtra::create(
+            activateSpr, this, menu_selector(StProgressPopup::onSupportStellar)
+        );
+        activateBtn->setEnabled(!active && !m_passEnded);
+        auto activateMenu = CCMenu::createWithItem(activateBtn);
+        activateMenu->setPosition({ colWidth / 2.f, 39.f });
+        cell->addChild(activateMenu, 4);
+
+        return cell;
+    }
+
     CCNode* buildTierCell(int paidTier, float colWidth, float cellHeight) {
         auto cell = CCNode::create();
         cell->setContentSize({ colWidth, cellHeight });
@@ -868,7 +954,8 @@ protected:
         cell->setAnchorPoint({ 0.5f, 0.5f });
 
         float midY = cellHeight / 2.f;
-        bool hasFree = (paidTier % 2 == 0);
+        bool isStellarTier = paidTier > VIP_TIER_COUNT;
+        bool hasFree = !isStellarTier && (paidTier % 2 == 0);
         int freeTier = paidTier / 2;
         int paidSP = paidTier * PAID_TIER_STEP;
         bool isPaidMilestone = (paidSP % MILESTONE_SP == 0);
@@ -924,8 +1011,10 @@ protected:
         cell->addChild(tierLbl);
 
         auto tierIdx = CCLabelBMFont::create(
-            fmt::format("T{}", paidTier).c_str(),
-            "bigFont.fnt"
+            isStellarTier
+                ? fmt::format("S{}", paidTier - VIP_TIER_COUNT).c_str()
+                : fmt::format("T{}", paidTier).c_str(),
+            isStellarTier ? "goldFont.fnt" : "bigFont.fnt"
         );
         tierIdx->setScale(0.32f);
         tierIdx->setOpacity(180);
@@ -935,8 +1024,20 @@ protected:
         auto reward = getPaidReward(paidTier);
         auto state = paidTierState(paidTier);
         bool premiumOn = g_streakData.isPremiumPassActive();
+        bool stellarOn = g_streakData.isStellarPassActive();
+        bool tierAccess = isStellarTier ? stellarOn : premiumOn;
 
-        if (isPaidMilestone) {
+        if (isStellarTier) {
+            auto bg = makeRoundedGradient(
+                bgW, bgH,
+                { 45, 25, 115 },
+                { 45, 205, 255 },
+                tierAccess ? 235 : 105
+            );
+            bg.node->setPosition({ colWidth / 2.f, paidY });
+            cell->addChild(bg.node);
+            if (isPaidMilestone) m_animatedGradients.push_back({ bg.gradient, 0.65f });
+        } else if (isPaidMilestone) {
             auto bg = makeRoundedGradient(bgW, bgH, { 90, 200, 255 }, { 200, 120, 255 }, 230);
             bg.node->setPosition({ colWidth / 2.f, paidY });
             cell->addChild(bg.node);
@@ -946,7 +1047,7 @@ protected:
                 bgW, bgH,
                 { 130, 200, 255 },
                 { 255, 170, 220 },
-                premiumOn ? 220 : 110
+                tierAccess ? 220 : 110
             );
             bg.node->setPosition({ colWidth / 2.f, paidY });
             cell->addChild(bg.node);
@@ -964,7 +1065,7 @@ protected:
             check->setScale(0.45f);
             check->setPosition({ colWidth - 10.f, paidY + 22.f });
             cell->addChild(check, 10);
-        } else if (!premiumOn) {
+        } else if (!tierAccess) {
             auto lock = CCSprite::createWithSpriteFrameName("GJ_lockGray_001.png");
             lock->setScale(0.32f);
             lock->setPosition({ colWidth - 10.f, paidY + 22.f });
@@ -1013,14 +1114,14 @@ protected:
         }
     }
 
-    float passProgressPct() const {
-        float g = (float)std::clamp(g_streakData.goldTickets, 0, MONTHLY_GOAL_SP);
+    float segmentProgressPct(int startTickets, int tierCount) const {
+        float maxTickets = (float)(tierCount * PAID_TIER_STEP);
+        float g = (float)std::clamp(g_streakData.goldTickets - startTickets, 0, (int)maxTickets);
         float step = (float)PAID_TIER_STEP;
-        float denom = (float)TOTAL_PAID_TIERS - 0.5f;
+        float denom = (float)tierCount - 0.5f;
         float t = g / step;
-        float pct = (t <= 1.f)
-            ? t * (0.5f / denom)
-            : (t - 0.5f) / denom;
+        float visualT = (t <= 1.f) ? t * 0.5f : t - 0.5f;
+        float pct = visualT / denom;
         return std::clamp(pct, 0.f, 1.f);
     }
 
@@ -1033,39 +1134,70 @@ protected:
 
         m_scrollLayer->m_contentLayer->removeAllChildren();
         m_animatedGradients.clear();
-        m_progressBar = nullptr;
+        m_vipProgressBar = nullptr;
+        m_stellarProgressBar = nullptr;
 
         auto listSize = m_scrollLayer->getContentSize();
         float colWidth = 58.f;
         float introWidth = 90.f;
         float cellHeight = listSize.height;
         float tiersWidth = colWidth * (float)TOTAL_PAID_TIERS;
-        float totalWidth = 6.f + introWidth + tiersWidth + 6.f;
+        float totalWidth = 6.f + introWidth + tiersWidth + STELLAR_INTRO_WIDTH + 6.f;
+        float stellarStartX = 6.f + introWidth + VIP_TIER_COUNT * colWidth;
 
         m_scrollLayer->m_contentLayer->setContentSize({ totalWidth, cellHeight });
 
         float barHeight = 14.f;
         float barY = cellHeight / 2.f;
         bool premiumOn = g_streakData.isPremiumPassActive();
-        float barWidth = tiersWidth - colWidth / 2.f;
-        m_progressBar = RoundedProgressBar::create(barWidth, barHeight);
-        m_progressBar->setPosition({ 6.f + introWidth + barWidth / 2.f, barY });
+        bool stellarOn = g_streakData.isStellarPassActive();
+        float vipBarWidth = VIP_TIER_COUNT * colWidth - colWidth / 2.f;
+        m_vipProgressBar = RoundedProgressBar::create(vipBarWidth, barHeight);
+        m_vipProgressBar->setPosition({ 6.f + introWidth + vipBarWidth / 2.f, barY });
         if (premiumOn) {
-            m_progressBar->setRainbowMode(true);
+            m_vipProgressBar->setRainbowMode(true);
         } else {
-            m_progressBar->setGradientColors({ 250, 225, 60 }, { 255, 165, 0 });
+            m_vipProgressBar->setGradientColors({ 250, 225, 60 }, { 255, 165, 0 });
         }
-        m_progressBar->setProgress(passProgressPct());
-        m_scrollLayer->m_contentLayer->addChild(m_progressBar, 1);
+        m_vipProgressBar->setProgress(segmentProgressPct(0, VIP_TIER_COUNT));
+        m_scrollLayer->m_contentLayer->addChild(m_vipProgressBar, 1);
+
+        float stellarBarWidth = STELLAR_TIER_COUNT * colWidth - colWidth / 2.f;
+        m_stellarProgressBar = RoundedProgressBar::create(stellarBarWidth, barHeight);
+        m_stellarProgressBar->setPosition({
+            stellarStartX + STELLAR_INTRO_WIDTH + stellarBarWidth / 2.f,
+            barY
+        });
+        if (stellarOn) {
+            m_stellarProgressBar->setGradientColors({ 70, 210, 255 }, { 190, 70, 255 });
+        } else {
+            m_stellarProgressBar->setGradientColors({ 65, 85, 155 }, { 90, 55, 155 });
+        }
+        m_stellarProgressBar->setProgress(segmentProgressPct(VIP_TIER_COUNT * PAID_TIER_STEP, STELLAR_TIER_COUNT));
+        m_scrollLayer->m_contentLayer->addChild(m_stellarProgressBar, 1);
 
         auto intro = buildIntroCell(introWidth, cellHeight);
         intro->setPosition({ 6.f + introWidth / 2.f, cellHeight / 2.f });
         m_scrollLayer->m_contentLayer->addChild(intro);
 
-        for (int t = 1; t <= TOTAL_PAID_TIERS; ++t) {
+        for (int t = 1; t <= VIP_TIER_COUNT; ++t) {
             auto cell = buildTierCell(t, colWidth, cellHeight);
             cell->setPosition({
                 6.f + introWidth + colWidth / 2.f + (t - 1) * colWidth,
+                cellHeight / 2.f
+            });
+            m_scrollLayer->m_contentLayer->addChild(cell);
+        }
+
+        auto stellarIntro = buildStellarIntroCell(STELLAR_INTRO_WIDTH, cellHeight);
+        stellarIntro->setPosition({ stellarStartX + STELLAR_INTRO_WIDTH / 2.f, cellHeight / 2.f });
+        m_scrollLayer->m_contentLayer->addChild(stellarIntro, 3);
+
+        for (int t = VIP_TIER_COUNT + 1; t <= TOTAL_PAID_TIERS; ++t) {
+            auto cell = buildTierCell(t, colWidth, cellHeight);
+            cell->setPosition({
+                stellarStartX + STELLAR_INTRO_WIDTH + colWidth / 2.f
+                    + (t - VIP_TIER_COUNT - 1) * colWidth,
                 cellHeight / 2.f
             });
             m_scrollLayer->m_contentLayer->addChild(cell);
@@ -1075,6 +1207,7 @@ protected:
         if (!m_initialScrollDone) {
             int currentTier = std::clamp(g_streakData.goldTickets / PAID_TIER_STEP, 0, TOTAL_PAID_TIERS);
             float scrollX = std::max(0.f, introWidth + (currentTier - 2) * colWidth);
+            if (currentTier > VIP_TIER_COUNT) scrollX += STELLAR_INTRO_WIDTH;
             scrollX = std::min(scrollX, maxScrollX);
             m_scrollLayer->m_contentLayer->setPositionX(-scrollX);
             m_initialScrollDone = true;

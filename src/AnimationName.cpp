@@ -1,4 +1,5 @@
 #include "NameModifiers.h"
+#include <vector>
 
 namespace NameModifiers {
     void applyAnimation(CCLabelBMFont* label, const std::string& animID) {
@@ -100,8 +101,91 @@ namespace NameModifiers {
             auto spawn2 = CCSpawn::create(rot2, scale2, nullptr);
             animAction = CCRepeatForever::create(CCSequence::create(spawn1, spawn2, nullptr));
         }
+        else if (animID == "Accordion" || animID == "Pair Swap" || animID == "Shutter Cut" ||
+            animID == "Rail Switch" || animID == "Fan Deck") {
+            std::vector<CCSprite*> letters;
+            for (auto letter : label->getChildrenExt<CCSprite*>()) {
+                if (letter) letters.push_back(letter);
+            }
 
- 
+            int totalLetters = static_cast<int>(letters.size());
+            float middle = (totalLetters - 1) * .5f;
+            for (int i = 0; i < totalLetters; ++i) {
+                auto letter = letters[i];
+
+                if (animID == "Accordion") {
+                    float horizontal = (middle - i) * 2.1f * baseScale;
+                    letter->runAction(CCRepeatForever::create(CCSequence::create(
+                        CCEaseSineOut::create(CCMoveBy::create(.28f, { horizontal, 0.f })),
+                        CCDelayTime::create(.3f),
+                        CCEaseSineInOut::create(CCMoveBy::create(.38f, { -horizontal * 1.65f, 0.f })),
+                        CCDelayTime::create(.3f),
+                        CCEaseSineOut::create(CCMoveBy::create(.28f, { horizontal * .65f, 0.f })),
+                        CCDelayTime::create(.55f),
+                        nullptr
+                    )));
+                }
+                else if (animID == "Pair Swap") {
+                    int mate = (i % 2 == 0) ? i + 1 : i - 1;
+                    if (mate < 0 || mate >= totalLetters) continue;
+                    float dx = letters[mate]->getPositionX() - letter->getPositionX();
+                    float arc = (i % 2 == 0 ? 5.f : -5.f) * baseScale;
+                    letter->runAction(CCRepeatForever::create(CCSequence::create(
+                        CCDelayTime::create((i / 2) * .06f),
+                        CCMoveBy::create(.26f, { dx, arc }),
+                        CCDelayTime::create(.25f),
+                        CCMoveBy::create(.26f, { -dx, -arc }),
+                        CCDelayTime::create(.85f),
+                        nullptr
+                    )));
+                }
+                else if (animID == "Shutter Cut") {
+                    float delay = (i % 9) * .065f;
+                    letter->runAction(CCRepeatForever::create(CCSequence::create(
+                        CCDelayTime::create(delay),
+                        CCScaleTo::create(.09f, 1.f, .025f),
+                        CCDelayTime::create(.12f),
+                        CCScaleTo::create(.16f, 1.f, 1.f),
+                        CCDelayTime::create(1.0f - delay),
+                        nullptr
+                    )));
+                }
+                else if (animID == "Rail Switch") {
+                    float side = (i % 2 == 0) ? -1.f : 1.f;
+                    CCPoint lane = { side * 2.5f * baseScale, side * 6.5f * baseScale };
+                    letter->runAction(CCRepeatForever::create(CCSequence::create(
+                        CCMoveBy::create(.24f, lane),
+                        CCDelayTime::create(.2f),
+                        CCMoveBy::create(.36f, { -lane.x * 2.f, -lane.y * 2.f }),
+                        CCDelayTime::create(.2f),
+                        CCMoveBy::create(.24f, lane),
+                        CCDelayTime::create(.55f),
+                        nullptr
+                    )));
+                }
+                else if (animID == "Fan Deck") {
+                    float offset = i - middle;
+                    float spread = offset * 1.3f * baseScale;
+                    float lift = (7.f - std::min(6.f, std::abs(offset) * 1.15f)) * baseScale;
+                    float angle = offset * 7.f;
+                    letter->runAction(CCRepeatForever::create(CCSequence::create(
+                        CCSpawn::create(
+                            CCEaseSineOut::create(CCMoveBy::create(.34f, { spread, lift })),
+                            CCEaseSineOut::create(CCRotateBy::create(.34f, angle)),
+                            nullptr
+                        ),
+                        CCDelayTime::create(.45f),
+                        CCSpawn::create(
+                            CCEaseSineInOut::create(CCMoveBy::create(.4f, { -spread, -lift })),
+                            CCEaseSineInOut::create(CCRotateBy::create(.4f, -angle)),
+                            nullptr
+                        ),
+                        CCDelayTime::create(.6f),
+                        nullptr
+                    )));
+                }
+            }
+        }
         else if (animID == "Bounce" || animID == "Shake" || animID == "DVD" || animID == "Float" ||
             animID == "Dynamic Jump" || animID == "Wave" || animID == "Domino" || animID == "Spiral" || animID == "Squish") {
 

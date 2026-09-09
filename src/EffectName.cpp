@@ -1,4 +1,7 @@
-﻿#include "NameModifiers.h"
+#include "NameModifiers.h"
+
+#include <algorithm>
+#include <cmath>
 
 namespace NameModifiers {
 
@@ -12,6 +15,19 @@ namespace NameModifiers {
         dot->setOpacity(opacity);
         dot->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });  
         return dot;
+    }
+
+    static CCSprite* createEffectRect(float width, float height, ccColor3B color,
+        GLubyte opacity = 220, bool additive = false) {
+        auto rect = CCSprite::create("square.png");
+        if (!rect) rect = CCSprite::create();
+        auto size = rect->getContentSize();
+        rect->setScaleX(width / std::max(size.width, 1.f));
+        rect->setScaleY(height / std::max(size.height, 1.f));
+        rect->setColor(color);
+        rect->setOpacity(opacity);
+        if (additive) rect->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
+        return rect;
     }
 
    
@@ -663,6 +679,305 @@ namespace NameModifiers {
             container->addChild(bgGlow, -1);
         }
 
+        else if (effectID == "Origami Flight") {
+            const ccColor3B colors[] = {
+                { 75, 235, 255 }, { 255, 105, 205 }, { 255, 235, 120 }, { 155, 120, 255 }
+            };
+            for (int i = 0; i < 4; ++i) {
+                auto bird = CCNode::create();
+                auto paper = CCDrawNode::create();
+                float wing = (5.5f + (i % 2) * 1.5f) * scale;
+                ccColor4F color = {
+                    colors[i].r / 255.f, colors[i].g / 255.f,
+                    colors[i].b / 255.f, 0.85f
+                };
+                CCPoint leftWing[] = { { 0.f, 0.f }, { -wing, wing * .45f }, { -wing * .3f, -wing * .35f } };
+                CCPoint rightWing[] = { { 0.f, 0.f }, { wing, wing * .45f }, { wing * .3f, -wing * .35f } };
+                paper->drawPolygon(leftWing, 3, color, .35f * scale, { 1.f, 1.f, 1.f, .65f });
+                paper->drawPolygon(rightWing, 3, color, .35f * scale, { 1.f, 1.f, 1.f, .65f });
+                bird->addChild(paper);
+
+                float side = (i % 2 == 0) ? -1.f : 1.f;
+                CCPoint start = { side * (halfW + 16.f * scale), -halfH + i * halfH * .65f };
+                CCPoint mid = { -side * halfW * .15f, halfH * (.75f - i * .22f) };
+                CCPoint end = { -side * (halfW + 16.f * scale), -halfH * .3f + i * halfH * .35f };
+                bird->setPosition(start);
+                bird->setRotation(side * 12.f);
+                auto flight = CCSequence::create(
+                    CCDelayTime::create(i * .22f),
+                    CCMoveTo::create(.01f, start),
+                    CCSpawn::create(CCMoveTo::create(.65f, mid), CCRotateTo::create(.65f, -side * 8.f), nullptr),
+                    CCSpawn::create(CCMoveTo::create(.65f, end), CCRotateTo::create(.65f, side * 12.f), nullptr),
+                    CCDelayTime::create(.9f - i * .12f),
+                    nullptr
+                );
+                bird->runAction(CCRepeatForever::create(flight));
+                paper->runAction(CCRepeatForever::create(CCSequence::create(
+                    CCScaleTo::create(.18f, 1.f, .45f),
+                    CCScaleTo::create(.18f, 1.f, 1.f),
+                    nullptr
+                )));
+                container->addChild(bird);
+            }
+        }
+
+        else if (effectID == "Crown Assembly") {
+            const float crownY = halfH + 7.f * scale;
+            auto base = createEffectRect(25.f * scale, 2.6f * scale, { 255, 198, 45 }, 235);
+            base->setPosition({ 0.f, crownY - 3.f * scale });
+            base->setOpacity(0);
+            base->runAction(CCRepeatForever::create(CCSequence::create(
+                CCMoveTo::create(.01f, { 0.f, crownY - 12.f * scale }),
+                CCFadeIn::create(.01f),
+                CCMoveTo::create(.28f, { 0.f, crownY - 3.f * scale }),
+                CCDelayTime::create(1.15f),
+                CCMoveTo::create(.24f, { 0.f, crownY - 12.f * scale }),
+                CCFadeOut::create(.01f),
+                CCDelayTime::create(.45f),
+                nullptr
+            )));
+            container->addChild(base);
+
+            for (int i = 0; i < 3; ++i) {
+                auto jewel = CCDrawNode::create();
+                float pieceW = (i == 1 ? 6.f : 5.f) * scale;
+                float pieceH = (i == 1 ? 9.f : 7.f) * scale;
+                CCPoint points[] = {
+                    { -pieceW, -pieceH * .45f }, { 0.f, pieceH }, { pieceW, -pieceH * .45f }
+                };
+                ccColor4F fill = i == 1 ? ccColor4F{ 1.f, .35f, .72f, .95f } : ccColor4F{ 1.f, .82f, .18f, .95f };
+                jewel->drawPolygon(points, 3, fill, .45f * scale, { 1.f, 1.f, .7f, .9f });
+                float targetX = (i - 1) * 8.f * scale;
+                CCPoint target = { targetX, crownY + (i == 1 ? 1.5f : 0.f) };
+                CCPoint scattered = { targetX + (i - 1) * 13.f * scale, crownY + 15.f * scale + i * 4.f * scale };
+                jewel->setPosition(scattered);
+                jewel->setOpacity(0);
+                jewel->runAction(CCRepeatForever::create(CCSequence::create(
+                    CCDelayTime::create(i * .11f),
+                    CCSpawn::create(CCMoveTo::create(.3f, target), CCFadeIn::create(.18f), nullptr),
+                    CCDelayTime::create(1.05f - i * .11f),
+                    CCSpawn::create(CCMoveTo::create(.25f, scattered), CCFadeOut::create(.2f), nullptr),
+                    CCDelayTime::create(.45f),
+                    nullptr
+                )));
+                container->addChild(jewel);
+            }
+        }
+
+        else if (effectID == "Ink Signature") {
+            const float widths[] = { 8.f, 10.f, 6.f, 12.f, 7.f, 9.f, 5.f };
+            const float angles[] = { -8.f, 13.f, -18.f, 6.f, -11.f, 16.f, -5.f };
+            float cursor = -halfW - 2.f * scale;
+            for (int i = 0; i < 7; ++i) {
+                float width = widths[i] * scale;
+                float thickness = (i == 3 ? 1.4f : .8f) * scale;
+                auto stroke = createEffectRect(width, thickness, i % 2 ? ccColor3B{ 110, 80, 230 } : ccColor3B{ 30, 205, 210 }, 235);
+                float fullX = stroke->getScaleX();
+                float fullY = stroke->getScaleY();
+                stroke->setAnchorPoint({ 0.f, .5f });
+                stroke->setScaleX(.001f);
+                stroke->setPosition({ cursor, -halfH - (3.f + (i % 3)) * scale });
+                stroke->setRotation(angles[i]);
+                stroke->runAction(CCRepeatForever::create(CCSequence::create(
+                    CCDelayTime::create(i * .08f),
+                    CCScaleTo::create(.13f, fullX, fullY),
+                    CCDelayTime::create(.85f),
+                    CCScaleTo::create(.1f, .001f, fullY),
+                    CCDelayTime::create(1.1f - i * .08f),
+                    nullptr
+                )));
+                container->addChild(stroke);
+                cursor += width * .83f;
+            }
+        }
+
+        else if (effectID == "Chevron Parade") {
+            const ccColor3B colors[] = { { 255, 75, 150 }, { 60, 225, 255 }, { 255, 215, 55 } };
+            for (int i = 0; i < 5; ++i) {
+                auto chevron = CCNode::create();
+                auto upper = createEffectRect(7.f * scale, 1.8f * scale, colors[i % 3], 215);
+                auto lower = createEffectRect(7.f * scale, 1.8f * scale, colors[i % 3], 215);
+                upper->setRotation(-35.f);
+                lower->setRotation(35.f);
+                upper->setPosition({ 0.f, 2.f * scale });
+                lower->setPosition({ 0.f, -2.f * scale });
+                chevron->addChild(upper);
+                chevron->addChild(lower);
+                CCPoint start = { -halfW - 18.f * scale - i * 9.f * scale, (i % 2 ? -1.f : 1.f) * halfH * .65f };
+                CCPoint end = { halfW + 18.f * scale, start.y };
+                chevron->setPosition(start);
+                chevron->runAction(CCRepeatForever::create(CCSequence::create(
+                    CCDelayTime::create(i * .16f),
+                    CCMoveTo::create(.01f, start),
+                    CCFadeIn::create(.05f),
+                    CCMoveTo::create(1.15f, end),
+                    CCFadeOut::create(.08f),
+                    CCDelayTime::create(1.05f - i * .16f),
+                    nullptr
+                )));
+                container->addChild(chevron);
+            }
+        }
+
+        else if (effectID == "Equalizer") {
+            int bars = 11;
+            float gap = (halfW * 1.8f) / (bars - 1);
+            for (int i = 0; i < bars; ++i) {
+                float width = std::max(1.25f, gap * .42f);
+                auto bar = createEffectRect(width, 10.f * scale, {
+                    static_cast<GLubyte>(55 + i * 16),
+                    static_cast<GLubyte>(235 - i * 9),
+                    static_cast<GLubyte>(150 + (i % 3) * 35)
+                }, 210);
+                float sx = bar->getScaleX();
+                float sy = bar->getScaleY();
+                bar->setAnchorPoint({ .5f, 0.f });
+                bar->setPosition({ -halfW * .9f + gap * i, -halfH - 4.f * scale });
+                bar->setScaleY(sy * .2f);
+                float peak = sy * (.55f + (i % 4) * .22f);
+                bar->runAction(CCRepeatForever::create(CCSequence::create(
+                    CCDelayTime::create((i % 4) * .07f),
+                    CCScaleTo::create(.18f, sx, peak),
+                    CCScaleTo::create(.16f, sx, sy * .2f),
+                    CCScaleTo::create(.12f, sx, sy * (.35f + (i % 2) * .3f)),
+                    CCScaleTo::create(.2f, sx, sy * .2f),
+                    nullptr
+                )));
+                container->addChild(bar);
+            }
+        }
+
+        else if (effectID == "Flip Tiles") {
+            for (int row = 0; row < 2; ++row) {
+                for (int col = 0; col < 6; ++col) {
+                    int index = row * 6 + col;
+                    float tileW = std::max(5.f * scale, halfW * .28f);
+                    float tileH = std::max(4.f * scale, halfH * .7f);
+                    auto tile = createEffectRect(tileW, tileH,
+                        (index % 2) ? ccColor3B{ 45, 215, 190 } : ccColor3B{ 130, 75, 225 }, 85);
+                    float sx = tile->getScaleX();
+                    float sy = tile->getScaleY();
+                    tile->setPosition({ (col - 2.5f) * tileW * 1.05f, (row ? 1.f : -1.f) * tileH * .55f });
+                    tile->runAction(CCRepeatForever::create(CCSequence::create(
+                        CCDelayTime::create(index * .055f),
+                        CCScaleTo::create(.12f, .002f, sy),
+                        CCTintTo::create(.01f, index % 2 ? 245 : 45, index % 2 ? 120 : 220, index % 2 ? 75 : 190),
+                        CCScaleTo::create(.12f, sx, sy),
+                        CCDelayTime::create(.55f),
+                        CCScaleTo::create(.12f, .002f, sy),
+                        CCTintTo::create(.01f, index % 2 ? 45 : 130, index % 2 ? 215 : 75, index % 2 ? 190 : 225),
+                        CCScaleTo::create(.12f, sx, sy),
+                        CCDelayTime::create(1.1f - index * .055f),
+                        nullptr
+                    )));
+                    container->addChild(tile, -1);
+                }
+            }
+        }
+
+        else if (effectID == "Morse Signal") {
+            const bool dash[] = { false, false, false, true, true, true, false, false, false };
+            float totalWidth = 0.f;
+            for (bool isDash : dash) totalWidth += (isDash ? 6.f : 2.f) * scale + 2.2f * scale;
+            float x = -totalWidth * .5f;
+            for (int i = 0; i < 9; ++i) {
+                float width = (dash[i] ? 6.f : 2.f) * scale;
+                auto signal = createEffectRect(width, 2.f * scale, { 255, 225, 80 }, 40, true);
+                signal->setPosition({ x + width * .5f, -halfH - 5.f * scale });
+                signal->runAction(CCRepeatForever::create(CCSequence::create(
+                    CCDelayTime::create(i * .15f),
+                    CCFadeTo::create(.04f, 255),
+                    CCDelayTime::create(.13f),
+                    CCFadeTo::create(.14f, 40),
+                    CCDelayTime::create(1.9f - i * .15f),
+                    nullptr
+                )));
+                container->addChild(signal);
+                x += width + 2.2f * scale;
+            }
+        }
+
+        else if (effectID == "Curtain Call") {
+            float panelW = halfW + 5.f * scale;
+            float panelH = halfH * 2.f + 5.f * scale;
+            for (int sideIndex = 0; sideIndex < 2; ++sideIndex) {
+                float side = sideIndex == 0 ? -1.f : 1.f;
+                auto panel = createEffectRect(panelW, panelH, sideIndex == 0 ? ccColor3B{ 115, 25, 105 } : ccColor3B{ 25, 105, 125 }, 95);
+                CCPoint closed = { side * panelW * .5f, 0.f };
+                CCPoint opened = { side * (halfW + panelW * .65f + 5.f * scale), 0.f };
+                panel->setPosition(opened);
+                panel->runAction(CCRepeatForever::create(CCSequence::create(
+                    CCMoveTo::create(.35f, closed),
+                    CCDelayTime::create(.35f),
+                    CCMoveTo::create(.5f, opened),
+                    CCDelayTime::create(1.05f),
+                    nullptr
+                )));
+                container->addChild(panel, -1);
+            }
+        }
+
+        else if (effectID == "Ribbon Weave") {
+            const ccColor3B ribbonColors[] = { { 255, 70, 155 }, { 55, 225, 235 } };
+            for (int ribbonIndex = 0; ribbonIndex < 2; ++ribbonIndex) {
+                auto ribbon = CCNode::create();
+                float step = std::max(7.f * scale, halfW * .24f);
+                for (int i = -5; i < 5; ++i) {
+                    float x1 = i * step;
+                    float x2 = (i + 1) * step;
+                    float y1 = ((i + ribbonIndex) % 2 == 0 ? 1.f : -1.f) * halfH * .68f;
+                    float y2 = (((i + 1 + ribbonIndex) % 2 == 0) ? 1.f : -1.f) * halfH * .68f;
+                    float dx = x2 - x1;
+                    float dy = y2 - y1;
+                    float length = std::sqrt(dx * dx + dy * dy);
+                    auto segment = createEffectRect(length, 1.35f * scale, ribbonColors[ribbonIndex], 175, true);
+                    segment->setPosition({ (x1 + x2) * .5f, (y1 + y2) * .5f });
+                    segment->setRotation(-std::atan2(dy, dx) * 180.f / static_cast<float>(M_PI));
+                    ribbon->addChild(segment);
+                }
+                ribbon->setPositionX(ribbonIndex == 0 ? -step * .5f : step * .5f);
+                ribbon->runAction(CCRepeatForever::create(CCSequence::create(
+                    CCMoveBy::create(.65f, { step, 0.f }),
+                    CCMoveBy::create(.65f, { -step, 0.f }),
+                    nullptr
+                )));
+                container->addChild(ribbon, -1);
+            }
+        }
+
+        else if (effectID == "Corner Lock") {
+            const CCPoint targets[] = {
+                { -halfW - 3.f * scale, halfH + 2.f * scale },
+                { halfW + 3.f * scale, halfH + 2.f * scale },
+                { -halfW - 3.f * scale, -halfH - 2.f * scale },
+                { halfW + 3.f * scale, -halfH - 2.f * scale }
+            };
+            for (int i = 0; i < 4; ++i) {
+                auto bracket = CCNode::create();
+                auto horizontal = createEffectRect(7.f * scale, 1.5f * scale, { 100, 255, 145 }, 235);
+                auto vertical = createEffectRect(1.5f * scale, 7.f * scale, { 100, 255, 145 }, 235);
+                float xDir = (i % 2 == 0) ? 1.f : -1.f;
+                float yDir = (i < 2) ? -1.f : 1.f;
+                horizontal->setPositionX(xDir * 2.7f * scale);
+                vertical->setPositionY(yDir * 2.7f * scale);
+                bracket->addChild(horizontal);
+                bracket->addChild(vertical);
+                CCPoint target = targets[i];
+                CCPoint outside = { target.x + (xDir < 0.f ? 12.f : -12.f) * scale,
+                    target.y + (yDir < 0.f ? 10.f : -10.f) * scale };
+                bracket->setPosition(outside);
+                bracket->runAction(CCRepeatForever::create(CCSequence::create(
+                    CCDelayTime::create(i * .08f),
+                    CCSpawn::create(CCMoveTo::create(.24f, target), CCRotateBy::create(.24f, 90.f), nullptr),
+                    CCDelayTime::create(.65f),
+                    CCSpawn::create(CCMoveTo::create(.28f, outside), CCRotateBy::create(.28f, -90.f), nullptr),
+                    CCDelayTime::create(1.05f - i * .08f),
+                    nullptr
+                )));
+                container->addChild(bracket);
+            }
+        }
+
         else {
        
             container->release();
@@ -718,8 +1033,6 @@ namespace NameModifiers {
             return;
         }    
         CCParticleSystemQuad* particles = nullptr;
-
-       
 
         if (effectID == "Sparkle") {
             particles = CCParticleSnow::create();

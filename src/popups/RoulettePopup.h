@@ -1013,7 +1013,7 @@ protected:
                                 res.spriteName = bInfo->spriteName;
                                 if (sr.isNewBadge) {
                                     m_newBadgesWon.push_back(prize.id);
-                                    if (bInfo->category == StreakData::BadgeCategory::MYTHIC)
+                                    if (StreakData::usesMythicPresentation(bInfo->category))
                                         m_pendingMythics.push_back(*bInfo);
                                 }
                             }
@@ -1136,7 +1136,7 @@ protected:
             if (prize.type == RewardType::Badge) {
                 auto* bi = g_streakData.getBadgeInfo(prize.id);
                 if (bi) {
-                    if (bi->category == StreakData::BadgeCategory::MYTHIC) {
+                    if (StreakData::usesMythicPresentation(bi->category)) {
                         isMythicAnimation = true;
                         auto animLayer = MythicAnimationLayer::create(*bi, [this, prize]() { BadgeNotification::show(prize.id); });
                         CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 400);
@@ -1149,7 +1149,7 @@ protected:
             else if (prize.type == RewardType::Banner) {
                 auto* bi = g_streakData.getBannerInfo(prize.id);
                 if (bi) {
-                    if (bi->rarity == StreakData::BadgeCategory::MYTHIC) {
+                    if (StreakData::usesMythicPresentation(bi->rarity)) {
                         isMythicAnimation = true;
                         auto animLayer = MythicBannerAnimationLayer::create(*bi, [bi]() {
                             BannerNotification::show(bi->bannerID, bi->spriteName, bi->displayName,
@@ -1192,7 +1192,7 @@ protected:
                     }
 
                     if (isNew) {
-                        if (bi->category == StreakData::BadgeCategory::MYTHIC) {
+                        if (StreakData::usesMythicPresentation(bi->category)) {
                             isMythicAnimation = true;
                             auto animLayer = MythicAnimationLayer::create(*bi, [this, prize]() { BadgeNotification::show(prize.id); });
                             CCDirector::sharedDirector()->getRunningScene()->addChild(animLayer, 400);
@@ -1348,6 +1348,7 @@ protected:
         case StreakData::BadgeCategory::EPIC: return "casilla_epica.png"_spr;
         case StreakData::BadgeCategory::LEGENDARY: return "casilla_legendaria.png"_spr;
         case StreakData::BadgeCategory::MYTHIC: return "casilla_mitica.png"_spr;
+        case StreakData::BadgeCategory::SECRETS: return "casilla_mitica.png"_spr;
         default: return "casilla_comun.png"_spr;
         }
     }

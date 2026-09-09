@@ -106,7 +106,7 @@ class $modify(MyProfilePage, ProfilePage) {
         myData.isPartialData = false;
 
         auto badge = g_streakData.getEquippedBadge();
-        myData.isMythic = (badge && badge->category == StreakData::BadgeCategory::MYTHIC);
+        myData.isMythic = badge && StreakData::usesMythicPresentation(badge->category);
 
         ProfileCardPopup::create(myData)->show();
     }

@@ -352,6 +352,7 @@ protected:
     TextInput* m_usesInput;
     TextInput* m_starsInput;
     TextInput* m_ticketsInput;
+    TextInput* m_goldTicketsInput = nullptr;
     TextInput* m_xpInput = nullptr;
     TextInput* m_gemsInput = nullptr;
     TextInput* m_shieldsInput = nullptr;
@@ -366,12 +367,13 @@ protected:
 
     int m_pendingStars = 0;
     int m_pendingTickets = 0;
+    int m_pendingGoldTickets = 0;
     int m_pendingXP = 0;
     int m_pendingGems = 0;
     int m_pendingShields = 0;
 
     bool init() {
-        if (!Popup::init(500.f, 230.f)) return false;
+        if (!Popup::init(540.f, 230.f)) return false;
         this->setTitle("Create Code");
         auto winSize = m_mainLayer->getContentSize();
 
@@ -439,8 +441,8 @@ protected:
 
         float row2Y = winSize.height / 2 - 20.f;
         float iconOffset = 20.f;
-        float startX = winSize.width / 2 - 175.f;
-        float gap = 70.f;
+        float startX = winSize.width / 2 - 195.f;
+        float gap = 65.f;
 
         auto starIcon = CCSprite::create("super_star.png"_spr);
         starIcon->setScale(0.2f);
@@ -462,37 +464,49 @@ protected:
         m_ticketsInput->setFilter("0123456789");
         m_mainLayer->addChild(m_ticketsInput);
 
+        auto goldTicketIcon = CCSprite::create("gold_ticket.png"_spr);
+        if (goldTicketIcon) {
+            goldTicketIcon->setScale(0.22f);
+            goldTicketIcon->setPosition({ startX + (gap * 2), row2Y + iconOffset });
+            m_mainLayer->addChild(goldTicketIcon);
+        }
+
+        m_goldTicketsInput = TextInput::create(56.f, "Gold", "chatFont.fnt");
+        m_goldTicketsInput->setPosition({ startX + (gap * 2), row2Y - 8.f });
+        m_goldTicketsInput->setFilter("0123456789");
+        m_mainLayer->addChild(m_goldTicketsInput);
+
         auto xpIcon = CCSprite::create("xp.png"_spr);
         xpIcon->setScale(0.25f);
-        xpIcon->setPosition({ startX + (gap * 2), row2Y + iconOffset });
+        xpIcon->setPosition({ startX + (gap * 3), row2Y + iconOffset });
         m_mainLayer->addChild(xpIcon);
 
-        m_xpInput = TextInput::create(60.f, "XP", "chatFont.fnt");
-        m_xpInput->setPosition({ startX + (gap * 2), row2Y - 8.f });
+        m_xpInput = TextInput::create(56.f, "XP", "chatFont.fnt");
+        m_xpInput->setPosition({ startX + (gap * 3), row2Y - 8.f });
         m_xpInput->setFilter("0123456789");
         m_mainLayer->addChild(m_xpInput);
 
         auto gemIcon = CCSprite::create("gem.png"_spr);
         if (gemIcon) {
             gemIcon->setScale(0.35f);
-            gemIcon->setPosition({ startX + (gap * 3), row2Y + iconOffset });
+            gemIcon->setPosition({ startX + (gap * 4), row2Y + iconOffset });
             m_mainLayer->addChild(gemIcon);
         }
 
-        m_gemsInput = TextInput::create(60.f, "Gems", "chatFont.fnt");
-        m_gemsInput->setPosition({ startX + (gap * 3), row2Y - 8.f });
+        m_gemsInput = TextInput::create(56.f, "Gems", "chatFont.fnt");
+        m_gemsInput->setPosition({ startX + (gap * 4), row2Y - 8.f });
         m_gemsInput->setFilter("0123456789");
         m_mainLayer->addChild(m_gemsInput);
 
         auto heartIcon = CCSprite::create("heart.png"_spr);
         if (heartIcon) {
             heartIcon->setScale(0.25f);
-            heartIcon->setPosition({ startX + (gap * 4), row2Y + iconOffset });
+            heartIcon->setPosition({ startX + (gap * 5), row2Y + iconOffset });
             m_mainLayer->addChild(heartIcon);
         }
 
-        m_shieldsInput = TextInput::create(60.f, "Lives", "chatFont.fnt");
-        m_shieldsInput->setPosition({ startX + (gap * 4), row2Y - 8.f });
+        m_shieldsInput = TextInput::create(56.f, "Lives", "chatFont.fnt");
+        m_shieldsInput->setPosition({ startX + (gap * 5), row2Y - 8.f });
         m_shieldsInput->setFilter("0123456789");
         m_mainLayer->addChild(m_shieldsInput);
 
@@ -501,12 +515,12 @@ protected:
         if (!chestIcon) chestIcon = CCSprite::createWithSpriteFrameName("chest_02_02_001.png");
         if (chestIcon) {
             chestIcon->setScale(0.18f);
-            chestIcon->setPosition({ startX + (gap * 5), row2Y + iconOffset });
+            chestIcon->setPosition({ startX + (gap * 6), row2Y + iconOffset });
             m_mainLayer->addChild(chestIcon);
         }
 
-        m_chestInput = TextInput::create(60.f, "Chest", "chatFont.fnt");
-        m_chestInput->setPosition({ startX + (gap * 5), row2Y - 8.f });
+        m_chestInput = TextInput::create(56.f, "Chest", "chatFont.fnt");
+        m_chestInput->setPosition({ startX + (gap * 6), row2Y - 8.f });
         m_chestInput->setFilter("0123456");
         m_chestInput->setMaxCharCount(1);
         m_mainLayer->addChild(m_chestInput);
@@ -573,6 +587,7 @@ protected:
 
         int amountPerPersonStars = numFromString<int>(m_starsInput->getString()).unwrapOrDefault();
         int amountPerPersonTickets = numFromString<int>(m_ticketsInput->getString()).unwrapOrDefault();
+        int amountPerPersonGoldTickets = m_goldTicketsInput ? numFromString<int>(m_goldTicketsInput->getString()).unwrapOrDefault() : 0;
         int amountPerPersonXP = m_xpInput ? numFromString<int>(m_xpInput->getString()).unwrapOrDefault() : 0;
         int amountPerPersonGems = m_gemsInput ? numFromString<int>(m_gemsInput->getString()).unwrapOrDefault() : 0;
         int amountPerPersonShields = m_shieldsInput ? numFromString<int>(m_shieldsInput->getString()).unwrapOrDefault() : 0;
@@ -584,11 +599,12 @@ protected:
 
         m_pendingStars = amountPerPersonStars * uses;
         m_pendingTickets = amountPerPersonTickets * uses;
+        m_pendingGoldTickets = amountPerPersonGoldTickets * uses;
         m_pendingXP = amountPerPersonXP * uses;
         m_pendingGems = amountPerPersonGems * uses;
         m_pendingShields = amountPerPersonShields * uses;
 
-        if (m_pendingStars == 0 && m_pendingTickets == 0 && m_pendingXP == 0 && m_pendingGems == 0 && m_pendingShields == 0 && m_selectedBadgeID.empty() && m_selectedBannerID.empty() && chestRarity == 0) {
+        if (m_pendingStars == 0 && m_pendingTickets == 0 && m_pendingGoldTickets == 0 && m_pendingXP == 0 && m_pendingGems == 0 && m_pendingShields == 0 && m_selectedBadgeID.empty() && m_selectedBannerID.empty() && chestRarity == 0) {
             Notification::create("Add at least one reward", NotificationIcon::Error)->show();
             return;
         }
@@ -602,6 +618,7 @@ protected:
 
         if (amountPerPersonStars > 0) rewards.set("super_stars", amountPerPersonStars);
         if (amountPerPersonTickets > 0) rewards.set("star_tickets", amountPerPersonTickets);
+        if (amountPerPersonGoldTickets > 0) rewards.set("gold_tickets", amountPerPersonGoldTickets);
         if (amountPerPersonXP > 0) rewards.set("xp", amountPerPersonXP);
         if (amountPerPersonGems > 0) rewards.set("gems", amountPerPersonGems);
         if (amountPerPersonShields > 0) rewards.set("shields", amountPerPersonShields);
@@ -758,6 +775,7 @@ protected:
 
             int codeStars = 0;
             int codeTickets = 0;
+            int codeGoldTickets = 0;
             int codeXP = 0;
             int codeGems = 0;
             int codeShields = 0;
@@ -768,6 +786,7 @@ protected:
                 auto r = json["rewards"];
                 if (r.contains("super_stars")) codeStars = r["super_stars"].as<int>().unwrapOr(0);
                 if (r.contains("star_tickets")) codeTickets = r["star_tickets"].as<int>().unwrapOr(0);
+                if (r.contains("gold_tickets")) codeGoldTickets = r["gold_tickets"].as<int>().unwrapOr(0);
                 if (r.contains("xp")) codeXP = r["xp"].as<int>().unwrapOr(0);
                 if (r.contains("gems")) codeGems = r["gems"].as<int>().unwrapOr(0);
                 if (r.contains("shields")) codeShields = r["shields"].as<int>().unwrapOr(0);
@@ -803,6 +822,7 @@ protected:
 
             int starsStart = g_streakData.superStars;
             int ticketsStart = g_streakData.starTickets;
+            int goldTicketsStart = g_streakData.goldTickets;
             int xpStart = g_streakData.currentXP;
             int gemsStart = g_streakData.gems;
             int shieldsStart = g_streakData.streakShields;
@@ -822,6 +842,7 @@ protected:
                 auto bal = json["balances"];
                 g_streakData.superStars = bal["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
                 g_streakData.starTickets = bal["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
+                g_streakData.goldTickets = bal["gold_tickets"].as<int>().unwrapOr(g_streakData.goldTickets);
                 g_streakData.gems = bal["gems"].as<int>().unwrapOr(g_streakData.gems);
                 if (bal.contains("streak_shields"))
                     g_streakData.streakShields = std::clamp(
@@ -839,6 +860,7 @@ protected:
             if (!appliedFromServer) {
                 g_streakData.superStars += (codeStars + levelStars);
                 g_streakData.starTickets += (codeTickets + levelTickets);
+                g_streakData.goldTickets += codeGoldTickets;
                 g_streakData.gems += (codeGems + levelGems);
                 int shieldTotal = g_streakData.streakShields + codeShields;
                 int extraShields = std::max(0, shieldTotal - STREAK_MAX_SHIELDS);
@@ -914,6 +936,10 @@ protected:
                         RewardNotification::show("star_tiket.png"_spr, ticketsStart, codeTickets, spawnPos);
                     }
 
+                    if (codeGoldTickets > 0) {
+                        RewardNotification::show("gold_ticket.png"_spr, goldTicketsStart, codeGoldTickets, spawnPos);
+                    }
+
                     if (codeGems > 0) {
                         RewardNotification::show("gem.png"_spr, gemsStart, codeGems, spawnPos);
                     }
@@ -941,7 +967,7 @@ protected:
                 if (isNewBadge && !badgeID.empty()) {
                     auto* badgeInfo = g_streakData.getBadgeInfo(badgeID);
 
-                    if (badgeInfo && badgeInfo->category == StreakData::BadgeCategory::MYTHIC) {
+                    if (badgeInfo && StreakData::usesMythicPresentation(badgeInfo->category)) {
                         auto animLayer = MythicAnimationLayer::create(*badgeInfo, [badgeID, showSideNotifications]() {
                             BadgeNotification::show(badgeID);
                             showSideNotifications();
