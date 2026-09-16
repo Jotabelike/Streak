@@ -1,6 +1,7 @@
 #pragma once
 #include <Geode/Geode.hpp>
 #include "StreakData.h"
+#include "RemoteAssetManager.h"
 
 using namespace geode::prelude;
 
@@ -20,6 +21,16 @@ namespace StreakMusic {
     }
 
     inline void start() {
+        std::string songID = g_streakData.equippedSong.empty()
+            ? DEFAULT_STREAK_MENU_SONG_ID
+            : g_streakData.equippedSong;
+        if (!RemoteAssets::isInstalled(RemoteAssets::Type::Song, songID)) {
+            RemoteAssets::ensure(RemoteAssets::Type::Song, songID, [](bool ok, std::string const&) {
+                if (ok && s_inStreakMenu && getMode() != Off) start();
+            });
+            return;
+        }
+
         auto eng = FMODAudioEngine::sharedEngine();
         if (!eng) return;
         eng->pauseAllMusic(true);

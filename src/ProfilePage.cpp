@@ -11,6 +11,7 @@
 #include <matjson.hpp>
 #include "NameModifiers.h"
 #include "HMACAuth.h"
+#include "RemoteAssetManager.h"
 
 using namespace geode::prelude;
 
@@ -259,6 +260,9 @@ class $modify(MyProfilePage, ProfilePage) {
                         pData.totalSP = json["total_streak_points"].as<int>().unwrapOr(0);
 
                         std::string badgeId = json["equipped_badge_id"].as<std::string>().unwrapOr(std::string(""));
+                        if (!badgeId.empty()) {
+                            RemoteAssets::ensure(RemoteAssets::Type::Badge, badgeId);
+                        }
                         pData.badgeID = badgeId;
                         pData.nameFont = nameFont;
                         pData.nameColor = nameColor;
@@ -270,17 +274,17 @@ class $modify(MyProfilePage, ProfilePage) {
                         if (!badgeId.empty() && g_streakData.getBadgeInfo(badgeId)) {
                             if (auto username_menu = m_mainLayer->getChildByIDRecursive("username-menu")) {
                                 auto badgeSprite = CCSprite::create(g_streakData.getBadgeInfo(badgeId)->spriteName.c_str());
-                                badgeSprite->setScale(0.2f);
-                                auto badgeButton = CCMenuItemSpriteExtra::create(
-                                    badgeSprite,
-                                    this,
-                                    menu_selector(MyProfilePage::onBadgeInfoClick)
-                                );
-                                badgeButton->setUserObject("badge"_spr, CCString::create(badgeId));
-                                badgeButton->setID(STREAK_BADGE_ID);
-                                username_menu->addChild(badgeButton);
-
-                              
+                                if (badgeSprite) {
+                                    badgeSprite->setScale(0.2f);
+                                    auto badgeButton = CCMenuItemSpriteExtra::create(
+                                        badgeSprite,
+                                        this,
+                                        menu_selector(MyProfilePage::onBadgeInfoClick)
+                                    );
+                                    badgeButton->setUserObject("badge"_spr, CCString::create(badgeId));
+                                    badgeButton->setID(STREAK_BADGE_ID);
+                                    username_menu->addChild(badgeButton);
+                                }
                                 username_menu->updateLayout();
                             }
                         }

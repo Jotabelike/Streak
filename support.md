@@ -19,7 +19,7 @@ If you enjoy the features and want to support its development, any donation is w
 Every little bit helps and is greatly appreciated! <3
 
 You can donate here:
-[Ko-Fi page](https://ko-fi.com/streakservers)
+[Ko-Fi page](https://ko-fi.com/supportgames)
 
 Thanks for your support!
 - <cy>Jotabelike</c>

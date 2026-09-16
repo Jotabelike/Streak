@@ -40,6 +40,7 @@
 #include "RegisterPopup.h"
 #include "ShieldsPopup.h"
 #include "UpdatePopup.h"
+#include "AlbumLayer.h"
 #include "../NameModifiers.h"
 
 class StreakMainLayer : public cocos2d::CCLayer {
@@ -825,6 +826,16 @@ protected:
         cornerMenu->addChild(xpBtn);
         m_xpBtnRef = xpBtn;
 
+        auto albumIcon = CCSprite::create("album_btn.png"_spr);
+        if (!albumIcon) albumIcon = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
+        albumIcon->setScale(0.9f);
+        auto albumBtn = CCMenuItemSpriteExtra::create(
+            albumIcon, this, menu_selector(StreakMainLayer::onOpenAlbum)
+        );
+        albumBtn->setPosition({ leftX, sideY - sideSpacing * 3 });
+        albumBtn->setID("album-button");
+        cornerMenu->addChild(albumBtn);
+
         // bottom paginated menu
         std::vector<CCMenuItemSpriteExtra*> allBottomBtns;
 
@@ -1187,6 +1198,16 @@ protected:
     void onOpenAchievements(CCObject*) { AchievementsPopup::create()->show(); }
     void onOpenTrending(CCObject*)   { TrendLevelsPopup::create()->show(); }
     void onOpenUpdate(CCObject*)     { UpdatePopup::create()->show(); }
+
+    void onOpenAlbum(CCObject*) {
+        constexpr int albumLayerTag = 24091;
+        if (this->getChildByTag(albumLayerTag)) return;
+
+        if (auto albumLayer = StreakAlbumLayer::create()) {
+            albumLayer->setTag(albumLayerTag);
+            this->addChild(albumLayer, 2000);
+        }
+    }
 
     void onOpenRoulette(CCObject*) {
         if (g_streakData.currentStreak < 1) {

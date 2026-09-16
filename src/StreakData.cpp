@@ -92,6 +92,8 @@ void StreakData::resetToDefault() {
     claimedPaidPassTiers.clear();
     passCompleteRewardClaimed = false;
     pendingPassGiftFrom = "";
+    supportTierActive.fill(false);
+    supportTierClaimed.fill(false);
     pendingRankAnim = false;
     pendingRankAnimOld = 0;
     pendingRankAnimNew = 0;
@@ -354,6 +356,12 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
         }
     }
     passCompleteRewardClaimed = data["pass_complete_reward_claimed"].as<bool>().unwrapOr(false);
+    for (int tier = 1; tier <= 3; ++tier) {
+        auto activeKey = fmt::format("support_tier_{}", tier);
+        auto claimedKey = fmt::format("support_tier_{}_claimed", tier);
+        supportTierActive[tier - 1] = data[activeKey].as<bool>().unwrapOr(false);
+        supportTierClaimed[tier - 1] = data[claimedKey].as<bool>().unwrapOr(false);
+    }
     pendingPassGiftFrom = "";
     if (data.contains("pending_pass_gift")) {
         auto gift = data["pending_pass_gift"];
@@ -1416,9 +1424,10 @@ StreakData::SongInfo* StreakData::getEquippedSong() {
 std::string StreakData::getEquippedSongFile() {
     auto info = getSongInfo(equippedSong);
     if (info && isSongUnlocked(equippedSong)) return info->fileName;
-    // Default menu theme when no song is equipped: song_1 (Streak Theme).
-    if (auto def = getSongInfo("song_1")) return def->fileName;
-    return std::string("s1.mp3"_spr);
+    // The active season theme is the menu default, but an explicit player
+    // selection always wins and remains untouched across updates.
+    if (auto def = getSongInfo(DEFAULT_STREAK_MENU_SONG_ID)) return def->fileName;
+    return std::string("s4.mp3"_spr);
 }
 
 bool StreakData::isStreakGoalClaimed(int index) const {

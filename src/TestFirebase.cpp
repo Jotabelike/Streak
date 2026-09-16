@@ -115,9 +115,10 @@ void refreshPlayerDataFromServer(std::function<void(bool)> callback) {
     int accountID = am->m_accountID;
     std::string url = fmt::format("{}/players/{}", SERVER_URL, accountID);
 
-    HMACAuth::clearSessionToken();
-
     auto req = web::WebRequest();
+    // Keep the current session alive while refreshing. Clearing it here left a
+    // short window where buttons opened from the same popup could only produce
+    // a local code-0 claim failure. A successful response replaces the token.
     HMACAuth::signGetRequest(req, accountID);
 
     s_refreshListener.spawn(
@@ -583,7 +584,9 @@ void claimOnServerEx(const std::string& endpoint, const matjson::Value& payload,
                     g_streakData.superStars, g_streakData.starTickets, g_streakData.gems);
                 callback(true, res.code(), data);
             } else {
-                log::error("Claim failed: {}", res.code());
+                std::string errorBody;
+                if (json.isOk()) errorBody = json.unwrap().dump(matjson::NO_INDENTATION);
+                log::error("Claim failed: {} {}", res.code(), errorBody);
                 if (res.code() == 401) {
                     HMACAuth::clearSessionToken();
                     loadPlayerDataFromServer();

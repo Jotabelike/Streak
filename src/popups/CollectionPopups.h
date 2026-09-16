@@ -4,9 +4,11 @@
 #include "../FirebaseManager.h"
 #include "../NameModifiers.h"
 #include "../StreakMusic.h"
+#include "../RemoteAssetManager.h"
 #include "../PassNameCosmetics.h"
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
+#include <Geode/ui/LoadingSpinner.hpp>
 #include "QualityNode.h"
 #include "../utils/ScrollbarUtils.h"
 
@@ -524,6 +526,25 @@ protected:
     CCLabelBMFont* m_buyPriceLabel = nullptr;
     CCLabelBMFont* m_eventOnlyLabel = nullptr;
     CCMenuItemSpriteExtra* m_selectedLockedBtn = nullptr;
+    std::vector<std::pair<RemoteAssets::Type, std::string>> m_visibleAssets;
+    bool m_waitingForVisibleAssets = false;
+
+    RemoteAssets::Type currentAssetType() const {
+        if (m_currentMode == MODE_BANNERS) return RemoteAssets::Type::Banner;
+        if (m_currentMode == MODE_SONGS) return RemoteAssets::Type::Song;
+        return RemoteAssets::Type::Badge;
+    }
+
+    void pollVisibleAssets(float) {
+        if (!m_waitingForVisibleAssets || m_visibleAssets.empty()) return;
+        bool ready = std::ranges::all_of(m_visibleAssets, [](auto const& asset) {
+            return RemoteAssets::isInstalled(asset.first, asset.second);
+        });
+        if (ready) {
+            m_waitingForVisibleAssets = false;
+            updateCategoryDisplay();
+        }
+    }
 
     void updateCellHighlights() {
         
@@ -995,6 +1016,7 @@ protected:
         m_eventOnlyLabel->setVisible(false);
         m_namesContainer->addChild(m_eventOnlyLabel);
         updateCategoryDisplay();
+        this->schedule(schedule_selector(RewardsPopup::pollVisibleAssets), 0.5f);
         this->updateNamePreview();
         this->updateCellHighlights();
         return true;
@@ -1093,6 +1115,7 @@ protected:
             bool unlocked;
             bool isFromRoulette;
             int daysRequired;
+            bool installed;
         };
         std::vector<DisplayItem> itemsToShow;
 
@@ -1107,7 +1130,8 @@ protected:
                         badge.spriteName,
                         g_streakData.isBadgeUnlocked(badge.badgeID),
                         badge.isFromRoulette,
-                        badge.daysRequired
+                        badge.daysRequired,
+                        RemoteAssets::isInstalled(RemoteAssets::Type::Badge, badge.badgeID)
                         });
                 }
             }
@@ -1127,7 +1151,8 @@ protected:
                         banner.spriteName,
                         g_streakData.isBannerUnlocked(banner.bannerID),
                         true,
-                        0
+                        0,
+                        RemoteAssets::isInstalled(RemoteAssets::Type::Banner, banner.bannerID)
                         });
                 }
             }
@@ -1146,7 +1171,8 @@ protected:
                     song.iconName,
                     g_streakData.isSongUnlocked(song.songID),
                     true,
-                    0
+                    0,
+                    RemoteAssets::isInstalled(RemoteAssets::Type::Song, song.songID)
                     });
             }
             globalTotal = g_streakData.songs.size();
@@ -1155,6 +1181,17 @@ protected:
             }
             if (m_totalStatsLabel) {
                 m_totalStatsLabel->setString(fmt::format("Songs: {}/{}", globalUnlocked, globalTotal).c_str());
+            }
+        }
+
+        m_visibleAssets.clear();
+        m_waitingForVisibleAssets = false;
+        auto visibleType = currentAssetType();
+        for (auto const& item : itemsToShow) {
+            m_visibleAssets.emplace_back(visibleType, item.id);
+            if (!item.installed) {
+                m_waitingForVisibleAssets = true;
+                RemoteAssets::ensure(visibleType, item.id);
             }
         }
 
@@ -1197,28 +1234,32 @@ protected:
                 m_cellNode->addChild(cell);
             }
 
-            auto sprite = CCSprite::create(item.spriteName.c_str());
-            if (!sprite) {
-                sprite = CCSprite::create("GJ_button_01.png");
-            }
+            CCNode* itemVisual = nullptr;
+            if (item.installed) {
+                auto sprite = CCSprite::create(item.spriteName.c_str());
+                if (!sprite) sprite = CCSprite::create("GJ_button_01.png");
 
-            float scale = 0.3f;
-            if (m_currentMode == MODE_BANNERS) {
-                float targetWidth = 120.f;
-                scale = targetWidth / sprite->getContentSize().width;
+                float scale = 0.3f;
+                if (m_currentMode == MODE_BANNERS) {
+                    float targetWidth = 120.f;
+                    scale = targetWidth / sprite->getContentSize().width;
+                }
+                else if (isSongs) {
+                    float targetSize = 46.f;
+                    scale = targetSize / std::max(sprite->getContentSize().width, sprite->getContentSize().height);
+                }
+                sprite->setScale(scale);
+                if (!item.unlocked) sprite->setColor({ 100, 100, 100 });
+                itemVisual = sprite;
             }
-            else if (isSongs) {
-                float targetSize = 46.f;
-                scale = targetSize / std::max(sprite->getContentSize().width, sprite->getContentSize().height);
-            }
-            sprite->setScale(scale);
-
-            if (!item.unlocked) {
-                sprite->setColor({ 100, 100, 100 });
+            else {
+                // Native Geometry Dash loading-circle artwork, wrapped by
+                // Geode so it sizes correctly inside an individual grid cell.
+                itemVisual = LoadingSpinner::create(26.f);
             }
 
             CCMenuItemSpriteExtra* btn = CCMenuItemSpriteExtra::create(
-                sprite,
+                itemVisual,
                 this,
                 menu_selector(RewardsPopup::onItemClick)
             );
@@ -1273,6 +1314,12 @@ protected:
 
     void onItemClick(CCObject* sender) {
         auto id = static_cast<CCString*>(static_cast<CCNode*>(sender)->getUserObject("item_id"_spr))->getCString();
+
+        auto assetType = currentAssetType();
+        if (!RemoteAssets::isInstalled(assetType, id)) {
+            Notification::create("Asset is loading...", NotificationIcon::Loading, 1.5f)->show();
+            return;
+        }
 
         if (m_currentMode == MODE_BADGES) {
             auto popup = EquipBadgePopup::create(id);

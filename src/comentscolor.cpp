@@ -10,6 +10,7 @@
 #include <matjson.hpp>
 #include "NameModifiers.h"
 #include "HMACAuth.h"
+#include "RemoteAssetManager.h"
 using namespace geode::prelude;
 
 class $modify(MyColoredCommentCell, CommentCell) {
@@ -203,6 +204,12 @@ class $modify(MyColoredCommentCell, CommentCell) {
         std::string cachedBanner = g_streakData.getCachedBanner(accountID);
 
         if (!cachedBadge.empty() && !cachedBanner.empty() && cachedBadge != "pending") {
+            if (cachedBadge != "none") {
+                RemoteAssets::ensure(RemoteAssets::Type::Badge, cachedBadge);
+            }
+            if (cachedBanner != "none") {
+                RemoteAssets::ensure(RemoteAssets::Type::Banner, cachedBanner);
+            }
             if (isBadgeMythic(cachedBadge) && showRainbow) {
                 this->schedule(schedule_selector(MyColoredCommentCell::updateRainbowEffect));
             }
@@ -232,6 +239,8 @@ class $modify(MyColoredCommentCell, CommentCell) {
 
                 std::string badgeId = playerData["equipped_badge_id"].as<std::string>().unwrapOr("");
                 std::string bannerId = playerData["equipped_banner_id"].as<std::string>().unwrapOr("");
+                if (!badgeId.empty()) RemoteAssets::ensure(RemoteAssets::Type::Badge, badgeId);
+                if (!bannerId.empty()) RemoteAssets::ensure(RemoteAssets::Type::Banner, bannerId);
                 std::string nameColor = playerData["equipped_name_color"].as<std::string>().unwrapOr("Default");
                 std::string nameFont = playerData["equipped_name_font"].as<std::string>().unwrapOr("Default");
                 std::string nameEffect = playerData["equipped_name_effect"].as<std::string>().unwrapOr("None");

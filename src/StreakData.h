@@ -15,6 +15,7 @@ using namespace geode::prelude;
 inline constexpr int STREAK_MENU_MUSIC_CHANNEL = 7777;
 inline constexpr int STREAK_SONG_PREVIEW_CHANNEL = 7778;
 inline constexpr const char* STREAK_MENU_MUSIC_VOLUME_KEY = "streak_menu_music_volume";
+inline constexpr const char* DEFAULT_STREAK_MENU_SONG_ID = "song_4";
 inline constexpr int STREAK_MAX_SHIELDS = 5;
 inline constexpr int STREAK_SHIELD_OVERFLOW_GEMS = 50;
 
@@ -321,6 +322,20 @@ struct StreakData {
     bool passCompleteRewardClaimed = false;
     std::string pendingPassGiftFrom = "";
 
+    // Support tiers are enabled manually from Firebase after a Ko-fi payment.
+    // Claim state remains server-authoritative so rewards can only be granted once.
+    std::array<bool, 3> supportTierActive = { false, false, false };
+    std::array<bool, 3> supportTierClaimed = { false, false, false };
+    bool isSupportTierActive(int tier) const {
+        return tier >= 1 && tier <= 3 && supportTierActive[tier - 1];
+    }
+    bool isSupportTierClaimed(int tier) const {
+        return tier >= 1 && tier <= 3 && supportTierClaimed[tier - 1];
+    }
+    void setSupportTierClaimed(int tier) {
+        if (tier >= 1 && tier <= 3) supportTierClaimed[tier - 1] = true;
+    }
+
     bool pendingRankAnim = false;
     int pendingRankAnimOld = 0;
     int pendingRankAnimNew = 0;
@@ -580,6 +595,14 @@ struct StreakData {
        {0, "shop_void_rose_badge.png"_spr, "Void Rose", BadgeCategory::MYTHIC, "shop_void_rose_badge", true, "XJotaBeLikeX", true},
        {0, "shop_storm_relic_badge.png"_spr, "Storm Relic", BadgeCategory::MYTHIC, "shop_storm_relic_badge", true, "XJotaBeLikeX", true},
 
+       // Mythic guardian collection. These use the shared MythicAnimationLayer
+       // presentation whenever they are awarded.
+       {0, "astral_dragon_badge.png"_spr, "Astral Dragon", BadgeCategory::MYTHIC, "astral_dragon_badge", true, "XJotaBeLikeX", true},
+       {0, "void_raven_badge.png"_spr, "Void Raven", BadgeCategory::MYTHIC, "void_raven_badge", true, "XJotaBeLikeX", true},
+       {0, "storm_stag_badge.png"_spr, "Storm Stag", BadgeCategory::MYTHIC, "storm_stag_badge", true, "XJotaBeLikeX", true},
+       {0, "solar_scarab_badge.png"_spr, "Solar Scarab", BadgeCategory::MYTHIC, "solar_scarab_badge", true, "XJotaBeLikeX", true},
+       {0, "cosmic_kraken_badge.png"_spr, "Cosmic Kraken", BadgeCategory::MYTHIC, "cosmic_kraken_badge", true, "XJotaBeLikeX", true},
+
        //banderas
        { 0, "col.png"_spr, "Colombia", BadgeCategory::COMMON, "colombia_badge", true, "XJotaBeLikeX" },
        { 0, "usa.png"_spr, "United States", BadgeCategory::COMMON, "usa_badge", true, "XJotaBeLikeX" },
@@ -683,7 +706,8 @@ struct StreakData {
     std::vector<SongInfo> songs = {
         {"song_1", "s1.mp3"_spr, "s1.png"_spr, "Streak Theme", "The original Streak! menu theme.", "Suno AI"},
         {"song_2", "s2.mp3"_spr, "s2.png"_spr, "DNA (FIFA World Cup 2026)", "WC 2026 theme.", "FIFA"},
-        {"song_3", "s3.mp3"_spr, "s3.png"_spr, "otherside", "minecraft Season", "Minecraft"}
+        {"song_3", "s3.mp3"_spr, "s3.png"_spr, "otherside", "minecraft Season", "Minecraft"},
+        {"song_4", "s4.mp3"_spr, "s4.png"_spr, "At the Speed of Light - cover by Toast", "Season theme.", "Toast"}
     };
 
     std::vector<bool> unlockedBadges;

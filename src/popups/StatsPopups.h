@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "StreakCommon.h"
 #include "../StreakData.h"
+#include "../FirebaseManager.h"
 #include <Geode/ui/Popup.hpp>
 #include <Geode/binding/SimplePlayer.hpp>
 #include <Geode/binding/GameManager.hpp>
@@ -170,8 +171,57 @@ public:
  
 class DonationTierCard : public CCNode {
     int m_tierLevel = 1;
+    CCMenu* m_actionMenu = nullptr;
+    bool m_claiming = false;
+
+    void refreshClaimControl() {
+        if (!m_actionMenu) return;
+        m_actionMenu->removeAllChildrenWithCleanup(true);
+
+        const bool active = g_streakData.isSupportTierActive(m_tierLevel);
+        const bool claimed = g_streakData.isSupportTierClaimed(m_tierLevel);
+        if (!active) return;
+
+        auto sprite = ButtonSprite::create(
+            claimed ? "Claimed" : (m_claiming ? "..." : "Claim"),
+            72, true, "goldFont.fnt",
+            claimed ? "GJ_button_04.png" : "GJ_button_01.png",
+            26, 0.45f
+        );
+        auto button = CCMenuItemSpriteExtra::create(
+            sprite, this, menu_selector(DonationTierCard::onClaim)
+        );
+        button->setEnabled(!claimed && !m_claiming);
+        m_actionMenu->addChild(button);
+    }
+
+    void applyClaimResponse(const matjson::Value& data) {
+        if (data.contains("balances")) {
+            auto balances = data["balances"];
+            g_streakData.superStars = balances["super_stars"].as<int>().unwrapOr(g_streakData.superStars);
+            g_streakData.starTickets = balances["star_tickets"].as<int>().unwrapOr(g_streakData.starTickets);
+            g_streakData.gems = balances["gems"].as<int>().unwrapOr(g_streakData.gems);
+        }
+        if (data.contains("reward")) {
+            auto reward = data["reward"];
+            auto badgeID = reward["badge"].as<std::string>().unwrapOr(std::string(""));
+            if (!badgeID.empty()) g_streakData.unlockBadge(badgeID);
+            auto banners = reward["banners"].as<std::vector<matjson::Value>>();
+            if (banners.isOk()) {
+                for (auto const& value : banners.unwrap()) {
+                    auto bannerID = value.as<std::string>().unwrapOr(std::string(""));
+                    if (!bannerID.empty()) g_streakData.unlockBanner(bannerID);
+                }
+            }
+        }
+        g_streakData.setSupportTierClaimed(m_tierLevel);
+    }
 
 public:
+    void refreshFromServerState() {
+        refreshClaimControl();
+    }
+
     static DonationTierCard* create(std::string titleSpriteName, std::string price, std::string bgImageName, int tier) {
         auto ret = new DonationTierCard();
         if (ret && ret->init(titleSpriteName, price, bgImageName, tier)) {
@@ -273,25 +323,89 @@ public:
         priceLabel->setPosition({ cardSize.width / 2, 45.f });
         this->addChild(priceLabel);
 
-        auto menu = CCMenu::create();
-        menu->setPosition({ cardSize.width / 2, 20.f });
-
+        // Keep reward information available without occupying the action area.
+        // The bottom-center position is reserved for the server-authorized claim.
+        auto infoMenu = CCMenu::create();
+        infoMenu->setPosition({ 0.f, 0.f });
         auto infoSprite = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
-        infoSprite->setScale(0.6f);
+        infoSprite->setScale(0.48f);
 
         auto infoBtn = CCMenuItemSpriteExtra::create(
             infoSprite,
             this,
             menu_selector(DonationTierCard::onInfo)
         );
-        menu->addChild(infoBtn);
-        this->addChild(menu);
+        infoBtn->setPosition({ cardSize.width - 11.f, cardSize.height - 11.f });
+        infoMenu->addChild(infoBtn);
+        this->addChild(infoMenu, 20);
+
+        m_actionMenu = CCMenu::create();
+        m_actionMenu->setPosition({ cardSize.width / 2.f, 20.f });
+        this->addChild(m_actionMenu, 20);
+        refreshClaimControl();
 
         return true;
     }
 
     void onInfo(CCObject*) {
         RewardsListPopup::create(m_tierLevel)->show();
+    }
+
+    void onClaim(CCObject*) {
+        if (m_claiming || !g_streakData.isSupportTierActive(m_tierLevel) ||
+            g_streakData.isSupportTierClaimed(m_tierLevel)) return;
+
+        m_claiming = true;
+        refreshClaimControl();
+        matjson::Value payload = matjson::Value::object();
+        payload.set("tier", m_tierLevel);
+
+        claimOnServerEx("/support/tier/claim", payload,
+            [this, keepAlive = Ref<CCNode>(this)](bool ok, int code, const matjson::Value& data) {
+                m_claiming = false;
+                if (ok) {
+                    applyClaimResponse(data);
+                    refreshClaimControl();
+                    FMODAudioEngine::sharedEngine()->playEffect("reward01.ogg");
+                    FLAlertLayer::create(
+                        "Support Rewards",
+                        "<cg>Rewards claimed!</c> Thank you for supporting the project.",
+                        "OK"
+                    )->show();
+                    return;
+                }
+                if (code == 409) {
+                    // The server already completed this one-time claim (for
+                    // example, the previous response was lost). Mark it locally
+                    // and fetch the authoritative balances/cosmetics again.
+                    g_streakData.setSupportTierClaimed(m_tierLevel);
+                    refreshClaimControl();
+                    refreshPlayerDataFromServer(
+                        [this, keepAliveRefresh = Ref<CCNode>(this)](bool ok) {
+                            if (ok) refreshClaimControl();
+                        }
+                    );
+                    return;
+                }
+                refreshClaimControl();
+                if (code == 403) {
+                    FLAlertLayer::create(
+                        "Support Rewards",
+                        "This tier has not been activated for your account yet.",
+                        "OK"
+                    )->show();
+                } else {
+                    auto serverError = data["error"].as<std::string>().unwrapOr(std::string("Unknown error"));
+                    FLAlertLayer::create(
+                        "Support Rewards",
+                        fmt::format(
+                            "Could not claim the rewards.\n<cr>Server {}:</c> {}",
+                            code, serverError
+                        ).c_str(),
+                        "OK"
+                    )->show();
+                }
+            });
     }
 };
 
@@ -305,9 +419,10 @@ protected:
     CCMenuItemToggler* mTiersBtn;
     CCMenuItemToggler* mGemsBtn;
     CCMenuItemToggler* mStarsBtn;
+    std::array<DonationTierCard*, 3> mTierCards = { nullptr, nullptr, nullptr };
 
     void onOpenLink(CCObject*) {
-        cocos2d::CCApplication::sharedApplication()->openURL("https://ko-fi.com/streakservers");
+        cocos2d::CCApplication::sharedApplication()->openURL("https://ko-fi.com/supportgames");
     }
 
     void onTabToggled(CCObject* sender) {
@@ -352,9 +467,10 @@ protected:
         mStarsLayer->setAnchorPoint({ 0.5f, 0.5f });
  
         mTiersLayer->setLayout(RowLayout::create()->setGap(5.f)->setAxisAlignment(AxisAlignment::Center));
-        mTiersLayer->addChild(DonationTierCard::create("basic.png"_spr, "$10", "basic_bg.png"_spr, 1));
-        mTiersLayer->addChild(DonationTierCard::create("vip.png"_spr, "$15", "vip_bg.png"_spr, 2));
-        mTiersLayer->addChild(DonationTierCard::create("stellar.png"_spr, "$25", "stellar_bg.png"_spr, 3));
+        mTierCards[0] = DonationTierCard::create("basic.png"_spr, "$10", "basic_bg.png"_spr, 1);
+        mTierCards[1] = DonationTierCard::create("vip.png"_spr, "$15", "vip_bg.png"_spr, 2);
+        mTierCards[2] = DonationTierCard::create("stellar.png"_spr, "$25", "stellar_bg.png"_spr, 3);
+        for (auto* card : mTierCards) mTiersLayer->addChild(card);
         mTiersLayer->updateLayout();
 
       
@@ -415,9 +531,17 @@ protected:
       
         m_mainLayer->addChild(menu);
 
+        // Re-read the player document whenever Support opens. This makes a
+        // manually enabled Firebase tier visible without restarting the game.
+        refreshPlayerDataFromServer([this, keepAlive = Ref<CCNode>(this)](bool ok) {
+            if (!ok) return;
+            for (auto* card : mTierCards) {
+                if (card) card->refreshFromServerState();
+            }
+        });
+
         return true;
     }
-
 
 
 public:
@@ -579,7 +703,3 @@ public:
         return nullptr;
     }
 };
-
- 
-
- 

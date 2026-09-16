@@ -24,6 +24,7 @@
 #include "WelcomeNotification.h"
 #include "RewardNotification.h"
 #include "HMACAuth.h"
+#include "RemoteAssetManager.h"
 #include "popups/PremiumUnlockAnim.h"
 
 class $modify(StreakAppDelegate, AppDelegate) {
@@ -86,6 +87,8 @@ class $modify(MyMenuLayer, MenuLayer) {
 
     bool init() override {
         if (!MenuLayer::init()) return false;
+
+        RemoteAssets::initialize();
 
         this->createStreakButton(ButtonState::Loading);
         this->loadPlayerData();
@@ -199,6 +202,22 @@ class $modify(MyMenuLayer, MenuLayer) {
         g_streakData.isDataLoaded = true;
         g_streakData.m_initialized = true;
         g_streakData.dailyUpdate();
+
+        // Keep the player's active cosmetics ready without downloading the
+        // whole catalog. Everything else remains opt-in from the collection.
+        if (!g_streakData.equippedBadge.empty()) {
+            RemoteAssets::ensure(RemoteAssets::Type::Badge, g_streakData.equippedBadge);
+        }
+        if (!g_streakData.equippedBanner.empty()) {
+            RemoteAssets::ensure(RemoteAssets::Type::Banner, g_streakData.equippedBanner);
+        }
+        RemoteAssets::ensure(
+            RemoteAssets::Type::Song,
+            g_streakData.equippedSong.empty()
+                ? DEFAULT_STREAK_MENU_SONG_ID
+                : g_streakData.equippedSong
+        );
+
         this->createStreakButton(ButtonState::Active);
         this->tryShowPassGift();
     }
@@ -411,6 +430,8 @@ class $modify(MyCommentCell, CommentCell) {
         if (!cachedBadge.empty()) {
             if (cachedBadge == "none") return;
 
+            RemoteAssets::ensure(RemoteAssets::Type::Badge, cachedBadge);
+
             if (auto username_menu = m_mainLayer->getChildByIDRecursive("username-menu")) {
                 if (auto badgeInfo = g_streakData.getBadgeInfo(cachedBadge)) {
                     auto badgeSprite = CCSprite::create(badgeInfo->spriteName.c_str());
@@ -435,6 +456,7 @@ class $modify(MyCommentCell, CommentCell) {
             if (res.ok() && res.json().isOk()) {
                 auto playerData = res.json().unwrap();
                 std::string badgeId = playerData["equipped_badge_id"].as<std::string>().unwrapOr("");
+                if (!badgeId.empty()) RemoteAssets::ensure(RemoteAssets::Type::Badge, badgeId);
 
                 if (badgeId.empty()) {
                     g_streakData.cacheUserBadge(p0->m_accountID, "none");

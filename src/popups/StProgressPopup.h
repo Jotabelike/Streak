@@ -66,7 +66,7 @@ protected:
     CCMenuItemSpriteExtra* m_completeRewardBtn = nullptr;
     CCSprite* m_completeRewardCheck = nullptr;
     CCLabelBMFont* m_themeLabel = nullptr;
-    static constexpr const char* COMPLETE_REWARD_SONG = "song_3";
+    static constexpr const char* COMPLETE_REWARD_SONG = "song_4";
 
     RoundedProgressBar* m_goldBuyBar = nullptr;
     CCLabelBMFont* m_goldBuyGoalLabel = nullptr;
@@ -759,7 +759,7 @@ protected:
             + status,
             "Cancel", "Ko-fi",
             [](FLAlertLayer*, bool openKofi) {
-                if (openKofi) cocos2d::CCApplication::sharedApplication()->openURL("https://ko-fi.com/streakservers");
+                if (openKofi) cocos2d::CCApplication::sharedApplication()->openURL("https://ko-fi.com/supportgames");
             }
         );
     }

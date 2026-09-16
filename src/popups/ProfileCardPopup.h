@@ -7,6 +7,7 @@
 #include "../StatusSpinner.h"
 #include "../NameModifiers.h"
 #include "../HMACAuth.h"
+#include "../RemoteAssetManager.h"
 
 using namespace geode::prelude;
 
@@ -198,6 +199,12 @@ protected:
                 m_data.starTickets = json["star_tickets"].as<int>().unwrapOr(0);
                 m_data.gems = json["gems"].as<int>().unwrapOr(0);
                 m_data.bannerID = json["equipped_banner_id"].as<std::string>().unwrapOr("");
+                if (!m_data.badgeID.empty()) {
+                    RemoteAssets::ensure(RemoteAssets::Type::Badge, m_data.badgeID);
+                }
+                if (!m_data.bannerID.empty()) {
+                    RemoteAssets::ensure(RemoteAssets::Type::Banner, m_data.bannerID);
+                }
                 m_data.streakID = json["streakID"].as<std::string>().unwrapOr("???");
                 m_data.nameFont = json["equipped_name_font"].as<std::string>().unwrapOr("Default");
                 m_data.nameColor = json["equipped_name_color"].as<std::string>().unwrapOr("Default");
