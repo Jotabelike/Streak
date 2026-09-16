@@ -39,9 +39,10 @@
 *.tmPreferences.cache
 *.stTheme.cache
 
-# Ignore all files in build except .geode files
-build/*
-!build/*.geode
+# Build outputs are generated locally and by CI. Keeping old .geode packages in
+# the repository makes the multi-platform combiner treat Git LFS pointers as ZIP
+# archives, so no packaged artifacts belong in source control.
+build/
 
 # Ignore platform specific build folders
 build-*/
