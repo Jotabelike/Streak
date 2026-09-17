@@ -1,6 +1,7 @@
 ﻿#include "StreakData.h"
 #include "FirebaseManager.h"
 #include "PassNameCosmetics.h"
+#include "ProfileCardDraws.h"
 #include <Geode/utils/cocos.hpp>
 #include <sstream>
 #include <iomanip>
@@ -28,6 +29,9 @@ void StreakData::resetToDefault() {
     equippedNameFont = "Default";
     equippedNameEffect = "None";
     equippedNameAnimation = "None";
+    equippedProfileEffect = "None";
+    equippedProfilePopup = "geode.loader/GE_square01.png";
+    equippedProfileDraws.clear();
     unlockedNameItems.clear();
     currentStreak = 0;
     streakPointsToday = 0;
@@ -441,6 +445,19 @@ void StreakData::parseServerResponse(const matjson::Value& data) {
     equippedNameColor = data["equipped_name_color"].as<std::string>().unwrapOr(std::string("Default"));
     equippedNameFont = data["equipped_name_font"].as<std::string>().unwrapOr(std::string("Default"));
     equippedNameEffect = data["equipped_name_effect"].as<std::string>().unwrapOr(std::string("None"));
+    equippedProfileEffect = data["equipped_profile_effect"].as<std::string>().unwrapOr(std::string("None"));
+    equippedProfilePopup = data["equipped_profile_popup"].as<std::string>().unwrapOr(std::string("geode.loader/GE_square01.png"));
+    equippedProfileDraws.clear();
+    if (data.contains("equipped_profile_draws")) {
+        auto savedDraws = data["equipped_profile_draws"].as<std::vector<std::string>>().unwrapOr(std::vector<std::string>{});
+        for (auto const& drawID : savedDraws) {
+            if (equippedProfileDraws.size() >= ProfileCardDraws::MAX_EQUIPPED) break;
+            if (!ProfileCardDraws::getInfo(drawID)) continue;
+            if (std::find(equippedProfileDraws.begin(), equippedProfileDraws.end(), drawID) == equippedProfileDraws.end()) {
+                equippedProfileDraws.push_back(drawID);
+            }
+        }
+    }
     if (PassNameCosmetics::isLegacyAnimation(equippedNameAnimation)) equippedNameAnimation = "None";
     if (PassNameCosmetics::isLegacyColor(equippedNameColor)) equippedNameColor = "Default";
     if (PassNameCosmetics::isLegacyEffect(equippedNameEffect)) equippedNameEffect = "None";
@@ -1163,7 +1180,7 @@ std::string StreakData::getRachaSprite() {
     return getRachaSprite(this->currentStreak);
 }
 
-// Cumulative streak-token thresholds for each of the 12 sub-ranks.
+// Cumulative streak-token thresholds for each of the 15 sub-ranks.
 // MUST stay in sync with RANK_THRESHOLDS in server.js.
 static const int s_rankThresholds[StreakData::RANK_COUNT] = {
     0,     // Bronze I
@@ -1177,21 +1194,26 @@ static const int s_rankThresholds[StreakData::RANK_COUNT] = {
     9000,  // Gold III
     12000, // Diamond I
     16000, // Diamond II
-    21000  // Diamond III
+    21000, // Diamond III
+    28000, // Definitive I
+    37000, // Definitive II
+    48000  // Definitive III
 };
 
 static const char* s_rankSprites[StreakData::RANK_COUNT] = {
     "bronze.png", "bronze2.png", "bronze3.png",
     "platinum.png", "platinum2.png", "platinum3.png",
     "gold.png", "gold2.png", "gold3.png",
-    "diamond.png", "diamond2.png", "diamond3.png"
+    "diamond.png", "diamond2.png", "diamond3.png",
+    "definitive1.png", "definitive2.png", "definitive3.png"
 };
 
 static const char* s_rankNames[StreakData::RANK_COUNT] = {
     "Bronze I", "Bronze II", "Bronze III",
     "Platinum I", "Platinum II", "Platinum III",
     "Gold I", "Gold II", "Gold III",
-    "Diamond I", "Diamond II", "Diamond III"
+    "Diamond I", "Diamond II", "Diamond III",
+    "Definitive I", "Definitive II", "Definitive III"
 };
 
 int StreakData::getRankIndexForTokens(int tokens) {
@@ -1239,7 +1261,8 @@ std::string StreakData::getRankColorStyleForIndex(int rankIndex) {
     if (rankIndex <= 2) return "Bronze Wave";   // Bronze
     if (rankIndex <= 5) return "Platinum Wave"; // Platinum
     if (rankIndex <= 8) return "Gold Wave";     // Gold
-    return "Diamond Wave";                      // Diamond
+    if (rankIndex <= 11) return "Diamond Wave"; // Diamond
+    return "Definitive Wave";                   // Definitive
 }
 
 std::string StreakData::getRankColorStyle(int tokens) {

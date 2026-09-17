@@ -3,11 +3,15 @@
 #include <Geode/utils/cocos.hpp>
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/async.hpp>
+#include <Geode/binding/ProfilePage.hpp>
 #include "../StreakData.h"
 #include "../StatusSpinner.h"
 #include "../NameModifiers.h"
 #include "../HMACAuth.h"
 #include "../RemoteAssetManager.h"
+#include "../ProfileCardEffects.h"
+#include "../ProfileCardStyles.h"
+#include "../ProfileCardDraws.h"
 
 using namespace geode::prelude;
 
@@ -20,6 +24,7 @@ struct ProfileData {
 
     int level = 1;
     int currentXP = 0;
+    int streakTokens = 0;
     int superStars = 0;
     int starTickets = 0;
     int gems = 0;
@@ -33,8 +38,12 @@ struct ProfileData {
     std::string nameFont = "Default";
     std::string nameEffect = "None";
     std::string nameAnimation = "None";
+    std::string profileEffect = "None";
+    std::string profilePopup = ProfileCardStyles::DEFAULT_STYLE;
+    std::vector<std::string> profileDraws;
 
     bool isPartialData = false;
+    bool showGDProfileButton = false;
 };
 
 class ProfileCardPopup : public Popup {
@@ -42,11 +51,116 @@ protected:
     ProfileData m_data;
     async::TaskHolder<web::WebResponse> m_fullDataListener;
     StatusSpinner* m_loadingSpinner = nullptr;
+    bool m_profileBuilt = false;
+    bool m_transitionFinished = false;
+    bool m_effectStarted = false;
+
+    CCSprite* createDrawSprite(const ProfileCardDraws::DrawInfo& draw, const CCSize& size, float extraScale = 1.f) {
+        auto sprite = CCSprite::create(ProfileCardDraws::resolveSprite(draw).c_str());
+        if (!sprite || sprite->getContentSize().width <= 0.f || sprite->getContentSize().height <= 0.f) return nullptr;
+        float layoutScale = size.height / 180.f;
+        float spriteScale = (draw.displayHeight * layoutScale / sprite->getContentSize().height) * extraScale;
+        sprite->setScale(spriteScale);
+        sprite->setPosition({
+            draw.centerX * (size.width / 280.f),
+            draw.centerY * layoutScale
+        });
+        return sprite;
+    }
+
+    void buildProfileDraws() {
+        if (m_data.profileDraws.empty()) return;
+
+        auto winSize = m_mainLayer->getContentSize();
+        auto maskedLayer = CCClippingNode::create();
+        maskedLayer->setContentSize(winSize);
+        maskedLayer->setAlphaThreshold(0.08f);
+
+        auto stencil = cocos2d::extension::CCScale9Sprite::create(ProfileCardStyles::resolve(m_data.profilePopup));
+        stencil->setContentSize({ winSize.width - 6.f, winSize.height - 6.f });
+        stencil->setPosition({ winSize.width / 2.f, winSize.height / 2.f });
+        maskedLayer->setStencil(stencil);
+
+        bool hasMaskedDraw = false;
+        std::size_t drawCount = 0;
+        for (auto const& drawID : m_data.profileDraws) {
+            if (drawCount++ >= ProfileCardDraws::MAX_EQUIPPED) break;
+            auto info = ProfileCardDraws::getInfo(drawID);
+            if (!info) continue;
+
+            if (info->type == ProfileCardDraws::DrawType::Masked) {
+                if (auto sprite = createDrawSprite(*info, winSize)) {
+                    maskedLayer->addChild(sprite);
+                    hasMaskedDraw = true;
+                }
+            }
+            else if (auto sprite = createDrawSprite(*info, winSize, 1.04f)) {
+                m_mainLayer->addChild(sprite, 11);
+            }
+        }
+
+        // Masked drawings decorate the card artwork but remain behind every
+        // label and stat. Overlay drawings intentionally stay above at z=11.
+        if (hasMaskedDraw) m_mainLayer->addChild(maskedLayer, 1);
+    }
+
+    void startProfileEffect() {
+        if (m_effectStarted || !m_profileBuilt || m_data.profileEffect == "None") return;
+        m_effectStarted = true;
+
+        auto winSize = m_mainLayer->getContentSize();
+        auto effectMask = CCClippingNode::create();
+        effectMask->setContentSize(winSize);
+        effectMask->setAlphaThreshold(0.08f);
+
+        // Match the rounded inner body of GE_square01 instead of using the
+        // full rectangular layer bounds.
+        auto stencil = cocos2d::extension::CCScale9Sprite::create(ProfileCardStyles::resolve(m_data.profilePopup));
+        stencil->setContentSize({ winSize.width - 6.f, winSize.height - 6.f });
+        stencil->setPosition({ winSize.width / 2.f, winSize.height / 2.f });
+        effectMask->setStencil(stencil);
+
+        // The clipping stencil already keeps the animation inside the rounded
+        // popup. Use almost all of that space so full-card effects actually
+        // reach the visible edges instead of forming a smaller inner box.
+        constexpr float effectInsetX = 3.f;
+        constexpr float effectInsetY = 3.f;
+        auto profileEffect = ProfileCardEffects::createEffect(
+            m_data.profileEffect,
+            { winSize.width - effectInsetX * 2.f, winSize.height - effectInsetY * 2.f },
+            false
+        );
+        profileEffect->setPosition({ effectInsetX, effectInsetY });
+        effectMask->addChild(profileEffect);
+        m_mainLayer->addChild(effectMask, 9);
+
+        // Every profile animation is an entrance effect. Removing the entire
+        // clipped layer guarantees no glow or wave can remain afterwards.
+        effectMask->runAction(CCSequence::create(
+            CCDelayTime::create(3.1f),
+            CallFuncExt::create([effectMask]() {
+                effectMask->removeFromParentAndCleanup(true);
+            }),
+            nullptr
+        ));
+    }
+
+    void onEnterTransitionDidFinish() override {
+        CCLayer::onEnterTransitionDidFinish();
+        m_transitionFinished = true;
+        startProfileEffect();
+    }
 
     void onCopyID(CCObject*) {
         if (m_data.streakID.empty() || m_data.streakID == "Pending...") return;
         clipboard::write(m_data.streakID);
         Notification::create("ID Copied!", NotificationIcon::Success)->show();
+    }
+
+    void onOpenGDProfile(CCObject*) {
+        if (m_data.accountID > 0) {
+            ProfilePage::create(m_data.accountID, false)->show();
+        }
     }
 
     void addStatItem(float x, float y, const std::string& iconName, const std::string& textStr, float iconScale) {
@@ -158,6 +272,26 @@ protected:
         levelLabel->setPosition({ textStartX + textOffsetX, bannerCenterY - 12.f });
         m_mainLayer->addChild(levelLabel, 5);
 
+        float rankCursorX = levelLabel->getPositionX()
+            + levelLabel->getContentSize().width * levelLabel->getScaleX() + 6.f;
+        if (auto rankSprite = CCSprite::create(StreakData::getRankSprite(m_data.streakTokens).c_str())) {
+            float targetHeight = xpIcon->getContentSize().height * xpIcon->getScaleY();
+            float spriteHeight = rankSprite->getContentSize().height;
+            rankSprite->setScale((spriteHeight > 0.f ? targetHeight / spriteHeight : 0.03f) * 1.1f);
+            rankSprite->setAnchorPoint({ 0.f, 0.5f });
+            rankSprite->setPosition({ rankCursorX, bannerCenterY - 13.f });
+            m_mainLayer->addChild(rankSprite, 5);
+            rankCursorX += rankSprite->getContentSize().width * rankSprite->getScaleX() + 3.f;
+        }
+
+        auto rankNameLabel = CCLabelBMFont::create(
+            StreakData::getRankName(m_data.streakTokens).c_str(), "bigFont.fnt");
+        rankNameLabel->limitLabelWidth(std::max(28.f, fireX - rankCursorX - 13.f), 0.3f, 0.1f);
+        rankNameLabel->setAnchorPoint({ 0.f, 0.5f });
+        rankNameLabel->setPosition({ rankCursorX, bannerCenterY - 12.f });
+        m_mainLayer->addChild(rankNameLabel, 5);
+        NameModifiers::applyColor(rankNameLabel, StreakData::getRankColorStyle(m_data.streakTokens));
+
         float col1_X = 35.0f;
         float col2_X = winSize.width / 2 + 35.f;
         float row1_Y = 60.0f;
@@ -183,6 +317,11 @@ protected:
         menuID->setPosition({ 0, 0 });
         menuID->addChild(idBtn);
         m_mainLayer->addChild(menuID, 10);
+
+        buildProfileDraws();
+
+        m_profileBuilt = true;
+        if (m_transitionFinished) startProfileEffect();
     }
 
     void fetchFullProfile() {
@@ -195,6 +334,9 @@ protected:
 
                 m_data.level = json["current_level"].as<int>().unwrapOr(1);
                 m_data.currentXP = json["current_xp"].as<int>().unwrapOr(0);
+                // Keep the value supplied by the leaderboard if an older or
+                // incomplete public-profile response does not include tokens.
+                m_data.streakTokens = json["streak_tokens"].as<int>().unwrapOr(m_data.streakTokens);
                 m_data.superStars = json["super_stars"].as<int>().unwrapOr(0);
                 m_data.starTickets = json["star_tickets"].as<int>().unwrapOr(0);
                 m_data.gems = json["gems"].as<int>().unwrapOr(0);
@@ -210,6 +352,9 @@ protected:
                 m_data.nameColor = json["equipped_name_color"].as<std::string>().unwrapOr("Default");
                 m_data.nameEffect = json["equipped_name_effect"].as<std::string>().unwrapOr("None");
                 m_data.nameAnimation = json["equipped_name_animation"].as<std::string>().unwrapOr("None");
+                m_data.profileEffect = json["equipped_profile_effect"].as<std::string>().unwrapOr("None");
+                m_data.profilePopup = json["equipped_profile_popup"].as<std::string>().unwrapOr(ProfileCardStyles::DEFAULT_STYLE);
+                m_data.profileDraws = json["equipped_profile_draws"].as<std::vector<std::string>>().unwrapOr(std::vector<std::string>{});
 
                 if (json.contains("rank")) m_data.globalRank = json["rank"].as<int>().unwrapOr(0);
                 else if (json.contains("global_rank")) m_data.globalRank = json["global_rank"].as<int>().unwrapOr(0);
@@ -228,9 +373,31 @@ protected:
     }
 
     bool init(ProfileData data) {
-        if (!Popup::init(280.f, 180.f, "geode.loader/GE_square01.png")) return false;
+        if (!Popup::init(280.f, 180.f, ProfileCardStyles::resolve(data.profilePopup))) return false;
         m_data = data;
         this->setTitle("Player Profile");
+
+        // Keep the Geometry Dash profile accessible without replacing the
+        // Streak card shown when a leaderboard name is selected.
+        if (m_data.showGDProfileButton) {
+            if (auto profileSprite = CCSprite::createWithSpriteFrameName("GJ_profileButton_001.png")) {
+                profileSprite->setScale(0.55f);
+                auto profileButton = CCMenuItemSpriteExtra::create(
+                    profileSprite,
+                    this,
+                    menu_selector(ProfileCardPopup::onOpenGDProfile)
+                );
+                profileButton->setID("gd-profile-button");
+                auto size = m_mainLayer->getContentSize();
+                profileButton->setPosition({ size.width + 17.f, size.height - 20.f });
+                profileButton->setEnabled(m_data.accountID > 0);
+
+                auto profileMenu = CCMenu::createWithItem(profileButton);
+                profileMenu->setID("gd-profile-menu");
+                profileMenu->setPosition({ 0.f, 0.f });
+                m_mainLayer->addChild(profileMenu, 1000);
+            }
+        }
 
         if (m_data.isPartialData) {
             m_loadingSpinner = StatusSpinner::create();

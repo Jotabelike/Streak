@@ -9,7 +9,9 @@
 #include "../BannerNotification.h" 
 #include "GemRouletteConfig.h" 
 #include "PurchaseConfirmPopup.h"
+#include "StreakChestPopup.h"
 #include <functional>
+#include <random>
 
 using namespace geode::prelude;
 
@@ -19,17 +21,27 @@ extern void spinGemRouletteOnServer(int discountPercent, std::function<void(bool
 
 enum class RouletteMode {
     Standard,
-    Gem
+    Gem,
+    Stellar
 };
 
 // Precio de la ruleta estandar en super stars: 1 giro = 10, x10 = 100.
 // Debe coincidir con STANDARD_SPIN_COST del servidor, que es quien cobra.
 inline constexpr int STANDARD_SPIN_COST = 10;
+inline constexpr int STELLAR_SPIN_COST = 25;
 
 class RoulettePopup : public Popup {
 protected:
-    CCNode* m_rouletteNode;
-    CCSprite* m_selectorSprite;
+    CCNode* m_rouletteNode = nullptr;
+    CCSprite* m_selectorSprite = nullptr;
+
+    CCNode* m_stellarWheelNode = nullptr;
+    CCSprite* m_stellarPointer = nullptr;
+    CCDrawNode* m_stellarSecretSector = nullptr;
+    std::vector<CCPoint> m_stellarSecretVertices;
+    float m_stellarSecretPhase = -1.5707963f;
+    std::vector<CCNode*> m_stellarRewardNodes;
+    int m_pendingStellarIndex = -1;
 
     CCSprite* m_mainPrizeSprite = nullptr;
 
@@ -56,6 +68,7 @@ protected:
     // buttons
     CCMenuItemSpriteExtra* m_standardModeBtn = nullptr;
     CCMenuItemSpriteExtra* m_gemModeBtn = nullptr;
+    CCMenuItemSpriteExtra* m_stellarModeBtn = nullptr;
     CCMenu* m_modeMenu = nullptr;
 
     CCLabelBMFont* m_currencyLabel = nullptr;
@@ -146,6 +159,7 @@ protected:
 
         if (m_standardModeBtn) m_standardModeBtn->setEnabled(enabled && m_currentMode != RouletteMode::Standard);
         if (m_gemModeBtn) m_gemModeBtn->setEnabled(enabled && m_currentMode != RouletteMode::Gem);
+        if (m_stellarModeBtn) m_stellarModeBtn->setEnabled(enabled && m_currentMode != RouletteMode::Stellar);
     }
 
     void keyBackClicked() override {
@@ -200,7 +214,22 @@ protected:
     void onAdAnimationFinished() { m_isAdAnimating = false; m_timeSinceLastAdSwitch = 0.0f; }
 
     void getPrizesForCurrentMode() {
-        if (m_currentMode == RouletteMode::Gem) {
+        if (m_currentMode == RouletteMode::Stellar) {
+            // Permanent Stellar pool. Chest quantity stores its star rarity;
+            // consumable IDs identify the discount ticket awarded.
+            m_roulettePrizes = {
+                // The weights total 1000, making Obsidian Eclipse exactly 0.1%.
+                { RewardType::Badge,      "crystal_eclipse_badge", 1, "crystal_eclipse_badge.png"_spr, "Obsidian Eclipse",     1, StreakData::BadgeCategory::SECRETS },
+                { RewardType::Chest,      "stellar_chest_3_a",     3, "ChestStar3.png"_spr,             "3-Star Chest",        43, StreakData::BadgeCategory::EPIC },
+                { RewardType::Chest,      "stellar_chest_2_a",     2, "ChestStar2.png"_spr,             "2-Star Chest",       129, StreakData::BadgeCategory::SPECIAL },
+                { RewardType::Consumable, "discount_ticket_50",    1, "discount_ticket_50.png"_spr,     "50% Discount Ticket",150, StreakData::BadgeCategory::LEGENDARY },
+                { RewardType::Chest,      "stellar_chest_3_b",     3, "ChestStar3.png"_spr,             "3-Star Chest",        43, StreakData::BadgeCategory::EPIC },
+                { RewardType::Consumable, "discount_ticket_25",    1, "discount_ticket_25.png"_spr,     "25% Discount Ticket", 30, StreakData::BadgeCategory::EPIC },
+                { RewardType::Chest,      "stellar_chest_2_b",     2, "ChestStar2.png"_spr,             "2-Star Chest",       129, StreakData::BadgeCategory::SPECIAL },
+                { RewardType::Consumable, "discount_ticket_10",    1, "discount_ticket_10.png"_spr,     "10% Discount Ticket",475, StreakData::BadgeCategory::COMMON }
+            };
+        }
+        else if (m_currentMode == RouletteMode::Gem) {
             m_roulettePrizes = GemRouletteConfig::getPrizes();
         }
         else if (!g_streakData.serverStandardRoulette.empty()
@@ -230,7 +259,22 @@ protected:
     void reloadRouletteContent() {
         for (auto node : m_orderedSlots) node->removeFromParent();
         m_orderedSlots.clear();
-        if (m_selectorSprite) m_selectorSprite->removeFromParent();
+        if (m_selectorSprite) {
+            m_selectorSprite->removeFromParent();
+            m_selectorSprite = nullptr;
+        }
+        if (m_stellarWheelNode) {
+            m_stellarWheelNode->removeFromParent();
+            m_stellarWheelNode = nullptr;
+        }
+        m_stellarSecretSector = nullptr;
+        m_stellarSecretVertices.clear();
+        m_stellarSecretPhase = -1.5707963f;
+        if (m_stellarPointer) {
+            m_stellarPointer->removeFromParent();
+            m_stellarPointer = nullptr;
+        }
+        m_stellarRewardNodes.clear();
 
 
         {
@@ -252,6 +296,13 @@ protected:
         const float spacing = 5.f;
         std::vector<CCPoint> slotPositions;
         auto winSize = m_mainLayer->getContentSize();
+
+        if (m_currentMode == RouletteMode::Stellar) {
+            m_rouletteNode->setPosition({ winSize.width / 2.f, winSize.height / 2.f + 7.f });
+            buildStellarWheel();
+            updateButtons();
+            return;
+        }
 
         if (m_currentMode == RouletteMode::Gem) {
             m_rouletteNode->setPositionY(winSize.height / 2 - 35.f);
@@ -409,9 +460,11 @@ protected:
     void updateButtons() {
         if (!m_spinBtn || !m_spin10Btn || !m_currencyLabel || !m_currencyIcon) return;
         auto winSize = m_mainLayer->getContentSize();
+        m_spinMenu->setVisible(true);
 
         m_standardModeBtn->setEnabled(m_currentMode != RouletteMode::Standard);
         m_gemModeBtn->setEnabled(m_currentMode != RouletteMode::Gem);
+        m_stellarModeBtn->setEnabled(m_currentMode != RouletteMode::Stellar);
 
         m_spinMenu->removeChild(m_spinBtn, true);
         m_spin10Btn->retain();
@@ -436,7 +489,7 @@ protected:
             m_spin10Btn->setPosition({ 0, 0 });
             m_spinMenu->alignItemsHorizontallyWithPadding(5.f);
         }
-        else {
+        else if (m_currentMode == RouletteMode::Gem) {
             m_adsClipper->setVisible(false);
             int cost = GemRouletteConfig::getCostForStep(g_streakData.gemRouletteSpinCount);
 
@@ -467,6 +520,42 @@ protected:
             m_spinMenu->setPosition({ winSize.width / 2, 25.f });
             m_spinBtn->setPosition({ 0.f, 0.f });
         }
+        else {
+            m_adsClipper->setVisible(false);
+            if (g_streakData.isStellarPassActive()) {
+                m_spinBtn = CCMenuItemSpriteExtra::create(
+                    ButtonSprite::create(fmt::format("{}", STELLAR_SPIN_COST).c_str()),
+                    this, menu_selector(RoulettePopup::onSpin)
+                );
+            }
+            else {
+                auto passIcon = CCSprite::create("stellarpass.png"_spr);
+                if (!passIcon) passIcon = CCSprite::create("stellarpass.png");
+                if (passIcon) {
+                    constexpr float targetSize = 42.f;
+                    float maxSide = std::max(passIcon->getContentSize().width, passIcon->getContentSize().height);
+                    if (maxSide > 0.f) passIcon->setScale(targetSize / maxSide);
+                }
+                m_spinBtn = CCMenuItemSpriteExtra::create(
+                    passIcon,
+                    this, menu_selector(RoulettePopup::onStellarPassRequired)
+                );
+            }
+            m_spinMenu->addChild(m_spinBtn);
+            m_spinMenu->addChild(m_spin10Btn);
+            m_spin10Btn->release();
+            m_spin10Btn->setVisible(false);
+
+            m_currencyLabel->setString(std::to_string(g_streakData.gems).c_str());
+            auto texture = CCSprite::create("gem.png"_spr)->getTexture();
+            m_currencyIcon->setTexture(texture);
+            m_currencyIcon->setColor({ 255,255,255 });
+
+            // The Stellar wheel remains centered; its spin button uses the
+            // same bottom action area as the other two roulette modes.
+            m_spinMenu->setPosition({ winSize.width / 2, 25.f });
+            m_spinBtn->setPosition({ 0.f, 0.f });
+        }
 
         float labelW = m_currencyLabel->getScaledContentSize().width;
         float iconW = m_currencyIcon->getScaledContentSize().width;
@@ -490,6 +579,165 @@ protected:
         if (m_isSpinning || m_currentMode == RouletteMode::Gem) return;
         m_currentMode = RouletteMode::Gem;
         reloadRouletteContent();
+    }
+
+    void onSelectStellarMode(CCObject*) {
+        if (m_isSpinning || m_currentMode == RouletteMode::Stellar) return;
+        m_currentMode = RouletteMode::Stellar;
+        reloadRouletteContent();
+    }
+
+    CCSprite* createStellarRewardSprite(const std::string& spriteName, float maxSide) {
+        auto sprite = CCSprite::create(spriteName.c_str());
+        if (!sprite) sprite = CCSprite::createWithSpriteFrameName("GJ_questionMark_001.png");
+        if (!sprite) return nullptr;
+
+        auto size = sprite->getContentSize();
+        float largestSide = std::max(size.width, size.height);
+        if (largestSide > 0.f) sprite->setScale(maxSide / largestSide);
+        return sprite;
+    }
+
+    void redrawStellarSecretSector() {
+        if (!m_stellarSecretSector || m_stellarSecretVertices.empty()) return;
+
+        float blend = (std::sin(m_stellarSecretPhase) + 1.f) * 0.5f;
+        ccColor4F fill = {
+            0.01f + (0.41f - 0.01f) * blend,
+            0.02f + (0.88f - 0.02f) * blend,
+            0.04f + (1.00f - 0.04f) * blend,
+            0.98f
+        };
+        ccColor4F border = {
+            0.45f + 0.35f * blend,
+            0.82f + 0.16f * blend,
+            1.f,
+            1.f
+        };
+
+        m_stellarSecretSector->clear();
+        m_stellarSecretSector->drawPolygon(
+            m_stellarSecretVertices.data(),
+            static_cast<unsigned int>(m_stellarSecretVertices.size()),
+            fill, 1.8f, border
+        );
+    }
+
+    void buildStellarWheel() {
+        constexpr float radius = 78.f;
+        constexpr int arcSteps = 10;
+        const float sectorAngle = 360.f / static_cast<float>(m_roulettePrizes.size());
+
+        m_stellarWheelNode = CCNode::create();
+        m_rouletteNode->addChild(m_stellarWheelNode, 2);
+
+        auto draw = CCDrawNode::create();
+        const std::vector<ccColor3B> colors = {
+            { 70, 225, 255 }, { 125, 110, 255 }, { 255, 120, 225 }, { 80, 245, 220 },
+            { 170, 105, 255 }, { 255, 100, 170 }, { 80, 190, 255 }, { 235, 100, 255 }
+        };
+
+        auto rim = CCDrawNode::create();
+        rim->drawCircle(CCPointZero, radius + 3.f, { 0.f, 0.f, 0.f, 0.f }, 1.5f,
+            { 0.45f, 0.92f, 1.f, 0.95f }, 96);
+        rim->drawCircle(CCPointZero, radius + 6.f, { 0.f, 0.f, 0.f, 0.f }, 1.2f,
+            { 0.18f, 0.35f, 0.70f, 0.70f }, 96);
+        for (int tick = 0; tick < 16; ++tick) {
+            float angle = CC_DEGREES_TO_RADIANS(static_cast<float>(tick) * 22.5f);
+            CCPoint inner = { std::cos(angle) * (radius + 1.f), std::sin(angle) * (radius + 1.f) };
+            CCPoint outer = { std::cos(angle) * (radius + 6.f), std::sin(angle) * (radius + 6.f) };
+            rim->drawSegment(inner, outer, 1.1f, { 0.75f, 0.95f, 1.f, 0.90f });
+        }
+        m_stellarWheelNode->addChild(rim, 3);
+
+        for (size_t i = 0; i < m_roulettePrizes.size(); ++i) {
+            float centerAngle = 90.f - static_cast<float>(i) * sectorAngle;
+            float startAngle = centerAngle - sectorAngle / 2.f;
+            float endAngle = centerAngle + sectorAngle / 2.f;
+
+            std::vector<CCPoint> vertices;
+            vertices.reserve(arcSteps + 2);
+            vertices.push_back(CCPointZero);
+            for (int step = 0; step <= arcSteps; ++step) {
+                float t = static_cast<float>(step) / static_cast<float>(arcSteps);
+                float angle = CC_DEGREES_TO_RADIANS(startAngle + (endAngle - startAngle) * t);
+                vertices.push_back({ std::cos(angle) * radius, std::sin(angle) * radius });
+            }
+
+            if (i == 0) {
+                m_stellarSecretVertices = vertices;
+                m_stellarSecretSector = CCDrawNode::create();
+                m_stellarWheelNode->addChild(m_stellarSecretSector, 1);
+                redrawStellarSecretSector();
+            }
+            else {
+                const auto& color = colors[i % colors.size()];
+                draw->drawPolygon(
+                    vertices.data(),
+                    static_cast<unsigned int>(vertices.size()),
+                    { color.r / 255.f, color.g / 255.f, color.b / 255.f, 0.90f },
+                    1.2f,
+                    { 1.f, 1.f, 1.f, 0.65f }
+                );
+            }
+        }
+        m_stellarWheelNode->addChild(draw);
+
+        m_stellarRewardNodes.clear();
+        for (size_t i = 0; i < m_roulettePrizes.size(); ++i) {
+            float angle = CC_DEGREES_TO_RADIANS(90.f - static_cast<float>(i) * sectorAngle);
+            auto rewardNode = CCNode::create();
+            rewardNode->setPosition({ std::cos(angle) * 51.f, std::sin(angle) * 51.f });
+            // Follow the radial direction of the circular cell instead of
+            // keeping every reward in the same default orientation.
+            rewardNode->setRotation(static_cast<float>(i) * sectorAngle);
+            m_stellarWheelNode->addChild(rewardNode, 2);
+            m_stellarRewardNodes.push_back(rewardNode);
+
+            if (i == 0) {
+                auto secretGlow = CCSprite::createWithSpriteFrameName("shineBurst_001.png");
+                if (secretGlow) {
+                    secretGlow->setScale(0.42f);
+                    secretGlow->setOpacity(150);
+                    secretGlow->setColor({ 105, 225, 255 });
+                    secretGlow->setPosition({ 0.f, 4.f });
+                    secretGlow->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
+                    secretGlow->runAction(CCRepeatForever::create(CCRotateBy::create(3.f, 360.f)));
+                    rewardNode->addChild(secretGlow, -1);
+                }
+            }
+
+            if (auto icon = createStellarRewardSprite(m_roulettePrizes[i].spriteName, 23.f)) {
+                icon->setPosition({ 0.f, 4.f });
+                rewardNode->addChild(icon);
+            }
+
+            if (m_roulettePrizes[i].type != RewardType::Chest) {
+                std::string amountText = fmt::format("x{}", m_roulettePrizes[i].quantity);
+                if (m_roulettePrizes[i].type == RewardType::Badge) amountText = "SECRET";
+
+                auto amount = CCLabelBMFont::create(amountText.c_str(), "goldFont.fnt");
+                amount->setScale(0.23f);
+                amount->setPosition({ 0.f, -9.f });
+                rewardNode->addChild(amount, 3);
+            }
+        }
+
+        auto hub = CCSprite::create("stellar.png"_spr);
+        if (hub) {
+            float width = hub->getContentSize().width;
+            if (width > 0.f) hub->setScale(57.f / width);
+            m_stellarWheelNode->addChild(hub, 5);
+        }
+
+        m_stellarPointer = CCSprite::create("trist.png"_spr);
+        if (!m_stellarPointer) m_stellarPointer = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        if (m_stellarPointer) {
+            m_stellarPointer->setScale(0.6f);
+            m_stellarPointer->setRotation(-90.f);
+            m_stellarPointer->setPosition({ radius + 7.f, 0.f });
+            m_rouletteNode->addChild(m_stellarPointer, 8);
+        }
     }
 
     bool init() override {
@@ -635,9 +883,16 @@ protected:
         gemSpr->setScale(0.6f);
         m_gemModeBtn = CCMenuItemSpriteExtra::create(gemSpr, this, menu_selector(RoulettePopup::onSelectGemMode));
 
+        auto stellarSpr = CCSprite::create("stellar_gacha.png"_spr);
+        stellarSpr->setScale(0.6f);
+        m_stellarModeBtn = CCMenuItemSpriteExtra::create(
+            stellarSpr, this, menu_selector(RoulettePopup::onSelectStellarMode)
+        );
+
         m_modeMenu = CCMenu::create();
         m_modeMenu->addChild(m_standardModeBtn);
         m_modeMenu->addChild(m_gemModeBtn);
+        m_modeMenu->addChild(m_stellarModeBtn);
         m_modeMenu->alignItemsVerticallyWithPadding(-10.f);
         m_modeMenu->setPosition({ -40.f, winSize.height / 2 });
         m_mainLayer->addChild(m_modeMenu);
@@ -680,6 +935,12 @@ protected:
     }
 
     void update(float dt) override {
+
+        if (m_currentMode == RouletteMode::Stellar && m_stellarSecretSector) {
+            m_stellarSecretPhase += dt * 2.25f;
+            if (m_stellarSecretPhase > 6.2831853f) m_stellarSecretPhase -= 6.2831853f;
+            redrawStellarSecretSector();
+        }
 
         if (m_bgGradient && !m_gradientColors.empty()) {
             m_gradTransitionTime += dt * 0.25f;
@@ -835,16 +1096,31 @@ protected:
 
     void onSpin(CCObject*) {
         if (m_isSpinning) return;
-        int price = m_currentMode == RouletteMode::Standard
-            ? STANDARD_SPIN_COST
-            : GemRouletteConfig::getCostForStep(g_streakData.gemRouletteSpinCount);
-        auto currency = m_currentMode == RouletteMode::Standard
-            ? PurchaseCurrency::SuperStars
-            : PurchaseCurrency::Gems;
-        std::string sprite = m_currentMode == RouletteMode::Standard
-            ? fmt::format("{}"_spr, "star_gacha.png")
-            : fmt::format("{}"_spr, "gem.png");
-        std::string name = m_currentMode == RouletteMode::Standard ? "Roulette Spin" : "Gem Roulette Spin";
+        if (m_currentMode == RouletteMode::Stellar && !g_streakData.isStellarPassActive()) {
+            FLAlertLayer::create(
+                "Stellar Gacha",
+                "Spinning the Stellar Gacha requires an active <cp>Stellar Pass</c>.",
+                "OK"
+            )->show();
+            return;
+        }
+        int price = STANDARD_SPIN_COST;
+        PurchaseCurrency currency = PurchaseCurrency::SuperStars;
+        std::string sprite = "star_gacha.png"_spr;
+        std::string name = "Roulette Spin";
+
+        if (m_currentMode == RouletteMode::Gem) {
+            price = GemRouletteConfig::getCostForStep(g_streakData.gemRouletteSpinCount);
+            currency = PurchaseCurrency::Gems;
+            sprite = "gem.png"_spr;
+            name = "Gem Roulette Spin";
+        }
+        else if (m_currentMode == RouletteMode::Stellar) {
+            price = STELLAR_SPIN_COST;
+            currency = PurchaseCurrency::Gems;
+            sprite = "stellar_gacha.png"_spr;
+            name = "Stellar Gacha Spin";
+        }
 
         auto popup = PurchaseConfirmPopup::create(sprite, name, price, currency,
             [this, keepAlive = Ref<CCNode>(this)](int discountPercent) {
@@ -853,8 +1129,169 @@ protected:
         if (popup) popup->show();
     }
 
+    void onStellarPassRequired(CCObject*) {
+        FLAlertLayer::create(
+            nullptr,
+            "Stellar Gacha",
+            "An active <cp>Stellar Pass</c> is required to spin this roulette.",
+            "OK",
+            nullptr,
+            300.f
+        )->show();
+    }
+
+    int chooseStellarRewardIndex() const {
+        std::vector<int> weights;
+        weights.reserve(m_roulettePrizes.size());
+        for (const auto& prize : m_roulettePrizes) {
+            bool uniqueBadgeOwned = prize.type == RewardType::Badge
+                && g_streakData.isBadgeUnlocked(prize.id);
+            weights.push_back(uniqueBadgeOwned ? 0 : std::max(0, prize.probabilityWeight));
+        }
+
+        static std::mt19937 generator(std::random_device{}());
+        std::discrete_distribution<int> distribution(weights.begin(), weights.end());
+        return distribution(generator);
+    }
+
+    int getStellarDiscountPercent(const RoulettePrize& prize) const {
+        if (prize.id == "discount_ticket_10") return 10;
+        if (prize.id == "discount_ticket_25") return 25;
+        if (prize.id == "discount_ticket_50") return 50;
+        if (prize.id == "discount_ticket_80") return 80;
+        if (prize.id == "discount_ticket_99") return 99;
+        return 0;
+    }
+
+    void onStellarSpinEnd() {
+        if (m_pendingStellarIndex < 0
+            || m_pendingStellarIndex >= static_cast<int>(m_roulettePrizes.size())) {
+            m_isSpinning = false;
+            toggleUI(true);
+            return;
+        }
+
+        m_currentSelectorIndex = m_pendingStellarIndex;
+        auto prize = m_roulettePrizes[m_pendingStellarIndex];
+        CCPoint spawnPos = m_rouletteNode->convertToWorldSpace({ 78.f, 0.f });
+
+        if (prize.type == RewardType::Badge) {
+            if (!g_streakData.isBadgeUnlocked(prize.id)) {
+                g_streakData.unlockBadge(prize.id);
+                if (auto* badge = g_streakData.getBadgeInfo(prize.id)) {
+                    auto animation = MythicAnimationLayer::create(*badge, [id = prize.id]() {
+                        BadgeNotification::show(id);
+                    });
+                    CCDirector::sharedDirector()->getRunningScene()->addChild(animation, 400);
+                }
+                else {
+                    BadgeNotification::show(prize.id);
+                }
+            }
+        }
+        else if (prize.type == RewardType::Chest) {
+            int stars = 0, tickets = 0, gems = 0, xp = 0;
+            int rarity = std::clamp(prize.quantity, 2, 3);
+            StreakChestPopup::rollRewardsForRarity(rarity, stars, tickets, gems, xp);
+            if (auto chest = StreakChestPopup::create(
+                    stars, tickets, gems, xp, rarity,
+                    [this]() { this->updateButtons(); })) {
+                chest->show();
+            }
+        }
+        else if (prize.type == RewardType::Consumable) {
+            int discount = getStellarDiscountPercent(prize);
+            if (discount > 0) {
+                int start = g_streakData.getDiscountTicketCount(discount);
+                g_streakData.setDiscountTicketCount(discount, start + prize.quantity);
+                RewardNotification::show(prize.spriteName, start, prize.quantity, spawnPos);
+            }
+        }
+
+        if (m_pendingStellarIndex < static_cast<int>(m_stellarRewardNodes.size())) {
+            auto selected = m_stellarRewardNodes[m_pendingStellarIndex];
+            selected->runAction(CCSequence::create(
+                CCScaleTo::create(0.12f, 1.3f),
+                CCScaleTo::create(0.18f, 1.f),
+                nullptr
+            ));
+        }
+
+        spawnImpactParticles({ 78.f, 0.f });
+        FMODAudioEngine::sharedEngine()->playEffect("achievement.mp3"_spr);
+        g_streakData.save();
+
+        m_isSpinning = false;
+        updateButtons();
+        toggleUI(true);
+    }
+
+    void runStellarSpinAnimation() {
+        if (!m_stellarWheelNode || m_roulettePrizes.empty()) {
+            onStellarSpinEnd();
+            return;
+        }
+
+        m_pendingStellarIndex = chooseStellarRewardIndex();
+        float sectorAngle = 360.f / static_cast<float>(m_roulettePrizes.size());
+        // The selector is fixed at the right edge (0 degrees). Slots start at
+        // the top and advance clockwise, so this offset lands the chosen slot
+        // exactly beneath the right-hand pointer.
+        float desiredRotation = std::fmod(
+            90.f - static_cast<float>(m_pendingStellarIndex) * sectorAngle + 360.f,
+            360.f
+        );
+
+        if (m_skipToggle && m_skipToggle->isToggled()) {
+            m_stellarWheelNode->setRotation(desiredRotation);
+            onStellarSpinEnd();
+            return;
+        }
+
+        float currentRotation = m_stellarWheelNode->getRotation();
+        float normalizedRotation = std::fmod(currentRotation, 360.f);
+        if (normalizedRotation < 0.f) normalizedRotation += 360.f;
+        float delta = std::fmod(desiredRotation - normalizedRotation + 360.f, 360.f);
+        float targetRotation = currentRotation + 5.f * 360.f + delta;
+
+        FMODAudioEngine::sharedEngine()->playEffect("ruleta_sfx.mp3"_spr);
+        m_stellarWheelNode->runAction(CCSequence::create(
+            CCEaseExponentialOut::create(CCRotateTo::create(4.4f, targetRotation)),
+            CCCallFunc::create(this, callfunc_selector(RoulettePopup::onStellarSpinEnd)),
+            nullptr
+        ));
+    }
+
     void performSpin(int discountPercent) {
         if (m_isSpinning) return;
+
+        if (m_currentMode == RouletteMode::Stellar) {
+            if (!g_streakData.isStellarPassActive()) return;
+            int appliedDiscount = discountPercent;
+            if (appliedDiscount > 0 && g_streakData.getDiscountTicketCount(appliedDiscount) <= 0) {
+                appliedDiscount = 0;
+            }
+            int finalCost = discountedPurchasePrice(STELLAR_SPIN_COST, appliedDiscount);
+            if (g_streakData.gems < finalCost) {
+                FLAlertLayer::create(
+                    "Not Enough Gems",
+                    fmt::format("You need {} Gems.", finalCost).c_str(),
+                    "OK"
+                )->show();
+                return;
+            }
+
+            g_streakData.gems -= finalCost;
+            if (appliedDiscount > 0) {
+                int remaining = g_streakData.getDiscountTicketCount(appliedDiscount) - 1;
+                g_streakData.setDiscountTicketCount(appliedDiscount, remaining);
+            }
+            updateButtons();
+            m_isSpinning = true;
+            toggleUI(false);
+            runStellarSpinAnimation();
+            return;
+        }
          
         std::vector<int> logicalAvailableIndices;
         if (m_currentMode == RouletteMode::Standard) {
@@ -1241,7 +1678,7 @@ protected:
     }
 
     void updateAllCheckmarks() {
-        if (m_currentMode == RouletteMode::Gem) return;
+        if (m_currentMode != RouletteMode::Standard) return;
 
         for (size_t i = 0; i < m_orderedSlots.size(); ++i) {
             if (i >= m_roulettePrizes.size()) continue;
@@ -1307,7 +1744,7 @@ protected:
                 }
             }
         }
-        else {
+        else if (m_currentMode == RouletteMode::Gem) {
             int totalWeight = 0;
             std::map<StreakData::BadgeCategory, int> weightsByCategory;
 
@@ -1337,6 +1774,50 @@ protected:
                 int currentCost = GemRouletteConfig::getCostForStep(g_streakData.gemRouletteSpinCount);
                 infoText += fmt::format("\nNext Spin Cost: {} Gems", currentCost);
             }
+        }
+        else {
+            int totalWeight = 0;
+            std::vector<std::pair<std::string, int>> groupedWeights;
+            std::vector<std::string> obtainedRewards;
+            for (const auto& prize : m_roulettePrizes) {
+                bool owned = prize.type == RewardType::Badge
+                    && g_streakData.isBadgeUnlocked(prize.id);
+                if (owned) {
+                    obtainedRewards.push_back(prize.displayName);
+                    continue;
+                }
+
+                totalWeight += prize.probabilityWeight;
+                auto grouped = std::find_if(
+                    groupedWeights.begin(), groupedWeights.end(),
+                    [&prize](const auto& entry) { return entry.first == prize.displayName; }
+                );
+                if (grouped == groupedWeights.end()) {
+                    groupedWeights.emplace_back(prize.displayName, prize.probabilityWeight);
+                }
+                else {
+                    grouped->second += prize.probabilityWeight;
+                }
+            }
+
+            infoText = g_streakData.isStellarPassActive()
+                ? "<cg>Stellar Pass active</c>\n\n"
+                : "<cr>Stellar Pass required</c>\n\n";
+            for (size_t i = 0; i < groupedWeights.size(); ++i) {
+                const auto& entry = groupedWeights[i];
+                float percent = totalWeight > 0
+                    ? (static_cast<float>(entry.second) / totalWeight) * 100.f
+                    : 0.f;
+                infoText += fmt::format("{}: {:.1f}%", entry.first, percent);
+                infoText += (i % 2 == 1 || i + 1 == groupedWeights.size()) ? "\n" : "  |  ";
+            }
+            for (const auto& reward : obtainedRewards) {
+                infoText += fmt::format("{}: <cg>Obtained</c>\n", reward);
+            }
+            infoText += fmt::format("\nCost: {} Gems", STELLAR_SPIN_COST);
+
+            FLAlertLayer::create("Probabilities", infoText, "OK")->show();
+            return;
         }
 
         FLAlertLayer::create("Probabilities", infoText, "OK")->show();

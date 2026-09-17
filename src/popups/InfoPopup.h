@@ -710,6 +710,7 @@ protected:
         myData.currentStreak = g_streakData.currentStreak;
         myData.level = g_streakData.currentLevel;
         myData.currentXP = g_streakData.currentXP;
+        myData.streakTokens = g_streakData.streakTokens;
         myData.totalSP = g_streakData.totalStreakPoints;
         myData.superStars = g_streakData.superStars;
         myData.starTickets = g_streakData.starTickets;
@@ -722,6 +723,9 @@ protected:
         myData.nameFont = g_streakData.equippedNameFont;
         myData.nameEffect = g_streakData.equippedNameEffect;
         myData.nameAnimation = g_streakData.equippedNameAnimation;
+        myData.profileEffect = g_streakData.equippedProfileEffect;
+        myData.profilePopup = g_streakData.equippedProfilePopup;
+        myData.profileDraws = g_streakData.equippedProfileDraws;
         ProfileCardPopup::create(myData)->show();
     }
 

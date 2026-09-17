@@ -263,6 +263,9 @@ struct StreakData {
     std::string equippedNameColor = "Default";
     std::string equippedNameFont = "Default";
     std::string equippedNameEffect = "None";
+    std::string equippedProfileEffect = "None";
+    std::string equippedProfilePopup = "geode.loader/GE_square01.png";
+    std::vector<std::string> equippedProfileDraws;
 
     std::set<std::string> unlockedNameItems;
     std::set<std::string> claimedGemRoulettePrizes;
@@ -766,9 +769,9 @@ struct StreakData {
     std::string getRachaSprite(int streak);
 
     // Rank system (streak tokens). Mirror of server.js RANK_THRESHOLDS / getRankIndexForTokens.
-    static constexpr int RANK_COUNT = 12;
+    static constexpr int RANK_COUNT = 15;
     static int getRankIndexForTokens(int tokens);
-    static int getRankThreshold(int rankIndex);   // cumulative tokens needed for rankIndex (0..11)
+    static int getRankThreshold(int rankIndex);   // cumulative tokens needed for rankIndex (0..14)
     static std::string getRankSprite(int tokens);
     static std::string getRankSpriteForIndex(int rankIndex);
     static std::string getRankName(int tokens);

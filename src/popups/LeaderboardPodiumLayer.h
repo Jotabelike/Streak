@@ -1,7 +1,7 @@
 #pragma once
 #include "../StreakData.h"
 #include "../NameModifiers.h"
-#include <Geode/binding/ProfilePage.hpp>
+#include "LeaderboardProfileUtils.h"
 #include <Geode/binding/GJAccountManager.hpp>
 #include <Geode/binding/GameManager.hpp>
 #include <Geode/binding/SimplePlayer.hpp>
@@ -18,6 +18,7 @@ protected:
     bool m_riseStarted = false;
     float m_stageBottom = 0.f;
     std::vector<std::pair<CCNode*, int>> m_places;
+    std::map<int, matjson::Value> m_profilePlayers;
     std::array<async::TaskHolder<web::WebResponse>, 3> m_cubeRequests;
 
     struct CubeAppearance {
@@ -115,15 +116,6 @@ protected:
         return result;
     }
 
-    static int accountID(const matjson::Value& player) {
-        if (player["accountID"].isNumber()) return player["accountID"].as<int>().unwrapOr(0);
-        if (player["accountID"].isString()) {
-            try { return std::stoi(player["accountID"].as<std::string>().unwrapOr("0")); }
-            catch (...) { }
-        }
-        return 0;
-    }
-
     void addPlace(CCNode* stage, const std::vector<matjson::Value>& players,
         int rank, float x, float height, ccColor3B accent) {
         auto place = CCNode::create();
@@ -160,7 +152,8 @@ protected:
         }
 
         const auto& player = players[rank - 1];
-        int id = accountID(player);
+        int id = LeaderboardProfileUtils::accountID(player);
+        if (id > 0) m_profilePlayers[id] = player;
         auto am = GJAccountManager::sharedState();
         bool isMe = am && id > 0 && id == am->m_accountID;
         addCube(place, id, rank, height, isMe);
@@ -262,7 +255,10 @@ protected:
 
     void onProfile(CCObject* sender) {
         int id = static_cast<CCNode*>(sender)->getTag();
-        if (id > 0) ProfilePage::create(id, false)->show();
+        auto player = m_profilePlayers.find(id);
+        if (player != m_profilePlayers.end()) {
+            LeaderboardProfileUtils::show(player->second);
+        }
     }
 
     void onBack(CCObject*) {

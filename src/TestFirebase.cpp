@@ -177,6 +177,9 @@ void updatePlayerDataInFirebase() {
     playerData.set("equipped_name_font", g_streakData.equippedNameFont);
     playerData.set("equipped_name_effect", g_streakData.equippedNameEffect);
     playerData.set("equipped_name_animation", g_streakData.equippedNameAnimation);
+    playerData.set("equipped_profile_effect", g_streakData.equippedProfileEffect);
+    playerData.set("equipped_profile_popup", g_streakData.equippedProfilePopup);
+    playerData.set("equipped_profile_draws", g_streakData.equippedProfileDraws);
     playerData.set("last_streak_animated", g_streakData.lastStreakAnimated);
     playerData.set("gem_roulette_spin_count", g_streakData.gemRouletteSpinCount);
     playerData.set("gem_roulette_hash", g_streakData.gemRouletteHash);

@@ -91,6 +91,7 @@ class $modify(MyProfilePage, ProfilePage) {
         myData.badgeID = g_streakData.equippedBadge;
         myData.level = g_streakData.currentLevel;
         myData.currentXP = g_streakData.currentXP;
+        myData.streakTokens = g_streakData.streakTokens;
         myData.superStars = g_streakData.superStars;
         myData.starTickets = g_streakData.starTickets;
         myData.gems = g_streakData.gems;
@@ -103,6 +104,9 @@ class $modify(MyProfilePage, ProfilePage) {
         myData.nameFont = g_streakData.equippedNameFont;
         myData.nameEffect = g_streakData.equippedNameEffect;
         myData.nameAnimation = g_streakData.equippedNameAnimation;
+        myData.profileEffect = g_streakData.equippedProfileEffect;
+        myData.profilePopup = g_streakData.equippedProfilePopup;
+        myData.profileDraws = g_streakData.equippedProfileDraws;
 
         myData.isPartialData = false;
 
@@ -268,6 +272,10 @@ class $modify(MyProfilePage, ProfilePage) {
                         pData.nameColor = nameColor;
                         pData.nameEffect = nameEffect;
                         pData.nameAnimation = nameAnim;
+                        pData.profileEffect = json["equipped_profile_effect"].as<std::string>().unwrapOr("None");
+                        pData.profilePopup = json["equipped_profile_popup"].as<std::string>().unwrapOr("geode.loader/GE_square01.png");
+                        pData.profileDraws = json["equipped_profile_draws"].as<std::vector<std::string>>().unwrapOr(std::vector<std::string>{});
+                        pData.streakTokens = json["streak_tokens"].as<int>().unwrapOr(0);
                         pData.isPartialData = true;
 
                   

@@ -8,7 +8,7 @@
 	},
 	"id": "jotabelike.gd_racha",
 	"name": "Streak!",
-	"version": "v1.10.62",
+	"version": "v1.10.63",
 	"developer": "XJotabelikeX",
 	"description": "Personal Streak! Prove you're the best and start a streak!",
 	"links": {
@@ -38,6 +38,7 @@
 			"resources/ranks/*.png",
 			"resources/buttons/*.png",
 			"resources/extra/*.png",
+			"resources/draws_perfil/*.png",
 			"resources/chest/*.png",
 			"resources/wc_event/*.png",
 			"previews/*.png"

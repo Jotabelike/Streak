@@ -165,6 +165,13 @@ namespace NameModifiers {
                     g = (GLubyte)std::min(255.f, fg);
                     b = (GLubyte)std::min(255.f, fb);
                 }
+                else if (m_style == "Definitive Wave") {
+                    // Intense red <-> white shimmer for the final rank.
+                    float flash = wave * wave;
+                    r = 255;
+                    g = (GLubyte)(25.f + flash * 230.f);
+                    b = (GLubyte)(35.f + flash * 220.f);
+                }
                 else if (m_style == "Chessboard") {
                     int step = static_cast<int>(std::floor(m_t * 1.1f));
                     bool light = ((i + step) % 2) == 0;
@@ -286,7 +293,7 @@ namespace NameModifiers {
             colorID == "Abyss Wave" || colorID == "Synthwave" || colorID == "Pastel Wave" ||
             colorID == "Aurora Wave" || colorID == "Galaxy Wave" || colorID == "Crazy Wave" ||
             colorID == "Bronze Wave" || colorID == "Platinum Wave" ||
-            colorID == "Gold Wave" || colorID == "Diamond Wave" ||
+            colorID == "Gold Wave" || colorID == "Diamond Wave" || colorID == "Definitive Wave" ||
             colorID == "Chessboard" || colorID == "Signal Code" || colorID == "Ink March" ||
             colorID == "Split Complement" || colorID == "Thermal Steps" || colorID == "Hologram Stripes" ||
             colorID == "Sepia Film" || colorID == "Stained Glass" || colorID == "Lunar Phases" ||

@@ -5,6 +5,7 @@
 #include "../UpdateState.h"
 #include "../FirebaseManager.h"
 #include <Geode/utils/async.hpp>
+#include <Geode/utils/web.hpp>
 #include <Geode/ui/Popup.hpp>
 #include "HistoryPopup.h"
 #include "StatsPopups.h"
@@ -57,7 +58,6 @@ protected:
     CCLabelBMFont* m_shieldsLabel = nullptr;
     CCLabelBMFont* m_rankCounterLabel = nullptr;
 
-    cocos2d::extension::CCScale9Sprite* m_shieldsBg = nullptr;
     CCMenuItemSpriteExtra* m_shieldsBtn = nullptr;
     cocos2d::extension::CCScale9Sprite* m_gemsBg = nullptr;
     CCSprite* m_gemsIcon = nullptr;
@@ -66,7 +66,6 @@ protected:
     CCSprite* m_rankCounterIcon = nullptr;
     float m_countersStartX = 0.f;
     float m_countersY = 0.f;
-    float m_shieldsIconW = 0.f;
     float m_gemsIconW = 0.f;
     float m_rankCounterIconW = 0.f;
     int m_rankCounterIndex = -1;
@@ -226,22 +225,6 @@ protected:
         float maxLabelW = 38.f; // hard cap → text auto-shrinks past this
 
         float x = m_countersStartX;
-
-        if (m_shieldsBg && m_shieldsBtn && m_shieldsLabel) {
-            fitLabelToWidth(m_shieldsLabel, maxLabelW, 0.5f);
-
-            float iconW = m_shieldsIconW;
-            float labelW = m_shieldsLabel->getScaledContentSize().width;
-            float boxW = padL + iconW + gap + labelW + padR;
-            float boxX = x + boxW / 2;
-
-            m_shieldsBg->setContentSize({ boxW, boxH });
-            m_shieldsBg->setPosition({ boxX, m_countersY });
-            m_shieldsBtn->setPosition({ x + padL + iconW / 2, m_countersY });
-            m_shieldsLabel->setPosition({ x + padL + iconW + gap, m_countersY });
-
-            x = boxX + boxW / 2 + between;
-        }
 
         if (m_gemsBg && m_gemsIcon && m_gemsLabel) {
             fitLabelToWidth(m_gemsLabel, maxLabelW, 0.5f);
@@ -538,30 +521,6 @@ protected:
         m_countersStartX = profileBgX + profileBgW / 2 + 6.f;
         m_countersY = rowY;
 
-        // hearts (shields) counter — bg grows with the label
-        m_shieldsBg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
-        m_shieldsBg->setOpacity(90);
-        m_shieldsBg->setColor({ 0, 0, 0 });
-        this->addChild(m_shieldsBg, 9);
-
-        {
-            auto heartSpr = CCSprite::create("heart.png"_spr);
-            if (heartSpr) {
-                heartSpr->setScale(0.22f);
-                m_shieldsIconW = heartSpr->getContentSize().width * 0.22f;
-                m_shieldsBtn = CCMenuItemSpriteExtra::create(
-                    heartSpr, this, menu_selector(StreakMainLayer::onShieldsClick)
-                );
-                topMenu->addChild(m_shieldsBtn);
-            }
-        }
-
-        m_shieldsLabel = CCLabelBMFont::create("0/5", "bigFont.fnt");
-        m_shieldsLabel->setScale(0.5f);
-        m_shieldsLabel->setAnchorPoint({ 0.0f, 0.5f });
-        m_shieldsLabel->setColor({ 130, 200, 255 });
-        this->addChild(m_shieldsLabel, 10);
-
         // gems counter — bg grows with the label
         m_gemsBg = cocos2d::extension::CCScale9Sprite::create("square02_001.png");
         m_gemsBg->setOpacity(90);
@@ -602,13 +561,10 @@ protected:
 
         refreshRankCounter();
 
-        m_shieldsLabel->setString(
-            fmt::format("{}/{}", g_streakData.streakShields, STREAK_MAX_SHIELDS).c_str()
-        );
         layoutCounters();
 
-        // Special user role medal, centered below the profile/name card so it
-        // stays away from the top counters and right-side controls.
+        // Special user role medal, centered below the compact XP row so it
+        // stays away from the profile card and its progress information.
         if (g_streakData.specialRank > 0) {
             std::string badgeSpriteName = "";
             switch (g_streakData.specialRank) {
@@ -635,15 +591,26 @@ protected:
             roleBtn->setTag(g_streakData.specialRank);
             roleBtn->setPosition({
                 profileBgX - profileBgW / 2.f + profileBadgeCenterX,
-                rowY - profileBgH / 2.f - 24.f
+                rowY - profileBgH / 2.f - 37.f
             });
             topMenu->addChild(roleBtn);
         }
 
-        // top-right buttons (update / settings)
+        // top-right buttons (website / update / settings)
         auto cornerMenu = CCMenu::create();
         cornerMenu->setPosition({ 0, 0 });
         this->addChild(cornerMenu, 10);
+
+        auto websiteIcon = CCSprite::create("web_btn.png"_spr);
+        if (websiteIcon) {
+            websiteIcon->setScale(0.75f);
+            auto websiteBtn = CCMenuItemSpriteExtra::create(
+                websiteIcon, this, menu_selector(StreakMainLayer::onOpenWebsite)
+            );
+            websiteBtn->setID("website-button");
+            websiteBtn->setPosition({ m_size.width - 95.f, m_size.height - 22.f });
+            cornerMenu->addChild(websiteBtn);
+        }
 
         auto downloadIcon = CCSprite::create("download_btn.png"_spr);
         if (!downloadIcon) downloadIcon = ButtonSprite::create("Update");
@@ -680,7 +647,7 @@ protected:
             StreakAnimations::applyPremiumHover(rachaSprite);
         }
 
-        // bars (streak + xp)
+        // streak bar
         float barWidth = 220.f;
         float barHeight = 24.f;
         float barY = contentCenterY - 105.f;
@@ -689,6 +656,15 @@ protected:
         m_streakLabel->setScale(0.65f);
         m_streakLabel->setPosition({ m_size.width / 2, contentCenterY - 65.f });
         this->addChild(m_streakLabel);
+
+        m_shieldsLabel = CCLabelBMFont::create(
+            fmt::format("Shields: {}/{}", g_streakData.streakShields, STREAK_MAX_SHIELDS).c_str(),
+            "bigFont.fnt"
+        );
+        m_shieldsLabel->setScale(0.30f);
+        m_shieldsLabel->setColor({ 130, 200, 255 });
+        m_shieldsLabel->setPosition({ m_size.width / 2, contentCenterY - 75.f });
+        this->addChild(m_shieldsLabel, 8);
 
         m_streakBar = RoundedProgressBar::create(barWidth, barHeight);
         m_streakBar->setPosition({ m_size.width / 2, barY + (barHeight / 2) });
@@ -701,23 +677,39 @@ protected:
         m_barText->setPosition({ m_size.width / 2, barY + (barHeight / 2) });
         this->addChild(m_barText, 8);
 
-        float xpBarHeight = 12.f;
-        float xpY = barY - 18.f;
+        if (auto shieldSpr = CCSprite::create("heart.png"_spr)) {
+            shieldSpr->setScale(0.22f);
+            m_shieldsBtn = CCMenuItemSpriteExtra::create(
+                shieldSpr, this, menu_selector(StreakMainLayer::onShieldsClick)
+            );
+            m_shieldsBtn->setPosition({
+                m_size.width / 2.f - barWidth / 2.f - 16.f,
+                barY + barHeight / 2.f
+            });
+            topMenu->addChild(m_shieldsBtn);
+        }
 
-        m_xpBar = RoundedProgressBar::create(barWidth, xpBarHeight);
-        m_xpBar->setPosition({ m_size.width / 2, xpY + (xpBarHeight / 2) });
+        // Compact XP row directly below the profile card.
+        constexpr float xpBarWidth = 108.f;
+        constexpr float xpBarHeight = 8.f;
+        constexpr float xpRowGap = 3.f;
+        float profileLeft = profileBgX - profileBgW / 2.f;
+        float xpY = rowY - profileBgH / 2.f - xpRowGap - xpBarHeight / 2.f;
+
+        m_xpBar = RoundedProgressBar::create(xpBarWidth, xpBarHeight);
+        m_xpBar->setPosition({ profileLeft + 40.f + xpBarWidth / 2.f, xpY });
         m_xpBar->setGradientColors({ 0, 255, 255 }, { 0, 100, 255 });
         m_xpBar->setBackgroundColor({ 20, 20, 40 });
         this->addChild(m_xpBar, 1);
 
         m_xpLabel = CCLabelBMFont::create("Lvl. ?", "goldFont.fnt");
-        m_xpLabel->setScale(0.45f);
-        m_xpLabel->setPosition({ m_size.width / 2 - barWidth / 2 - 25.f, xpY + (xpBarHeight / 2) });
+        m_xpLabel->setScale(0.34f);
+        m_xpLabel->setPosition({ profileLeft + 19.f, xpY });
         this->addChild(m_xpLabel);
 
         m_xpProgressLabel = CCLabelBMFont::create("0/0", "chatFont.fnt");
-        m_xpProgressLabel->setScale(0.45f);
-        m_xpProgressLabel->setPosition({ m_size.width / 2, xpY + (xpBarHeight / 2) });
+        m_xpProgressLabel->setScale(0.34f);
+        m_xpProgressLabel->setPosition({ profileLeft + 40.f + xpBarWidth / 2.f, xpY });
         this->addChild(m_xpProgressLabel, 8);
 
         // side buttons (stats/rewards/tasks at right, missions/roulette/xp at left)
@@ -1076,7 +1068,7 @@ protected:
 
         if (m_shieldsLabel) {
             m_shieldsLabel->setString(
-                fmt::format("{}/{}", g_streakData.streakShields, STREAK_MAX_SHIELDS).c_str()
+                fmt::format("Shields: {}/{}", g_streakData.streakShields, STREAK_MAX_SHIELDS).c_str()
             );
         }
 
@@ -1117,6 +1109,7 @@ protected:
         myData.currentStreak = g_streakData.currentStreak;
         myData.level = g_streakData.currentLevel;
         myData.currentXP = g_streakData.currentXP;
+        myData.streakTokens = g_streakData.streakTokens;
         myData.totalSP = g_streakData.totalStreakPoints;
         myData.superStars = g_streakData.superStars;
         myData.starTickets = g_streakData.starTickets;
@@ -1129,6 +1122,9 @@ protected:
         myData.nameFont = g_streakData.equippedNameFont;
         myData.nameEffect = g_streakData.equippedNameEffect;
         myData.nameAnimation = g_streakData.equippedNameAnimation;
+        myData.profileEffect = g_streakData.equippedProfileEffect;
+        myData.profilePopup = g_streakData.equippedProfilePopup;
+        myData.profileDraws = g_streakData.equippedProfileDraws;
         ProfileCardPopup::create(myData)->show();
     }
 
@@ -1198,6 +1194,9 @@ protected:
     void onOpenAchievements(CCObject*) { AchievementsPopup::create()->show(); }
     void onOpenTrending(CCObject*)   { TrendLevelsPopup::create()->show(); }
     void onOpenUpdate(CCObject*)     { UpdatePopup::create()->show(); }
+    void onOpenWebsite(CCObject*)    {
+        geode::utils::web::openLinkInBrowser("https://jotabelike-streak.web.app/");
+    }
 
     void onOpenAlbum(CCObject*) {
         constexpr int albumLayerTag = 24091;

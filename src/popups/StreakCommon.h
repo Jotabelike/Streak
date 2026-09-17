@@ -9,7 +9,10 @@ enum class RewardType {
     Badge,
     SuperStar,
     StarTicket,
-    Banner
+    Banner,
+    Gems,
+    Chest,
+    Consumable
 };
 
 enum class LevelRewardType {

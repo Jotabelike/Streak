@@ -8,12 +8,12 @@
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/async.hpp>
 #include <Geode/binding/GJAccountManager.hpp>
-#include <Geode/binding/ProfilePage.hpp>
 #include <Geode/binding/FLAlertLayer.hpp>
 #include <matjson.hpp>
 #include "../StatusSpinner.h"
 #include "../RewardNotification.h"
 #include "../HMACAuth.h"
+#include "LeaderboardProfileUtils.h"
 #include "LeaderboardPodiumLayer.h"
 
 using namespace geode::prelude;
@@ -232,10 +232,7 @@ protected:
     }
 
     void onViewProfile(CCObject*) {
-        int accountID = m_playerData["accountID"].as<int>().unwrapOr(0);
-        if (accountID != 0) {
-            ProfilePage::create(accountID, false)->show();
-        }
+        LeaderboardProfileUtils::show(m_playerData);
     }
 
 public:
