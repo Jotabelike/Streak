@@ -1450,7 +1450,7 @@ std::string StreakData::getEquippedSongFile() {
     // The active season theme is the menu default, but an explicit player
     // selection always wins and remains untouched across updates.
     if (auto def = getSongInfo(DEFAULT_STREAK_MENU_SONG_ID)) return def->fileName;
-    return std::string("s4.mp3"_spr);
+    return std::string("s5.mp3"_spr);
 }
 
 bool StreakData::isStreakGoalClaimed(int index) const {

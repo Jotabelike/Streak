@@ -1,4 +1,9 @@
 # Streak!
+## 1.10.64
+- Added the Slaughterhouse theme for Season 3.
+- Added Lost (Slaughterhouse) as the new pass completion song.
+- Updated the Season 3 pass rewards.
+
 ## 1.10.41
 - More settings were added
 - The progress bar at the end of the levels returned

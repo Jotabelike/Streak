@@ -15,7 +15,7 @@ using namespace geode::prelude;
 inline constexpr int STREAK_MENU_MUSIC_CHANNEL = 7777;
 inline constexpr int STREAK_SONG_PREVIEW_CHANNEL = 7778;
 inline constexpr const char* STREAK_MENU_MUSIC_VOLUME_KEY = "streak_menu_music_volume";
-inline constexpr const char* DEFAULT_STREAK_MENU_SONG_ID = "song_4";
+inline constexpr const char* DEFAULT_STREAK_MENU_SONG_ID = "song_5";
 inline constexpr int STREAK_MAX_SHIELDS = 5;
 inline constexpr int STREAK_SHIELD_OVERFLOW_GEMS = 50;
 
@@ -710,7 +710,8 @@ struct StreakData {
         {"song_1", "s1.mp3"_spr, "s1.png"_spr, "Streak Theme", "The original Streak! menu theme.", "Suno AI"},
         {"song_2", "s2.mp3"_spr, "s2.png"_spr, "DNA (FIFA World Cup 2026)", "WC 2026 theme.", "FIFA"},
         {"song_3", "s3.mp3"_spr, "s3.png"_spr, "otherside", "minecraft Season", "Minecraft"},
-        {"song_4", "s4.mp3"_spr, "s4.png"_spr, "At the Speed of Light - cover by Toast", "Season theme.", "Toast"}
+        {"song_4", "s4.mp3"_spr, "s4.png"_spr, "At the Speed of Light - cover by Toast", "Season theme.", "Toast"},
+        {"song_5", "s5.mp3"_spr, "s5.png"_spr, "Lost (Slaughterhouse)", "Season 3 theme.", "Crim3s"}
     };
 
     std::vector<bool> unlockedBadges;
